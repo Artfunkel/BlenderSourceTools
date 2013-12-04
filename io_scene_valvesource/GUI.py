@@ -222,7 +222,7 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 			row.enabled = id.smd_mute == False
 			
 		row.prop(id,"smd_export",icon='CHECKBOX_HLT' if id.smd_export and row.enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
-		row.label(item.name,icon=item.icon)
+		row.label(os.path.join(id.smd_subdir if id.smd_subdir != "." else None, id.name + getFileExt()), icon=item.icon)
 
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = "Source Engine Exportables"

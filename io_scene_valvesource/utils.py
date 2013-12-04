@@ -204,16 +204,18 @@ def getUpAxisMat(axis):
 def MakeObjectIcon(object,prefix=None,suffix=None):
 	if not (prefix or suffix):
 		raise TypeError("A prefix or suffix is required")
-
+	
+	if type(object) == bpy.types.Group:
+		return 'GROUP'
 	if object.type == 'TEXT':
-		type = 'FONT'
+		ob_type = 'FONT'
 	else:
-		type = object.type
+		ob_type = object.type
 
 	out = ""
 	if prefix:
 		out += prefix
-	out += type
+	out += ob_type
 	if suffix:
 		out += suffix
 	return out

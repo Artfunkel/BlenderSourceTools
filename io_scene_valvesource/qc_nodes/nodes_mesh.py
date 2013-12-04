@@ -4,15 +4,19 @@ from bpy.props import *
 
 import io_scene_valvesource
 
+def id_icon(id):
+	return io_scene_valvesource.MakeObjectIcon(id,prefix='OUTLINER_OB_') if id else 'BLANK1'
+def exportable_is_mesh(self,exportable):
+	return type(exportable.get_id()) == bpy.types.Group or exportable.get_id().type in io_scene_valvesource.utils.mesh_compatible
+def exportable_to_id(self,exportable): # io_scene_valvesource.SMD_CT_ObjectExportProps
+	return exportable.get_id() if exportable else None
+	
 class QcLodMesh(Node):
 	bl_label = "Level of Detail"
 	
-	def poll_object(self,ob):
-		return ob.type in io_scene_valvesource.utils.mesh_compatible
-		
-	lod_meshes = DatablockVectorProperty(name="LOD Meshes",description="Replacement mesh (or nothing)",type=bpy.types.Object,size=32,poll=poll_object)
+	lod_meshes = DatablockVectorProperty(name="LOD Meshes",description="Replacement mesh (or blank to remove)",type=bpy.types.Object,size=32)
 	threshold = FloatProperty(name="Threshold",min=0.1)
-	use_nofacial = BoolProperty(name="Disable flex animation")
+	use_nofacial = BoolProperty(name="Disable flex animation",description="Skip shape key animation at this LOD")
 	
 	def draw_buttons(self, context, l):
 		l.prop(self,"threshold")
@@ -28,24 +32,15 @@ class QcLodMesh(Node):
 class QcRefMesh(Node):
 	'''Adds a visible "reference" mesh'''
 	bl_label = "Reference Mesh"
-	
-	export_type = EnumProperty(name="Exportable type", items=
-	( ('OBJECT', "Object", "Use to target"), ('GROUP', "Group", "Select a group")))
-	object = DatablockProperty(name="Mesh",type=bpy.types.Object)
-	group = DatablockProperty(name="Mesh",type=bpy.types.Group)
-	exportable = DatablockProperty(type=bpy.types.ID,options={'HIDDEN'})
-	
+			
+	exportable = DatablockProperty(type=bpy.types.ID, name="Exportable", description="The Source Tools exportable this node represents", cast=exportable_to_id, poll=exportable_is_mesh)
+		
 	def init(self,context):
 		self.outputs.new("QcRefMeshSocket","Reference Mesh")
 	
 	def draw_buttons(self, context, l):
-		row = l.split(0.33)
-		row.label("Export type:")
-		row.row().prop(self,"export_type",expand=True)
-		if self.export_type == 'OBJECT':
-			l.prop(self,"object")
-		else:
-			l.prop(self,"group")
+		l.prop_search(self,"exportable",context.scene,"smd_export_list", icon=id_icon(self.exportable))
+		
 
 class QcEyeball(Node):
 	''''Defines an eyeball'''

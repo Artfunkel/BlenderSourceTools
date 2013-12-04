@@ -149,12 +149,6 @@ def scene_update(scene):
 	scene.smd_export_list.clear()
 	validObs = GUI.getValidObs()
 	
-	def makeDisplayName(item,action = None):
-		out = os.path.join(item.smd_subdir if item.smd_subdir != "." else None, getObExportName(action if action else item) + getFileExt())
-		#if hasShapes(item):
-		#	out += " (shapes)"
-		return out
-	
 	if len(validObs):
 		validObs.sort(key=lambda ob: ob.name.lower())
 		
@@ -177,7 +171,7 @@ def scene_update(scene):
 			if g.smd_mute:
 				i.name = g.name + " (suppressed)"
 			else:
-				i.name = makeDisplayName(g)
+				i.name = getObExportName(g)
 			i.item_name = g.name
 			i.icon = i.ob_type = "GROUP"
 			
@@ -189,10 +183,10 @@ def scene_update(scene):
 			i_name = i_type = i_icon = None
 			if ob.type == 'ARMATURE':
 				if ob.animation_data and ob.animation_data.action:
-					i_name = makeDisplayName(ob,ob.animation_data.action)
+					i_name = getObExportName(ob.animation_data.action)
 					i_icon = i_type = "ACTION"
 			else:
-				i_name = makeDisplayName(ob)
+				i_name = getObExportName(ob)
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
 				i_type = "OBJECT"
 			if i_name:
