@@ -43,13 +43,13 @@ for script_path in bpy.utils.script_paths():
 
 # Python doesn't reload package sub-modules at the same time as __init__.py!
 import imp, sys
-for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file__))) if f.endswith(".py") ]:
-	if filename == os.path.basename(__file__): continue
-	mod = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
-	if mod: imp.reload(mod)
+for mod in [mod for mod in sys.modules.items() if mod[0].startswith(__name__ + ".")]: imp.reload(mod[1])
 
 from . import datamodel, import_smd, export_smd, flex, GUI
 from .utils import *
+
+have_nodes = "DatablockProperty" in dir(bpy.props)
+if have_nodes: from . import qc_nodes
 
 class SMD_CT_ObjectExportProps(bpy.types.PropertyGroup):
 	ob_type = StringProperty()
@@ -232,6 +232,8 @@ def register():
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
 	bpy.app.handlers.scene_update_post.append(scene_update)
 	
+	if have_nodes: qc_nodes.register()
+	
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
 	
@@ -298,6 +300,8 @@ def unregister():
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
 	bpy.app.handlers.scene_update_post.remove(scene_update)
+	
+	if have_nodes: qc_nodes.unregister()
 
 	Scene = bpy.types.Scene
 	del Scene.smd_path
