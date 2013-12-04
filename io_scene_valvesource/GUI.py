@@ -177,7 +177,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.alert = len(scene.smd_path) == 0
 		row.prop(scene,"smd_path",text="Export Path")
 		
-		if getDmxVersionsForSDK() != [0,0]:
+		if allowDMX():
 			row = l.row().split(0.33)
 			row.label(text="Export Format:")
 			row.row().prop(scene,"smd_format",expand=True)

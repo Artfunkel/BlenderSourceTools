@@ -118,8 +118,10 @@ def DatamodelFormatVersion():
 	ver = getDmxVersionsForSDK()
 	return ver[1] if ver else int(bpy.context.scene.smd_dmx_format)
 
+def allowDMX():
+	return getDmxVersionsForSDK() != [0,0]
 def canExportDMX():
-	return (len(bpy.context.scene.smd_studiomdl_custom_path) == 0 or studiomdlPathValid()) and DatamodelEncodingVersion() != 0 and DatamodelFormatVersion() != 0
+	return (len(bpy.context.scene.smd_studiomdl_custom_path) == 0 or studiomdlPathValid()) and allowDMX()
 def shouldExportDMX():
 	return bpy.context.scene.smd_format == 'DMX' and canExportDMX()
 
@@ -144,7 +146,7 @@ def count_exports(context):
 	return num
 
 def getFileExt(flex=False):
-	if bpy.context.scene.smd_format == 'DMX':
+	if allowDMX() and bpy.context.scene.smd_format == 'DMX':
 		return ".dmx"
 	else:
 		if flex: return ".vta"

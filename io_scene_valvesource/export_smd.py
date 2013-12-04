@@ -135,7 +135,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if props.exportMode == 'NONE':
 			self.report({'ERROR'},"bpy.ops.{} requires an exportMode".format(SmdExporter.bl_idname))
 			return {'CANCELLED'}
-		if context.scene.smd_format == 'DMX':
+		if allowDMX() and context.scene.smd_format == 'DMX':
 			datamodel.check_support("binary",DatamodelEncodingVersion())
 			if DatamodelEncodingVersion() < 3 and DatamodelFormatVersion() > 11:
 				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
@@ -146,7 +146,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if context.scene.smd_path.startswith("//") and not bpy.context.blend_data.filepath:
 			self.report({'ERROR'},"Cannot export to a relative path until the blend file has been saved.")
 			return {'CANCELLED'}
-		if context.scene.smd_format == 'DMX' and not canExportDMX():
+		if allowDMX() and context.scene.smd_format == 'DMX' and not canExportDMX():
 			self.report({'ERROR'},"Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
 			return {'CANCELLED'}
 		
