@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (Artfunkel)",
-	"version": (1, 10, 3),
+	"version": (1, 10, 4),
 	"blender": (2, 66, 0),
 	"api": 54697,
 	"category": "Import-Export",
@@ -35,10 +35,11 @@ import bpy, os
 from bpy import ops
 from bpy.props import *
 
-try: # get rid of the old module
-	import io_smd_tools
-except:
-	pass
+# get rid of the old module
+for script_path in bpy.utils.script_paths():
+	for file_path in [ os.path.join("modules","datamodel.py"), os.path.join("addons","io_smd_tools.py") ]:
+		try: os.remove(os.path.abspath(os.path.join(script_path,file_path)))
+		except: pass
 
 # Python doesn't reload package sub-modules at the same time as __init__.py!
 import imp, sys
@@ -230,6 +231,9 @@ def register():
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
 	bpy.app.handlers.scene_update_post.append(scene_update)
+	
+	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
+	except: pass
 	
 	bpy.types.Scene.smd_path = StringProperty(name="SMD Export Root",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
 	bpy.types.Scene.smd_qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
