@@ -280,6 +280,19 @@ def getValidObs():
 				validObs.append(o)
 	return validObs
 
+def findEnvelopeObject(id, operator = None):
+	obs = id.objects if type(id) == bpy.types.Group else [id]
+	for ob in obs:
+		while ob:
+			if ob.parent_bone and ob.parent_type == 'BONE':
+				return ob.parent
+			for con in [con for con in ob.constraints if not con.mute and con.type in ['CHILD_OF','COPY_TRANSFORMS'] and con.target.type == 'ARMATURE' and con.subtarget]:
+				return con.target
+			for mod in ob.modifiers:
+				if mod.type == 'ARMATURE' and mod.object:
+					return mod.object
+			ob = ob.parent
+			
 class Logger:
 	def __init__(self):
 		self.log_warnings = []
