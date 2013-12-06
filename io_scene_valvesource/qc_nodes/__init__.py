@@ -14,6 +14,34 @@ class QcNodeTree(NodeTree):
 		for node in self.nodes:
 			if type(node) == QcModelInfo:
 				return node
+	
+	modelname = StringProperty(name="Output Name",description="Path of the compiled model relative to [game]/models/")
+	
+	def num_lods_update(self,c):
+		lods = self.num_lods
+		def _update(id):
+			while len(id.lods) > lods:
+				id.lods.remove(len(id.lods)-1)
+			while len (id.lods) < lods:
+				id.lods.add()
+		
+		_update(self)
+		
+		lods += 1 # reference mesh is held in node arrays too
+		for node in [node for node in self.id_data.nodes if node.bl_idname == "QcRefMesh"]:
+			_update(node)
+	
+	num_lods = IntProperty(min=0,max=8,name="Levels of Detail",description="How many levels of detail this model has",update=num_lods_update)
+	
+	def get_active_lod(self):
+		if not len(self.lods): return None
+		return self.lods[self.active_lod]
+		
+	lods = CollectionProperty(type=nodes_lod.QcLod,name="Levels of Detail")
+	active_lod = IntProperty(options={'HIDDEN'})
+	
+	use_lod_inherit = BoolProperty(default=True,name="LODs inherit settings",description="Whether each LOD inherits settings from those above it")
+	
 
 ##############################################
 ################# MODEL INFO #################
@@ -22,30 +50,7 @@ class QcModelInfo(Node):
 	bl_label = "QC"
 	bl_width_default = 270
 	
-	modelname = StringProperty(name="Output Name",description="Where to create compiled model files, relative to <game_root>/models/")
-	
-	def num_lods_update(self,c):
-		for node in self.id_data.nodes:
-			if node.bl_idname in ["QcRefMesh", "QcModelInfo"]:
-				lods = self.num_lods
-				if node.bl_idname == "QcRefMesh":
-					lods += 1 # reference is held in the array too
-				
-				while len(node.lods) > lods:
-					node.lods.remove(len(node.lods)-1)
-				while len (node.lods) < lods:
-					node.lods.add()
-	num_lods = IntProperty(min=0,max=8,name="Levels of Detail",description="How many levels of detail this model has",update=num_lods_update)
-	
-	lods = CollectionProperty(type=nodes_lod.QcLod)
-	active_lod = IntProperty()
-	
-	use_lod_inherit = BoolProperty(default=True,name="LODs inherit settings",description="Whether each LOD inherits settings from those above it")
 	lod_tab = EnumProperty(items=( ('BONECOLLAPSE',"Bone Collapse","Collapse or replace bones", 'BONE_DATA', 0), ('REPLACEMATERIAL',"Material Replace","Replace or remove materials", 'MATERIAL', 1)),name="LOD settings")
-	
-	def get_active_lod(self):
-		if not len(self.lods): return None
-		return self.lods[self.active_lod]
 	
 	def init(self,c):
 		self.inputs.new("QcRefMeshSocket","Primary Mesh")
@@ -55,17 +60,18 @@ class QcModelInfo(Node):
 		return type(nodetree) == QcNodeTree and not nodetree.get_primary_node()
 		
 	def draw_buttons(self, context, l):
-		l.prop(self,"modelname")
-		l.prop(self,"num_lods")
+		tree = self.id_data
+		l.prop(tree,"modelname")
+		l.prop(tree,"num_lods")
 		
 		l.template_list("QcLod_ListItem","",
-			self,"lods",
-			self,"active_lod",
+			tree,"lods",
+			tree,"active_lod",
 			rows=3,maxrows=8)
 		
-		l.prop(self,"use_lod_inherit")
-		if (len(self.lods)):
-			lod = self.lods[self.active_lod]
+		l.prop(tree,"use_lod_inherit")
+		if (len(tree.lods) and tree.active_lod < len(tree.lods)):
+			lod = tree.lods[tree.active_lod]
 			r = l.row()
 			r.prop(self,"lod_tab",text="",expand=True)
 			if self.lod_tab == 'BONECOLLAPSE':

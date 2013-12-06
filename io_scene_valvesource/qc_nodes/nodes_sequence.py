@@ -8,16 +8,18 @@ from bpy.props import *
 
 class QcActivity(PropertyGroup):
 	name = StringProperty(name="Name",default="ACT_UNNAMED",
-			description="A name recognised by the target game")
+			description="An activity name recognised by the target game")
 	weight = FloatProperty(name="Weight",default=1,min=0,soft_max=1,subtype='FACTOR',
 			description="How much weight the engine should put on the current sequence when starting this activity",)
 	
 
 class QcActivity_ListItem(bpy.types.UIList):
 	def draw_item(self, context, l, data, item, icon, active_data, active_propname, index):
-		r = l.split(0.66)
-		r.prop(item,"name",text="", emboss=False)
-		r.prop(item,"weight",text="")
+		r = l.row(align=True)
+		s = r.split(0.66,align=True)
+		s.prop(item,"name",text="")
+		s.prop(item,"weight",text="")
+		r.operator(QcActivity_Remove.bl_idname,icon='X',text="").index = index
 	
 class QcActivity_Add(bpy.types.Operator):
 	'''Add an Activity'''
@@ -37,12 +39,14 @@ class QcActivity_Remove(bpy.types.Operator):
 	bl_idname = "nodes.qc_activity_remove"
 	bl_label = "Remove Activity"
 	
+	index = IntProperty(default=-1)
+	
 	@classmethod
 	def poll(self,context):
 		return type(context.active_node) == QcSequence and len(context.active_node.activities)
 	
 	def execute(self,context):
-		context.active_node.activities.remove(context.active_node.active_activity)
+		context.active_node.activities.remove(context.active_node.active_activity if self.index == -1 else self.index)
 		return {'FINISHED'}
 
 ##############################################
@@ -90,16 +94,12 @@ class QcSequence(Node):
 			c.prop(self,"use_loop")
 			c.prop(self,"use_hidden")
 			c.prop(self,"use_autoplay")
-		elif self.tab == 'ACTIVITY':				
-			r = l.row()
-			r.template_list("QcActivity_ListItem","",
+		elif self.tab == 'ACTIVITY':
+			l.operator(QcActivity_Add.bl_idname,icon="ZOOMIN")
+			l.template_list("QcActivity_ListItem","",
 							self,"activities",
 							self,"active_activity",
 							rows=2,maxrows=4)
-			c = r.column(align=True)
-			c.enabled = self.select
-			c.operator(QcActivity_Add.bl_idname,icon="ZOOMIN",text="")
-			c.operator(QcActivity_Remove.bl_idname,icon="ZOOMOUT",text="")
 			l.operator("wm.url_open",text="Help",icon='HELP').url = "https://developer.valvesoftware.com/wiki/Activity"
 		elif self.tab == 'EXTRACT':
 			r = l.row()

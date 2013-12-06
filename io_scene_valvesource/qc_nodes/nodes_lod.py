@@ -4,6 +4,13 @@ from bpy.props import *
 
 from . import nodes_mesh
 
+def get_active_lod():
+	tree = bpy.context.space_data.node_tree
+	if not len(tree.lods) or len(tree.lods) < tree.active_lod:
+		return None
+	else:
+		return tree.lods[tree.active_lod]
+	
 ##############################################
 ################## BONE OPS ##################
 ##############################################
@@ -12,21 +19,20 @@ class QcLod_BoneOperation(PropertyGroup):
 	replace = StringProperty(name="Replacement bone",description="The bone to replace the target with, or blank to collapse the target")
 
 class QcBoneOp_Add(bpy.types.Operator):
-	'''Add LOD Bone Operation'''
+	'''Add a Bone Operation to the current LOD'''
 	bl_idname = "nodes.qc_bone_op_add"
 	bl_label = "Add Bone Operation"
 	
 	@classmethod
 	def poll(self,c):
-		n = c.active_node
-		return n and n.bl_idname == "QcModelInfo" and n.get_active_lod()
+		return get_active_lod()
 	
 	def execute(self,c):
-		c.active_node.get_active_lod().bone_ops.add()
+		get_active_lod().bone_ops.add()
 		return {'FINISHED'}
 
 class QcBoneOp_Remove(bpy.types.Operator):
-	'''Remove LOD Bone Operation'''
+	'''Remove a Bone Operation from the current LOD'''
 	bl_idname = "nodes.qc_bone_op_remove"
 	bl_label = "Remove Bone Operation"
 	
@@ -34,11 +40,11 @@ class QcBoneOp_Remove(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,c):
-		n = c.active_node
-		return n.bl_idname == "QcModelInfo" and (self.index != -1 or n.get_active_lod() and len(n.get_active_lod().bone_ops))
+		lod = get_active_lod()
+		return lod and len(lod.bone_ops)
 	
 	def execute(self,c):
-		lod = c.active_node.get_active_lod()
+		lod = get_active_lod()
 		lod.bone_ops.remove(lod.active_bone_op if self.index == -1 else self.index)
 		return {'FINISHED'}
 
@@ -65,21 +71,20 @@ class QcLod_MaterialOperation(PropertyGroup):
 	replace = DatablockProperty(name="Replacement material",type=bpy.types.Material,description="The material to replace the target with, or blank to remove the target")
 
 class QcMaterialOp_Add(bpy.types.Operator):
-	'''Add LOD Material Operation'''
+	'''Add a Material Operation to the current LOD'''
 	bl_idname = "nodes.qc_material_op_add"
 	bl_label = "Add Material Operation"
 	
 	@classmethod
 	def poll(self,c):
-		n = c.active_node
-		return n and n.bl_idname == "QcModelInfo" and n.get_active_lod()
+		return get_active_lod()
 	
 	def execute(self,c):
-		c.active_node.get_active_lod().material_ops.add()
+		get_active_lod().material_ops.add()
 		return {'FINISHED'}
 
 class QcMaterialOp_Remove(bpy.types.Operator):
-	'''Remove LOD Material Operation'''
+	'''Remove a Material Operation from the current LOD'''
 	bl_idname = "nodes.qc_material_op_remove"
 	bl_label = "Remove Material Operation"
 	
@@ -87,11 +92,11 @@ class QcMaterialOp_Remove(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,c):
-		n = c.active_node
-		return n and n.bl_idname == "QcModelInfo" and (self.index != -1 or n.get_active_lod() and len(n.get_active_lod().material_ops))
+		lod = get_active_lod()
+		return lod and len(lod.material_ops)
 	
 	def execute(self,c):
-		lod = c.active_node.get_active_lod()
+		lod = get_active_lod()
 		lod.material_ops.remove(lod.active_material_op if self.index == -1 else self.index)
 		return {'FINISHED'}
 
