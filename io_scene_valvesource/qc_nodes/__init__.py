@@ -1,4 +1,4 @@
-import bpy, math, io_scene_valvesource
+import bpy, math, mathutils, io_scene_valvesource
 from bpy.types import Node, NodeTree, NodeSocket, PropertyGroup
 from bpy.props import *
 
@@ -9,6 +9,8 @@ class QcNodeTree(NodeTree):
 	bl_idname = 'QcNodeTree'
 	bl_label = 'QC'
 	bl_icon = 'SCRIPT'
+	
+	dummy_active = IntProperty(options={'HIDDEN'},max=-1,default=-1,name="template_list dummy index")
 	
 	def get_primary_node(self):
 		for node in self.nodes:
@@ -54,6 +56,8 @@ class QcModelInfo(Node):
 	
 	def init(self,c):
 		self.inputs.new("QcRefMeshSocket","Primary Mesh")
+		self.color = mathutils.Color([0.65] * 3)
+		self.use_custom_color = True
 		
 	@classmethod
 	def poll(self,nodetree):
@@ -78,13 +82,13 @@ class QcModelInfo(Node):
 				r.operator(nodes_lod.QcBoneOp_Add.bl_idname,text="Add",icon="ZOOMIN")
 				l.template_list("QcBoneOp_ListItem","",
 					lod,"bone_ops",
-					lod,"active_bone_op",
+					bpy.context.space_data.node_tree,"dummy_active",
 					rows=4,maxrows=8)
 			elif self.lod_tab == 'REPLACEMATERIAL':
 				r.operator(nodes_lod.QcMaterialOp_Add.bl_idname,text="Add",icon="ZOOMIN")
 				l.template_list("QcMaterialOp_ListItem","",
 					lod,"material_ops",
-					lod,"active_material_op",
+					bpy.context.space_data.node_tree,"dummy_active",
 					rows=4,maxrows=8)
 			else:
 				r.label("")

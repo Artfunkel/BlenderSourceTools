@@ -14,7 +14,7 @@ def eyeball_poll(self,id):
 		return id.type == 'EMPTY' and bpy.context.scene in id.users_scene
 
 class QcMesh(PropertyGroup):
-	exportable = DatablockProperty(type=bpy.types.ID, name="Replacement mesh", description="The exportable mesh to use at this Level of Detail", cast=exportable_to_id, poll=exportable_is_mesh)
+	exportable = DatablockProperty(type=bpy.types.ID, name="Replacement mesh", description="The Source Tools exportable to use at this Level of Detail", cast=exportable_to_id, poll=exportable_is_mesh)
 class QcMesh_ListItem(bpy.types.UIList):
 	def draw_item(self, c, l, data, item, icon, active_data, active_propname, index):
 		r = l.row()
@@ -66,7 +66,7 @@ class QcRefMesh(Node):
 	bl_width_default = 250
 			
 	tab = EnumProperty(name="Display mode",default='BASIC',
-		items=( ('BASIC','Home',"Choose mesh objects", 'OBJECT_DATA', 0),
+		items=( ('BASIC','Home',"Choose reference and LOD meshes", 'OBJECT_DATA', 0),
 				('FACE','Face',"Configure eyes and mouths", 'MONKEY', 1)
 	))
 	

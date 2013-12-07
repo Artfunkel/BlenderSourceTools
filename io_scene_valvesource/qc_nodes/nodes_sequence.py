@@ -28,7 +28,7 @@ class QcActivity_Add(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,context):
-		return type(context.active_node) == QcSequence
+		return "activities" in dir(context.active_node)
 	
 	def execute(self,context):
 		context.active_node.activities.add()
@@ -43,7 +43,7 @@ class QcActivity_Remove(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,context):
-		return type(context.active_node) == QcSequence and len(context.active_node.activities)
+		return "activities" in dir(context.active_node) and len(context.active_node.activities)
 	
 	def execute(self,context):
 		context.active_node.activities.remove(context.active_node.active_activity if self.index == -1 else self.index)
@@ -59,13 +59,21 @@ def sequence_sockets(node):
 	
 	node.outputs.new("QcSequenceSocket","Sequence")
 	
+def draw_activities(self,l):
+	l.operator(QcActivity_Add.bl_idname,icon="ZOOMIN")
+	l.template_list("QcActivity_ListItem","",
+					self,"activities",
+					bpy.context.space_data.node_tree,"dummy_active",
+					rows=2,maxrows=4)
+	l.operator("wm.url_open",text="Help",icon='HELP').url = "https://developer.valvesoftware.com/wiki/Activity"
+	
 class QcSequence(Node):
 	bl_label = "Sequence"
 	bl_icon = 'ACTION'
 	bl_width_default = 250
 	
 	tab = EnumProperty(name="Display mode",default='BASIC',
-		items=( ('BASIC','Home',"Configure basic settings", 'ACTION', 0),
+		items=( ('BASIC','Home',"Choose an Action and configure basic settings", 'ACTION', 0),
 				('ACTIVITY','Activities',"Configure Activity weights", 'DRIVER', 1),
 				('EXTRACT', 'Motion Extract', "Configure world movement", 'MANIPUL', 2)
 	))
@@ -76,7 +84,6 @@ class QcSequence(Node):
 	use_autoplay = BoolProperty(name="Autoplay",description="Play this sequence at all times")
 
 	activities = CollectionProperty(type=QcActivity)
-	active_activity = IntProperty(options={'HIDDEN'})
 	
 	extract_x = BoolProperty(name="Extract X motion")
 	extract_y = BoolProperty(name="Extract Y motion")
@@ -85,7 +92,7 @@ class QcSequence(Node):
 	def init(self,context):
 		sequence_sockets(self)
 		
-	def draw_buttons(self, context, l):
+	def draw_buttons(self, c, l):
 		l.prop(self,"tab",expand=True,text="")
 		
 		if self.tab == 'BASIC':
@@ -95,12 +102,7 @@ class QcSequence(Node):
 			c.prop(self,"use_hidden")
 			c.prop(self,"use_autoplay")
 		elif self.tab == 'ACTIVITY':
-			l.operator(QcActivity_Add.bl_idname,icon="ZOOMIN")
-			l.template_list("QcActivity_ListItem","",
-							self,"activities",
-							self,"active_activity",
-							rows=2,maxrows=4)
-			l.operator("wm.url_open",text="Help",icon='HELP').url = "https://developer.valvesoftware.com/wiki/Activity"
+			draw_activities(self,l)
 		elif self.tab == 'EXTRACT':
 			r = l.row()
 			c = r.column()
@@ -122,7 +124,7 @@ class QcBlendControl(bpy.types.PropertyGroup):
 	min = FloatProperty(name='Min',default=-1)
 	max = FloatProperty(name='Max',default=1)
 	
-	def draw(self, context, l, text):
+	def draw(self, c, l, text):
 		r = l.row(align=True)
 		r.label(text=text + ":",icon='LOGIC')
 		tr = r.row(align=True)
@@ -138,38 +140,51 @@ class QcBlendSequence(Node):
 	bl_width_max = 700
 	bl_width_default = 450
 	
+	tab = EnumProperty(name="Display mode",default='BASIC',
+		items=( ('BASIC','Home',"Choose Actions and configure basic settings", 'ACTION', 0),
+				('ACTIVITY','Activities',"Configure Activity weights", 'DRIVER', 1)
+	))
+	
 	actions = DatablockVectorProperty(name="Actions",type=bpy.types.Action,size=32)
 	action_count = IntProperty(name="Size",description="Number of Actions in the sequence",min=1,max=32,default=9,soft_max=9)
 	blend_width = IntProperty(name="Columns",description="Number of columns to arrange Actions in",min=1,max=32,default=3,soft_max=3)
 	
+	activities = CollectionProperty(type=QcActivity)
+	
 	controller_x = PointerProperty(type=QcBlendControl)
 	controller_y = PointerProperty(type=QcBlendControl)
 	
-	def init(self,context):
+	def init(self,c):
 		sequence_sockets(self)
 	
 	def draw_buttons(self, context, l):
-		r = l.row(align=True)
-		r.prop(self,"action_count")
-		r.prop(self,"blend_width")
-		c = l.column(align=True)
+		l.prop(self,"tab",expand=True,text="")
 		
-		ii = 0
-		for i in range(math.ceil(self.action_count/self.blend_width)):
-			r = c.row(align=True)
-			for x in range(self.blend_width):
-				if (ii >= self.action_count):
-					r.label(text="")
-				else:
-					r.prop(self,"actions",index=ii,text="")
-				ii += 1
-		
-		c = l.column(align=True)
-		self.controller_x.draw(context,c, "X axis")
-		if (self.blend_width > 1):
-			self.controller_y.draw(context,c, "Y axis")
+		if self.tab == 'BASIC':
+			r = l.row(align=True)
+			r.prop(self,"action_count")
+			r.prop(self,"blend_width")
+			c = l.column(align=True)
 			
-		l.operator("wm.url_open",text="Help",icon='HELP').url = "https://developer.valvesoftware.com/wiki/Blend_sequence"
+			ii = 0
+			for i in range(math.ceil(self.action_count/self.blend_width)):
+				r = c.row(align=True)
+				for x in range(self.blend_width):
+					if (ii >= self.action_count):
+						r.label(text="")
+					else:
+						r.prop(self,"actions",index=ii,text="")
+					ii += 1
+			
+			c = l.column(align=True)
+			self.controller_x.draw(context,c, "X axis")
+			if (self.blend_width > 1):
+				self.controller_y.draw(context,c, "Y axis")
+				
+			l.operator("wm.url_open",text="Help",icon='HELP').url = "https://developer.valvesoftware.com/wiki/Blend_sequence"
+		elif self.tab == 'ACTIVITY':
+			draw_activities(self,l)
+
 
 ##############################################
 ################## SOCKETS ###################

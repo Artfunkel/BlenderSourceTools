@@ -45,7 +45,7 @@ class QcBoneOp_Remove(bpy.types.Operator):
 	
 	def execute(self,c):
 		lod = get_active_lod()
-		lod.bone_ops.remove(lod.active_bone_op if self.index == -1 else self.index)
+		lod.bone_ops.remove(self.index)
 		return {'FINISHED'}
 
 class QcBoneOp_ListItem(bpy.types.UIList):
@@ -97,7 +97,7 @@ class QcMaterialOp_Remove(bpy.types.Operator):
 	
 	def execute(self,c):
 		lod = get_active_lod()
-		lod.material_ops.remove(lod.active_material_op if self.index == -1 else self.index)
+		lod.material_ops.remove(self.index)
 		return {'FINISHED'}
 
 class QcMaterialOp_ListItem(bpy.types.UIList):
@@ -126,6 +126,4 @@ class QcLod(PropertyGroup):
 	use_nofacial = BoolProperty(name="Disable flex animation",description="Suppress shape key animation when this LOD is active")
 	
 	bone_ops = CollectionProperty(type=QcLod_BoneOperation,name="Bone operations")
-	active_bone_op = IntProperty(options={'HIDDEN'})
 	material_ops = CollectionProperty(type=QcLod_MaterialOperation,name="Material operations")
-	active_material_op = IntProperty(options={'HIDDEN'})
