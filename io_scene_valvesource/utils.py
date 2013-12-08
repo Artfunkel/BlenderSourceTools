@@ -142,7 +142,8 @@ def count_exports(context):
 	num = 0
 	for exportable in context.scene.smd_export_list:
 		id = exportable.get_id()
-		if id and id.smd_export: num += 1
+		if id and id.smd_export and (type(id) != bpy.types.Group or not id.smd_mute):
+			num += 1
 	return num
 
 def getFileExt(flex=False):
