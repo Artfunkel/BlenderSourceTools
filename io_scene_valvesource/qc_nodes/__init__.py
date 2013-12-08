@@ -42,7 +42,9 @@ class QcNodeTree(NodeTree):
 	lods = CollectionProperty(type=nodes_lod.QcLod,name="Levels of Detail")
 	active_lod = IntProperty(options={'HIDDEN'})
 	
-	use_lod_inherit = BoolProperty(default=True,name="LODs inherit settings",description="Whether each LOD inherits settings from those above it")
+	use_lod_inherit = BoolProperty(default=True,name="LODs inherit operations",description="Whether each LOD inherits bone and material operations from those above it")
+	
+	surfaceprop = StringProperty(name="Surface Type",description="The name of a VPhysics surface property",default="plastic")
 	
 
 ##############################################
@@ -66,6 +68,7 @@ class QcModelInfo(Node):
 	def draw_buttons(self, context, l):
 		tree = self.id_data
 		l.prop(tree,"modelname")
+		l.prop(tree,"surfaceprop")
 		l.prop(tree,"num_lods")
 		
 		l.template_list("QcLod_ListItem","",
@@ -79,13 +82,13 @@ class QcModelInfo(Node):
 			r = l.row()
 			r.prop(self,"lod_tab",text="",expand=True)
 			if self.lod_tab == 'BONECOLLAPSE':
-				r.operator(nodes_lod.QcBoneOp_Add.bl_idname,text="Add",icon="ZOOMIN")
+				r.operator(nodes_lod.QcBoneOp_Add.bl_idname,icon="ZOOMIN")
 				l.template_list("QcBoneOp_ListItem","",
 					lod,"bone_ops",
 					bpy.context.space_data.node_tree,"dummy_active",
 					rows=4,maxrows=8)
 			elif self.lod_tab == 'REPLACEMATERIAL':
-				r.operator(nodes_lod.QcMaterialOp_Add.bl_idname,text="Add",icon="ZOOMIN")
+				r.operator(nodes_lod.QcMaterialOp_Add.bl_idname,icon="ZOOMIN")
 				l.template_list("QcMaterialOp_ListItem","",
 					lod,"material_ops",
 					bpy.context.space_data.node_tree,"dummy_active",

@@ -46,7 +46,7 @@ class QcActivity_Remove(bpy.types.Operator):
 		return "activities" in dir(context.node) and len(context.node.activities)
 	
 	def execute(self,context):
-		context.node.activities.remove(context.node.active_activity if self.index == -1 else self.index)
+		context.node.activities.remove(self.index)
 		return {'FINISHED'}
 
 ##############################################
@@ -78,7 +78,7 @@ class QcSequence(Node):
 				('EXTRACT', 'Motion Extract', "Configure world movement", 'MANIPUL', 2)
 	))
 	
-	action = DatablockProperty(name="Action",type=bpy.types.Action)
+	action = DatablockProperty(name="Action",type=bpy.types.Action,description="The Action to compile, or blank for the model's default pose")
 	use_loop = BoolProperty(name="Loop",description="Perform loop processing")
 	use_hidden = BoolProperty(name="Hidden",description="Hides this sequence from the game")
 	use_autoplay = BoolProperty(name="Autoplay",description="Play this sequence at all times")
@@ -207,4 +207,10 @@ class QcSequenceSocket(NodeSocket):
 		l.label(text=text)
 		
 		if self.subtype == 'SUBTRACT' and self.is_linked and not self.is_output:
-			l.prop(self,"frame",text="Frame")
+			n = self.links[0].from_node
+			if type(n) == QcBlendSequence:
+				l.label("Cannot subtract from a blend sequence",icon='ERROR')
+			elif n.action:
+				r = l.row()
+				r.alert = self.frame > n.action.frame_range[-1]
+				r.prop(self,"frame",text="Frame")

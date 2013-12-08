@@ -10,7 +10,7 @@ def exportable_is_mesh(self,exportable):
 	return type(exportable.get_id()) == bpy.types.Group or exportable.get_id().type in io_scene_valvesource.utils.mesh_compatible
 def exportable_to_id(self,exportable): # io_scene_valvesource.SMD_CT_ObjectExportProps
 	return exportable.get_id() if exportable else None
-def eyeball_poll(self,id):
+def id_is_empty(self,id):
 		return id.type == 'EMPTY' and bpy.context.scene in id.users_scene
 
 class QcMesh(PropertyGroup):
@@ -21,22 +21,21 @@ class QcMesh_ListItem(bpy.types.UIList):
 		r.alert = index == 0 and not item.exportable # no effect?!
 		r.prop_search(item,"exportable",c.scene,"smd_export_list", icon=id_icon(item.exportable),text="LOD {}".format(index) if index > 0 else "Reference")
 
+###########################################
+################## EYES ###################
+###########################################
 class QcEye(PropertyGroup):
 	material = DatablockProperty(name='Eyewhite', type=bpy.types.Material,
 			description='The material on which the iris will be rendered')
-	object = DatablockProperty(name='Object', type=bpy.types.Object, poll=eyeball_poll,
-			description='An Empty which defines the eyey\'s location, scale, and bone parent')
+	object = DatablockProperty(name='Object', type=bpy.types.Object, poll=id_is_empty,
+			description='An Empty which defines the eye\'s location, scale, and parent bone')
 	
-	angle = FloatProperty(name='Iris angle',default=math.radians(3),description='Humans are typically 2-4 degrees walleyed',soft_min=0,soft_max=math.radians(4),subtype='ANGLE')
+	angle = FloatProperty(name='Iris angle',default=math.radians(3),description='Humans are typically 2-4 degrees walleyed',soft_min=0,soft_max=math.radians(6),subtype='ANGLE')
 	iris_mat = StringProperty(name='Iris material',description='Path to the iris material (relative to the current material directory)')
-	iris_scale = FloatProperty(name='Iris scale',default=1,subtype='FACTOR',description='How large the iris should be')
-
-	class QcEye_ListItem(bpy.types.UIList):
-		def draw_item(self, c, l, data, item, icon, active_data, active_propname, index):
-			l.label(text=item.object.name if item.object else "Eye {}".format(index+1),icon='VISIBLE_IPO_ON')
+	iris_scale = FloatProperty(name='Iris scale',default=1,min=0,soft_max=2,subtype='FACTOR',description='How large the iris should be')				
 
 class QcEye_Add(bpy.types.Operator):
-	'''Add an Eye'''
+	'''Add an Eye to a QC Mesh node'''
 	bl_idname = "nodes.qc_eye_add"
 	bl_label = "Add Eye"
 	
@@ -48,18 +47,63 @@ class QcEye_Add(bpy.types.Operator):
 		c.node.eyes.add()
 		return {'FINISHED'}
 class QcEye_Remove(bpy.types.Operator):
-	'''Remove the selected Eye'''
+	'''Remove an Eye from a QC Mesh node'''
 	bl_idname = "nodes.qc_eye_remove"
 	bl_label = "Remove Eye"
+	
+	index = IntProperty(default=-1,min=0)
 	
 	@classmethod
 	def poll(self,c):
 		return type(c.node) == QcRefMesh and len(c.node.eyes)
 	
 	def execute(self,c):
-		c.node.eyes.remove(c.node.active_eye)
+		c.node.eyes.remove(self.index)
 		return {'FINISHED'}
 
+###########################################
+################# MOUTHS ##################
+###########################################
+class QcMouth(PropertyGroup):
+		empty = DatablockProperty(name="Object", type=bpy.types.Object, poll=id_is_empty, description="An Empty object which defines the parent bone and orientation of this mouth")
+		flex = StringProperty(name="Flex controller",description="The name of the flex controller (not shape!) which defines this mouth")
+
+class QcMouth_ListItem(bpy.types.UIList):
+	def draw_item(self, c, l, data, item, icon, active_data, active_propname, index):
+		r = l.row(align=True)
+		r.prop(item,"empty",text="",icon='OUTLINER_OB_EMPTY')
+		r.prop(item,"flex",text="",icon='FILE_TEXT')
+		r.operator(QcMouth_Remove.bl_idname,icon="X",text="").index = index
+
+class QcMouth_Add(bpy.types.Operator):
+	'''Add a Mouth to a QC Mesh node'''
+	bl_idname = "nodes.qc_mouth_add"
+	bl_label = "Add Mouth"
+	
+	@classmethod
+	def poll(self,c):
+		return type(c.node) == QcRefMesh
+	
+	def execute(self,c):
+		c.node.mouths.add()
+		return {'FINISHED'}
+class QcMouth_Remove(bpy.types.Operator):
+	'''Remove a Mouth from a QC Mesh node'''
+	bl_idname = "nodes.qc_mouth_remove"
+	bl_label = "Remove Mouth"
+	
+	index = IntProperty(default=-1,min=0)
+	
+	@classmethod
+	def poll(self,c):
+		return type(c.node) == QcRefMesh and len(c.node.mouths)
+	
+	def execute(self,c):
+		c.node.mouths.remove(self.index)
+		return {'FINISHED'}
+###########################################
+################ REF MESH #################
+###########################################
 class QcRefMesh(Node):
 	'''Adds a visible mesh'''
 	bl_label = "Mesh"
@@ -67,7 +111,8 @@ class QcRefMesh(Node):
 			
 	tab = EnumProperty(name="Display mode",default='BASIC',
 		items=( ('BASIC','Home',"Choose reference and LOD meshes", 'OBJECT_DATA', 0),
-				('FACE','Face',"Configure eyes and mouths", 'MONKEY', 1)
+				('EYE', 'Eyes', "Add and configure eyes", 'VISIBLE_IPO_ON', 1),
+				('MOUTH', 'Mouths', "Add and configure mouths", 'MONKEY', 2)
 	))
 	
 	def num_lods_update(self,c):
@@ -77,47 +122,61 @@ class QcRefMesh(Node):
 			self.lods.add()
 	
 	lods = CollectionProperty(type=QcMesh,name="Levels of Detail")
-	active_lod = IntProperty(options={'HIDDEN'})
 	
 	eyes = CollectionProperty(type=QcEye,name="Eyes")
-	active_eye = IntProperty(options={'HIDDEN'})
+	mouths = CollectionProperty(type=QcMouth,name="Mouths")
 		
 	def init(self,c):
 		self.outputs.new("QcRefMeshSocket","Reference Mesh")
 		self.lods.add()
 	
-	def draw_buttons(self, c, l):
-		l.prop(self,"tab",expand=True,text="")
+	def draw_buttons(self, context, l):
+		r = l.row()
+		r.prop(self,"tab",expand=True,text="")
 		if self.tab == 'BASIC':
-			l.template_list("QcMesh_ListItem","",
-					self,"lods",
-					self,"active_lod",
-					rows=3,maxrows=9)
-		elif self.tab == 'FACE':
-			r = l.row()
-			r.template_list("QcEye_ListItem",self.name,
-					self,"eyes",
-					self,"active_eye",
-					rows=1,maxrows=5)
-			c = r.column(align=True)
-			c.operator(QcEye_Add.bl_idname,icon="ZOOMIN",text="")
-			c.operator(QcEye_Remove.bl_idname,icon="ZOOMOUT",text="")
-			
-			if (len(self.eyes)):
-				eye = self.eyes[self.active_eye]
-				c = l.column(align=True)
-				c.prop(eye,"object",icon='OUTLINER_OB_EMPTY')
-				c.prop(eye,"material")
-				c.prop(eye,"iris_mat")
-				c = l.column(align=True)
-				c.prop(eye,"iris_scale")
-				c.prop(eye,"angle")
-			
+			c = l.column(align=True)
+			for i in range(bpy.context.space_data.node_tree.num_lods + 1):
+				c.prop_search(self.lods[i],"exportable",context.scene,"smd_export_list", icon=id_icon(self.lods[i].exportable),text="LOD {}".format(i) if i > 0 else "Default Mesh")
+				if i == 0: c.separator()
+			#l.template_list("QcMesh_ListItem","",
+			#		self,"lods",
+			#		bpy.context.space_data.node_tree,"dummy_active",
+			#		rows=3,maxrows=9)
+			#l.template_ID_preview(self.lods[0],"exportable")
+		
+		if self.tab == 'EYE':
+			r.operator(QcEye_Add.bl_idname,icon="ZOOMIN")
+			for index, item in enumerate(self.eyes):
+				c = l.box().column()
+		
+				r = c.row(align=True)
+				ar = r.row(align=True)
+				ar.alert = not item.object or not item.material
+				ar.prop(item,"object",icon='OUTLINER_OB_EMPTY',text="")
+				ar.prop(item,"material",text="")
+				r.operator(QcEye_Remove.bl_idname,icon="X",text="").index = index
+				
+				r = c.row(align=True)
+				r.alert = len(item.iris_mat) == 0
+				r.prop(item,"iris_mat")
+				r.label(icon='BLANK1')
+				
+				r = c.row(align=True)
+				r.prop(item,"iris_scale")
+				r.prop(item,"angle")
+				r.label(icon='BLANK1')
+		
 			l.operator("wm.url_open",text="Help",icon='HELP').url = "https://developer.valvesoftware.com/wiki/Eyeball"
+		elif self.tab == 'MOUTH':
+			r.operator(QcMouth_Add.bl_idname,icon="ZOOMIN")
+			l.template_list("QcMouth_ListItem","",
+				self,"mouths",
+				bpy.context.space_data.node_tree,"dummy_active",
+				rows=1,maxrows=4)
 
-##############################################
-################## SOCKETS ###################
-##############################################
+###########################################
+################# SOCKETS #################
+###########################################
 
 class QcRefMeshSocket(NodeSocket):
 	bl_label = "Reference Mesh"
