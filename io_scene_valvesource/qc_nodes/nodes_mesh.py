@@ -42,10 +42,10 @@ class QcEye_Add(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,c):
-		return type(c.active_node) == QcRefMesh
+		return type(c.node) == QcRefMesh
 	
 	def execute(self,c):
-		c.active_node.eyes.add()
+		c.node.eyes.add()
 		return {'FINISHED'}
 class QcEye_Remove(bpy.types.Operator):
 	'''Remove the selected Eye'''
@@ -54,10 +54,10 @@ class QcEye_Remove(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,c):
-		return type(c.active_node) == QcRefMesh and len(c.active_node.eyes)
+		return type(c.node) == QcRefMesh and len(c.node.eyes)
 	
 	def execute(self,c):
-		c.active_node.eyes.remove(c.active_node.active_eye)
+		c.node.eyes.remove(c.node.active_eye)
 		return {'FINISHED'}
 
 class QcRefMesh(Node):
@@ -95,12 +95,11 @@ class QcRefMesh(Node):
 					rows=3,maxrows=9)
 		elif self.tab == 'FACE':
 			r = l.row()
-			r.template_list("QcEye_ListItem","",
+			r.template_list("QcEye_ListItem",self.name,
 					self,"eyes",
 					self,"active_eye",
 					rows=1,maxrows=5)
 			c = r.column(align=True)
-			c.enabled = self.select
 			c.operator(QcEye_Add.bl_idname,icon="ZOOMIN",text="")
 			c.operator(QcEye_Remove.bl_idname,icon="ZOOMOUT",text="")
 			

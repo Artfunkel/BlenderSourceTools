@@ -28,10 +28,10 @@ class QcActivity_Add(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,context):
-		return "activities" in dir(context.active_node)
+		return "activities" in dir(context.node)
 	
 	def execute(self,context):
-		context.active_node.activities.add()
+		context.node.activities.add()
 		return {'FINISHED'}
 
 class QcActivity_Remove(bpy.types.Operator):
@@ -43,10 +43,10 @@ class QcActivity_Remove(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,context):
-		return "activities" in dir(context.active_node) and len(context.active_node.activities)
+		return "activities" in dir(context.node) and len(context.node.activities)
 	
 	def execute(self,context):
-		context.active_node.activities.remove(context.active_node.active_activity if self.index == -1 else self.index)
+		context.node.activities.remove(context.node.active_activity if self.index == -1 else self.index)
 		return {'FINISHED'}
 
 ##############################################
@@ -61,7 +61,7 @@ def sequence_sockets(node):
 	
 def draw_activities(self,l):
 	l.operator(QcActivity_Add.bl_idname,icon="ZOOMIN")
-	l.template_list("QcActivity_ListItem","",
+	l.template_list("QcActivity_ListItem",self.name,
 					self,"activities",
 					bpy.context.space_data.node_tree,"dummy_active",
 					rows=2,maxrows=4)
