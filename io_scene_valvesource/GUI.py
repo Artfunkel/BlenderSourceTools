@@ -224,6 +224,22 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		row.prop(id,"smd_export",icon='CHECKBOX_HLT' if id.smd_export and row.enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
 		row.label(item.name,icon=item.icon)
 
+class SMD_UL_GroupItems(bpy.types.UIList):
+	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+		r = layout.row(align=True)
+		r.prop(item,"smd_export",text="",icon='CHECKBOX_HLT' if item.smd_export else 'CHECKBOX_DEHLT',emboss=False)
+		r.label(text=item.name,icon=MakeObjectIcon(item,suffix="_DATA"))
+		
+	def filter_items(self, context, data, propname):
+		out = [self.bitflag_filter_item] * len(data.objects)
+		use_name = len(self.filter_name) != 0
+		name = self.filter_name.lower()
+		validObs = getValidObs()
+		for i,ob in enumerate(data.objects):
+			if (use_name and ob.name.lower().find(name) == -1) or not ob in validObs:
+				out[i] &= ~self.bitflag_filter_item
+		return out, []
+		
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = "Source Engine Exportables"
 	bl_space_type = "PROPERTIES"
@@ -251,9 +267,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		
 		active_item = scene.smd_export_list[min(scene.smd_export_list_active,len(scene.smd_export_list)-1)]
 		item = (bpy.data.groups if active_item.ob_type == 'GROUP' else bpy.data.objects)[active_item.item_name]
-		
-		validObs = getValidObs()
-		
+				
 		want_shapes = False
 		is_group = type(item) == bpy.types.Group
 		
@@ -265,16 +279,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		if is_group:
 			col = self.makeSettingsBox(text="Group properties",icon='GROUP')
 			if not item.smd_mute:				
-				items = 0
-				item_list = col.column(align=True)
-				for g_ob in item.objects:
-					if g_ob in validObs:
-						if items % 2 == 0:
-							row = item_list.row(align=True)
-						row.prop(g_ob,"smd_export",icon=MakeObjectIcon(g_ob,suffix="_DATA"),text=g_ob.name)
-						if hasShapes(g_ob,-1) and g_ob.smd_export: want_shapes = g_ob
-						items += 1
-				if items % 2 != 0: row.label(text="")
+				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item,"smd_selected_item",type='GRID',columns=2)
 			
 			suppress_row = col.row()
 			suppress_row.alignment = 'CENTER'

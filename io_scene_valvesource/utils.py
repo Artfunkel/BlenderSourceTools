@@ -391,6 +391,7 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	'''Launches Half-Life Model Viewer'''
 	bl_idname = "smd.launch_hlmv"
 	bl_label = "Launch HLMV"
+	
 	@classmethod
 	def poll(self,context):
 		return bool(context.scene.smd_studiomdl_custom_path)
@@ -400,4 +401,33 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 		if context.scene.smd_game_path:
 			args.extend(["-game",os.path.normpath(bpy.path.abspath(context.scene.smd_game_path))])
 		subprocess.Popen(args)
+		return {'FINISHED'}
+
+class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
+	bl_idname = "smd.toggle_export"
+	bl_label = "Set Source Tools export state"
+	bl_options = {'REGISTER','UNDO'}
+	
+	pattern = bpy.props.StringProperty(name="Search pattern",description="Visible objects with this string in their name will be affected")
+	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
+	
+	@classmethod
+	def poll(self,context):
+		return len(context.visible_objects)
+	
+	def invoke(self, context, event):
+		context.window_manager.invoke_props_dialog(self)
+		return {'RUNNING_MODAL'}
+		
+	def execute(self,context):
+		if self.action == 'TOGGLE': target_state = None
+		elif self.action == 'ENABLE': target_state = True
+		elif self.action == 'DISABLE': target_state = False
+		
+		import fnmatch
+		
+		for ob in context.visible_objects:
+			if fnmatch.fnmatch(ob.name,self.pattern):
+				if target_state == None: target_state = not ob.smd_export
+				ob.smd_export = target_state
 		return {'FINISHED'}

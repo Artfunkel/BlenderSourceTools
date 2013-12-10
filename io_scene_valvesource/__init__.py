@@ -215,6 +215,12 @@ def export_active_changed(self, context):
 		id.select = True
 		context.scene.objects.active = id
 
+def group_selected_changed(self,context):
+	for ob in context.scene.objects: ob.select = False
+	id = self.objects[self.smd_selected_item]
+	id.select = True
+	context.scene.objects.active = id
+
 def studiomdl_path_changed(self, context):
 	version = getDmxVersionsForSDK()
 	prefix = "Source engine branch changed..."
@@ -283,6 +289,7 @@ def register():
 	bpy.types.Group.smd_mute = BoolProperty(name="SMD ignore",description="Export this group's objects individually",default=False)
 	bpy.types.Group.smd_flex_controller_mode = bpy.types.Object.smd_flex_controller_mode
 	bpy.types.Group.smd_flex_controller_source = bpy.types.Object.smd_flex_controller_source
+	bpy.types.Group.smd_selected_item = IntProperty(update=group_selected_changed)
 	
 	bpy.types.Mesh.smd_flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
 	
@@ -331,6 +338,7 @@ def unregister():
 	del Group.smd_mute
 	del Group.smd_flex_controller_mode
 	del Group.smd_flex_controller_source
+	del Group.smd_selected_item
 
 	del bpy.types.Curve.smd_faces
 	

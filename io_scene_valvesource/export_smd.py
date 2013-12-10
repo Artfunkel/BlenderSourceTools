@@ -39,7 +39,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	
 	@classmethod
 	def poll(self,context):
-		return len(p_cache.qc_paths) > 0 and gamePathValid() and studiomdlPathValid()
+		return (len(p_cache.qc_paths) or len(self.getQCs())) and gamePathValid() and studiomdlPathValid()
 
 	def execute(self,context):
 		num = self.compileQCs(self.properties.filepath)
@@ -888,9 +888,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 						edgesplit = obj.modifiers.new(name="SMD Edge Split",type='EDGE_SPLIT') # creates sharp edges
 						edgesplit.use_edge_angle = False
 					
+					any_sharp = False
 					for poly in obj.data.polygons:
-						if not poly.use_smooth:
-							for ek in poly.edge_keys: obj.data.edges[obj.data.edge_keys.index(ek)].use_edge_sharp = True
+						poly.select = not poly.use_smooth
+						if poly.select: any_sharp = True
+					if any_sharp:
+						ops.object.mode_set(mode='EDIT')
+						bpy.ops.mesh.mark_sharp()
 				
 			ops.object.mode_set(mode='OBJECT')
 			for x in range(num_out):
