@@ -214,7 +214,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if object.users_group:
 							if object.smd_export:
 								for i in range(len(object.users_group)):
-									if object.users_group[i] not in exported_groups:
+									g = object.users_group[i]
+									if g not in exported_groups and g in [item.get_id() for item in context.scene.smd_export_list]:
 										exported_groups.append(object.users_group[i])
 										self.exportObject(context,object,groupIndex=i)
 						else:
@@ -223,28 +224,19 @@ class SmdExporter(bpy.types.Operator, Logger):
 						self.exportObject(context,object)
 
 			elif props.exportMode == 'SCENE':
-				for group in bpy.data.groups:
-					group_objects = group.objects[:] # avoid pollution from the baking process
-					if shouldExportGroup(group):
-						for object in group_objects:
+				for id in [exportable.get_id() for exportable in context.scene.smd_export_list]:
+					if type(id) == bpy.types.Group and shouldExportGroup(id):
+						for object in id.objects[:]: # avoid pollution from the baking process
 							if object.smd_export and object in self.validObs and object.type != 'ARMATURE':
 								g_index = -1
 								for i in range(len(object.users_group)):
-									if object.users_group[i] == group:
+									if object.users_group[i] == id:
 										g_index = i
 										break
 								self.exportObject(context,object,groupIndex=g_index)
 								break # only export the first valid object
-				for object in getValidObs():
-					if object.smd_export:
-						should_export = True
-						if object.users_group and object.type != 'ARMATURE':
-							for group in object.users_group:
-								if not group.smd_mute:
-									should_export = False
-									break
-						if should_export:
-							self.exportObject(context,object)
+					elif id.smd_export:
+						self.exportObject(context,object)
 
 			jobMessage = "exported"
 
@@ -280,7 +272,33 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.window_manager.progress_end()
 
 		return {'FINISHED'}
-
+	
+	def exportExportable(self,exportable):
+		self.attemptedExports += 1
+		id = exportable.get_id()
+		subdir = id.smd_subdir
+		
+		if id.type == 'ARMATURE':
+			if not id.animation_data: return # otherwise we create a folder but put nothing in it
+			if len(subdir) == 0: subdir = self.default_armature_subdir
+		
+		subdir = subdir.lstrip("/") # don't want //s here!
+		
+		path = os.path.join(bpy.path.abspath(context.scene.smd_path), subdir, id.name)
+		if not os.path.exists(path):
+			try:
+				os.makedirs(path)
+			except Exception as err:
+				self.error("Could not create export folder. Python reports: {}".format(err))
+				return
+				
+		if self.writeSMD(id, groupIndex, path + getFileExt()):
+			self.countSMDs += 1
+			if not shouldExportDMX() and hasShapes(id):
+				if self.writeSMD(id, groupIndex, path + getFileExt(flex=True), FLEX):
+					self.countSMDs += 1
+		
+		
 	# indirection to support batch exporting
 	def exportObject(self,context,object,groupIndex=-1):
 		props = self.properties
@@ -791,10 +809,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bakes_in = [in_object]
 			else:
 				have_baked_metaballs = False
-				validObs = getValidObs()
 				flex_obs = []
 				for object in smd.g.objects:
-					if object.smd_export and object in validObs and object.type in mesh_compatible and not (object.type == 'META' and have_baked_metaballs):
+					if object.smd_export and object in self.validObs and object.type in mesh_compatible and not (object.type == 'META' and have_baked_metaballs):
 						bakes_in.append(object)
 						if not have_baked_metaballs: have_baked_metaballs = object.type == 'META'
 						
@@ -809,6 +826,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				_GetParentInfo(obj)
 		
 		# bake the list of objects!
+		if len(bakes_in): print("- Baking {} objects".format(len(bakes_in)))
 		for i in range(len(bakes_in)):
 			bpy.context.window_manager.progress_update(i / len(bakes_in))
 			obj = bakes_in[i]
@@ -966,6 +984,17 @@ class SmdExporter(bpy.types.Operator, Logger):
 			obj.select = False
 		
 		smd.bakeInfo.extend(bakes_out) # save to manager
+		
+	def export(self, exportable):
+		self.object = object
+		self.jobType = export_type
+		self.startTime = time.time()
+		
+		print( "\nBlender Source Tools now exporting {}{}".format(smd.jobName," (shape keys)" if smd.jobType == FLEX else "") )
+		
+		if type(object) == bpy.types.Group:
+			pass
+		
 
 	def writeSMD(self, object, groupIndex, filepath, smd_type = None, quiet = False ):
 		smd = self.smd = SmdInfo()
@@ -977,6 +1006,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		smd.uiTime = 0
 		
 		def _workStartNotice():
+			if smd.jobName == "still_to_merge":
+				0/0
 			if not quiet:
 				print( "\nSMD EXPORTER: now working on {}{}".format(smd.jobName," (shape keys)" if smd.jobType == FLEX else "") )
 
@@ -1052,7 +1083,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		start = time.time()
 		print("-",os.path.realpath(filepath))
-		benchReset()
+		#benchReset()
 		
 		if len(smd.bakeInfo) and smd.bakeInfo[0].smd_flex_controller_mode == 'ADVANCED' and not hasFlexControllerSource(smd.bakeInfo[0]):
 			self.error( "Could not find flex controllers for \"{}\"".format(smd.jobName) )
@@ -1122,7 +1153,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if not bone.parent:
 						DmeModel_children.append(writeBone(bone))
 						
-			bench("skeleton")
+			#bench("skeleton")
 			
 		if smd.jobType == REF: # mesh
 			root["model"] = DmeModel
@@ -1136,7 +1167,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if len(ob.data.polygons) == 0:
 					self.error("Object {} has no faces, cannot export".format(ob_name))
 					return
-				print("\n" + ob_name)
+				#print("\n" + ob_name)
 				vertex_data = dm.add_element("bind","DmeVertexData",id=ob_name+"verts")
 				
 				DmeMesh = dm.add_element(ob_name,"DmeMesh",id=ob_name+"mesh")
@@ -1194,7 +1225,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				uv_layer = ob.data.uv_layers.active.data
 				
-				bench("setup")
+				#bench("setup")
 				
 				if ob.get('bp'):
 					jointWeights = [ 1.0 ] * len(ob.data.vertices)
@@ -1245,7 +1276,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						
 						Indices.append(loop.vertex_index)
 				
-				bench("verts")
+				#bench("verts")
 				
 				
 				vertex_data["positions"] = datamodel.make_array(pos,datamodel.Vector3)
@@ -1265,7 +1296,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					vertex_data["balance"] = datamodel.make_array(balance,float)
 					vertex_data["balanceIndices"] = datamodel.make_array(Indices,int)
 				
-				bench("insert")
+				#bench("insert")
 				face_sets = {}
 				bad_face_mats = 0
 				v = 0
@@ -1300,7 +1331,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 				if bad_face_mats:
 					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,ob['src_name'],"" if bpy.context.scene.smd_use_image_names else " or material"))
-				bench("faces")
+				#bench("faces")
 				
 				# shapes
 				if has_shapes:
@@ -1453,7 +1484,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						DmeCombinationOperator["controlValues"].extend(control_values)
 						DmeCombinationOperator["targets"].append(DmeMesh)
 					
-					bench("shapes")
+					#bench("shapes")
 					print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 			
 				removeObject(ob)
@@ -1509,7 +1540,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for bone in smd.a.pose.bones:
 				makeChannel(bone)
 			num_frames = int(action.frame_range[1] + 1)
-			bench("Animation setup")
+			#bench("Animation setup")
 			prev_pos = {}
 			prev_rot = {}
 			scale = smd.a.matrix_world.to_scale()
@@ -1539,7 +1570,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						bone_channels[bone][1]["values"].append(getDatamodelQuat(rot))
 					prev_rot[bone] = rot_vec
 					
-				bench("frame {}".format(frame+1))
+				#bench("frame {}".format(frame+1))
 		
 		benchReset()
 		bpy.context.window_manager.progress_update(0.99)
@@ -1550,7 +1581,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
 		except (PermissionError, FileNotFoundError) as err:
 			self.error("Could not create DMX. Python reports: {}.".format(err))
-		bench("Writing")
+		#bench("Writing")
 		print("DMX export took",time.time() - start,"\n")
 		
 		return True

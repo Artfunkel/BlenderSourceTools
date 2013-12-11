@@ -247,6 +247,16 @@ def removeObject(obj):
 
 	return None if d else type
 
+def hasShapes(id):
+	def _test(id_):
+		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
+	
+	if type(id) == bpy.types.Group:
+		for g_ob in id.objects:
+			if _test(g_ob): return True
+	else:
+		return _test(id)
+		
 def hasShapes(ob,groupIndex = -1):
 	def _test(t_ob):
 		return t_ob.type in shape_types and t_ob.data.shape_keys and len(t_ob.data.shape_keys.key_blocks) > 1

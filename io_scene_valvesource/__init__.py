@@ -150,13 +150,10 @@ def scene_update(scene):
 	validObs = GUI.getValidObs()
 	
 	def makeDisplayName(item,action = None):
-		out = os.path.join(item.smd_subdir if item.smd_subdir != "." else None, getObExportName(action if action else item) + getFileExt())
-		#if hasShapes(item):
-		#	out += " (shapes)"
-		return out
+		return os.path.join(item.smd_subdir if item.smd_subdir != "." else None, getObExportName(action if action else item) + getFileExt())
 	
 	if len(validObs):
-		validObs.sort(key=lambda ob: ob.name.lower())
+		ungrouped_objects = validObs[:]
 		
 		groups_sorted = bpy.data.groups[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -166,8 +163,8 @@ def scene_update(scene):
 			valid = False
 			for object in group.objects:
 				if object in validObs:
-					if not group.smd_mute:
-						validObs.remove(object)
+					if not group.smd_mute and object in ungrouped_objects:
+						ungrouped_objects.remove(object)
 					valid = True
 			if valid:
 				scene_groups.append(group)
@@ -181,8 +178,9 @@ def scene_update(scene):
 			i.item_name = g.name
 			i.icon = i.ob_type = "GROUP"
 			
-			
-		for ob in validObs:
+		
+		ungrouped_objects.sort(key=lambda ob: ob.name.lower())
+		for ob in ungrouped_objects:
 			if ob.type == 'FONT':
 				ob.smd_triangulate = True # preserved if the user converts to mesh
 			

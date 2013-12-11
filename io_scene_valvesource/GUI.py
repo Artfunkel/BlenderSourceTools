@@ -170,7 +170,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		row = l.row()
 		row.alignment = 'CENTER'
-		row.prop(scene,"smd_layer_filter",text="Visible layer(s) only")
+		row.prop(scene,"smd_layer_filter",text="Visible layers only")
 		row.prop(scene,"smd_use_image_names",text="Ignore Blender materials")
 
 		row = l.row()
@@ -231,14 +231,15 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		r.label(text=item.name,icon=MakeObjectIcon(item,suffix="_DATA"))
 		
 	def filter_items(self, context, data, propname):
-		out = [self.bitflag_filter_item] * len(data.objects)
+		filter = [self.bitflag_filter_item] * len(data.objects)
 		use_name = len(self.filter_name) != 0
 		name = self.filter_name.lower()
 		validObs = getValidObs()
 		for i,ob in enumerate(data.objects):
 			if (use_name and ob.name.lower().find(name) == -1) or not ob in validObs:
-				out[i] &= ~self.bitflag_filter_item
-		return out, []
+				filter[i] &= ~self.bitflag_filter_item
+				
+		return filter, bpy.types.UI_UL_list.sort_items_by_name(data.objects) if self.use_filter_sort_alpha else []
 		
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = "Source Engine Exportables"
