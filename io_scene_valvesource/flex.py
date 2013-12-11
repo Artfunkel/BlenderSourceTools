@@ -32,7 +32,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		if context.active_object:
 			group_index = -1
 			for i,g in enumerate(context.active_object.users_group):
-				if not g.smd_mute:
+				if not g.vs.mute:
 					group_index = i
 					break
 			return hasShapes(context.active_object,group_index)
@@ -51,11 +51,11 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 			objects.append(ob)
 		else:
 			for g in ob.users_group:
-				if g.smd_mute: continue
+				if g.vs.mute: continue
 				text_name = g.name
 				target = g
 				for g_ob in g.objects:
-					if g_ob.smd_export and hasShapes(g_ob):
+					if g_ob.vs.export and hasShapes(g_ob):
 						objects.append(g_ob)
 				break
 		
@@ -92,8 +92,8 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		text.use_tabs_as_spaces = False
 		text.from_string(dm.echo("keyvalues2",1))
 		
-		if not target.smd_flex_controller_source:
-			target.smd_flex_controller_source = text.name
+		if not target.vs.flex_controller_source:
+			target.vs.flex_controller_source = text.name
 		
 		self.report({'INFO'},"DMX written to text block \"{}\"".format(text.name))		
 		
@@ -127,7 +127,7 @@ class ActiveDependencyShapes(bpy.types.Operator):
 
 class AddCorrectiveShapeDrivers(bpy.types.Operator):
 	'''Adds Blender animation drivers to corrective Source engine shapes'''
-	bl_idname = "object.smd_generate_corrective_drivers"
+	bl_idname = "object.sourcetools_generate_corrective_drivers"
 	bl_label = "Generate Corrective Shape Key Drivers"
 
 	@classmethod

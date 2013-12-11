@@ -104,29 +104,29 @@ def getDatamodelQuat(blender_quat):
 	return datamodel.Quaternion([blender_quat[1], blender_quat[2], blender_quat[3], blender_quat[0]])
 
 def studiomdlPathValid():
-	return os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.smd_studiomdl_custom_path),"studiomdl.exe"))
+	return os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
 
 def getGamePath():
-	return os.path.abspath(os.path.join(bpy.path.abspath(bpy.context.scene.smd_game_path),'')) if len(bpy.context.scene.smd_game_path) else os.getenv('vproject')
+	return os.path.abspath(os.path.join(bpy.path.abspath(bpy.context.scene.vs.game_path),'')) if len(bpy.context.scene.vs.game_path) else os.getenv('vproject')
 def gamePathValid():
 	return os.path.exists(os.path.join(getGamePath(),"gameinfo.txt"))
 
 def DatamodelEncodingVersion():
 	ver = getDmxVersionsForSDK()
-	return ver[0] if ver else int(bpy.context.scene.smd_dmx_encoding)
+	return ver[0] if ver else int(bpy.context.scene.vs.dmx_encoding)
 def DatamodelFormatVersion():
 	ver = getDmxVersionsForSDK()
-	return ver[1] if ver else int(bpy.context.scene.smd_dmx_format)
+	return ver[1] if ver else int(bpy.context.scene.vs.dmx_format)
 
 def allowDMX():
 	return getDmxVersionsForSDK() != [0,0]
 def canExportDMX():
-	return (len(bpy.context.scene.smd_studiomdl_custom_path) == 0 or studiomdlPathValid()) and allowDMX()
+	return (len(bpy.context.scene.vs.engine_path) == 0 or studiomdlPathValid()) and allowDMX()
 def shouldExportDMX():
-	return bpy.context.scene.smd_format == 'DMX' and canExportDMX()
+	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
 
 def getEngineBranchName():
-	path = bpy.context.scene.smd_studiomdl_custom_path
+	path = bpy.context.scene.vs.engine_path
 	if path.lower().find("sourcefilmmaker") != -1:
 		return "Source Filmmaker" # hack for weird SFM folder structure, add a space too
 	elif path.lower().find("dota 2 beta") != -1:
@@ -140,14 +140,14 @@ def getDmxVersionsForSDK():
 
 def count_exports(context):
 	num = 0
-	for exportable in context.scene.smd_export_list:
+	for exportable in context.scene.vs.export_list:
 		id = exportable.get_id()
-		if id and id.smd_export and (type(id) != bpy.types.Group or not id.smd_mute):
+		if id and id.vs.export and (type(id) != bpy.types.Group or not id.vs.mute):
 			num += 1
 	return num
 
 def getFileExt(flex=False):
-	if allowDMX() and bpy.context.scene.smd_format == 'DMX':
+	if allowDMX() and bpy.context.scene.vs.export_format == 'DMX':
 		return ".dmx"
 	else:
 		if flex: return ".vta"
@@ -219,10 +219,7 @@ def MakeObjectIcon(object,prefix=None,suffix=None):
 	return out
 
 def getObExportName(ob):
-	if ob.get('smd_name'):
-		return ob['smd_name']
-	else:
-		return ob.name
+	return ob.name
 
 def removeObject(obj):
 	d = obj.data
@@ -269,17 +266,17 @@ def hasShapes(ob,groupIndex = -1):
 		return _test(ob)
 
 def shouldExportGroup(group):
-	return group.smd_export and not group.smd_mute
+	return group.vs.export and not group.vs.mute
 
 def hasFlexControllerSource(item):
-	return bpy.data.texts.get(item.smd_flex_controller_source) or os.path.exists(bpy.path.abspath(item.smd_flex_controller_source))
+	return bpy.data.texts.get(item.vs.flex_controller_source) or os.path.exists(bpy.path.abspath(item.vs.flex_controller_source))
 
 def getValidObs():
 	validObs = []
 	s = bpy.context.scene
 	for o in s.objects:
 		if o.type in exportable_types:
-			if s.smd_layer_filter:
+			if s.vs.layer_filter:
 				for i in range( len(o.layers) ):
 					if o.layers[i] and s.layers[i]:
 						validObs.append(o)
@@ -339,7 +336,7 @@ class SmdInfo:
 	rotMode = 'EULER' # for creating keyframes during import
 	
 	def __init__(self):
-		self.upAxis = bpy.context.scene.smd_up_axis
+		self.upAxis = bpy.context.scene.vs.up_axis
 		self.amod = {} # Armature modifiers
 		self.materials_used = set() # printed to the console for users' benefit
 
@@ -404,12 +401,12 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self,context):
-		return bool(context.scene.smd_studiomdl_custom_path)
+		return bool(context.scene.vs.engine_path)
 		
 	def execute(self,context):
-		args = [os.path.normpath(os.path.join(bpy.path.abspath(context.scene.smd_studiomdl_custom_path),"hlmv"))]
-		if context.scene.smd_game_path:
-			args.extend(["-game",os.path.normpath(bpy.path.abspath(context.scene.smd_game_path))])
+		args = [os.path.normpath(os.path.join(bpy.path.abspath(context.scene.vs.engine_path),"hlmv"))]
+		if context.scene.vs.game_path:
+			args.extend(["-game",os.path.normpath(bpy.path.abspath(context.scene.vs.game_path))])
 		subprocess.Popen(args)
 		return {'FINISHED'}
 
@@ -438,6 +435,6 @@ class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
 		
 		for ob in context.visible_objects:
 			if fnmatch.fnmatch(ob.name,self.pattern):
-				if target_state == None: target_state = not ob.smd_export
-				ob.smd_export = target_state
+				if target_state == None: target_state = not ob.vs.export
+				ob.vs.export = target_state
 		return {'FINISHED'}

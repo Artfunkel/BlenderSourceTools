@@ -58,7 +58,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		out = []
 		internal = False
 		if not path:
-			path = bpy.path.abspath(bpy.context.scene.smd_qc_path)
+			path = bpy.path.abspath(bpy.context.scene.vs.qc_path)
 			internal = True
 		for result in glob.glob(path):
 			if result.endswith(ext):
@@ -72,7 +72,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		scene = bpy.context.scene
 		print("\n")
 
-		studiomdl_path = os.path.join(bpy.path.abspath(scene.smd_studiomdl_custom_path),"studiomdl.exe")
+		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.studiomdl_custom_path),"studiomdl.exe")
 
 		if path:
 			p_cache.qc_paths = [path]
@@ -135,18 +135,18 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if props.exportMode == 'NONE':
 			self.report({'ERROR'},"bpy.ops.{} requires an exportMode".format(SmdExporter.bl_idname))
 			return {'CANCELLED'}
-		if allowDMX() and context.scene.smd_format == 'DMX':
+		if allowDMX() and context.scene.vs.export_format == 'DMX':
 			datamodel.check_support("binary",DatamodelEncodingVersion())
 			if DatamodelEncodingVersion() < 3 and DatamodelFormatVersion() > 11:
 				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
 				return {'CANCELLED' }
-		if len(context.scene.smd_path) == 0:
+		if len(context.scene.vs.export_path) == 0:
 			self.report({'ERROR'},"Scene unconfigured. See the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
 			return {'CANCELLED'}
-		if context.scene.smd_path.startswith("//") and not bpy.context.blend_data.filepath:
+		if context.scene.vs.export_path.startswith("//") and not bpy.context.blend_data.filepath:
 			self.report({'ERROR'},"Cannot export to a relative path until the blend file has been saved.")
 			return {'CANCELLED'}
-		if allowDMX() and context.scene.smd_format == 'DMX' and not canExportDMX():
+		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
 			self.report({'ERROR'},"Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
 			return {'CANCELLED'}
 		
@@ -172,7 +172,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if props.exportMode == 'SINGLE_ANIM': # really hacky, hopefully this will stay a one-off!
 				if context.active_object.type == 'ARMATURE':
-					context.active_object.data.smd_action_selection = 'CURRENT'
+					context.active_object.data.vs.action_selection = 'CURRENT'
 				props.exportMode = 'SINGLE'
 
 			print("\nSMD EXPORTER RUNNING")
@@ -194,7 +194,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					try:
 						group_name = ob.users_group[props.groupIndex].name
 						for g_ob in ob.users_group[props.groupIndex].objects:
-							if g_ob.smd_export:
+							if g_ob.vs.export:
 								ob = g_ob
 								break
 							else:
@@ -212,10 +212,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for object in context.selected_objects:
 					if object.type in mesh_compatible:
 						if object.users_group:
-							if object.smd_export:
+							if object.vs.export:
 								for i in range(len(object.users_group)):
 									g = object.users_group[i]
-									if g not in exported_groups and g in [item.get_id() for item in context.scene.smd_export_list]:
+									if g not in exported_groups and g in [item.get_id() for item in context.scene.vs.export_list]:
 										exported_groups.append(object.users_group[i])
 										self.exportObject(context,object,groupIndex=i)
 						else:
@@ -224,10 +224,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 						self.exportObject(context,object)
 
 			elif props.exportMode == 'SCENE':
-				for id in [exportable.get_id() for exportable in context.scene.smd_export_list]:
+				for id in [exportable.get_id() for exportable in context.vs.export_list]:
 					if type(id) == bpy.types.Group and shouldExportGroup(id):
 						for object in id.objects[:]: # avoid pollution from the baking process
-							if object.smd_export and object in self.validObs and object.type != 'ARMATURE':
+							if object.vs.export and object in self.validObs and object.type != 'ARMATURE':
 								g_index = -1
 								for i in range(len(object.users_group)):
 									if object.users_group[i] == id:
@@ -242,7 +242,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			if self.attemptedExports == 0:
 				self.error("Found no valid objects for export")
-			elif context.scene.smd_qc_compile and context.scene.smd_qc_path:
+			elif context.scene.vs.qc_compile and context.scene.vs.qc_path:
 				# ...and compile the QC
 				if not SMD_OT_Compile.poll(context):
 					print("Skipping QC compile step: context incorrect\n")
@@ -263,8 +263,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				prev_hidden.hide = True
 				
 			for ob in self.validObs:
-				if ob.type == 'ARMATURE' and len(bpy.data.objects[ob.name].smd_subdir) == 0:
-					bpy.data.objects[ob.name].smd_subdir = self.default_armature_subdir # ob itself seems to be within the undo buffer!
+				if ob.type == 'ARMATURE' and len(bpy.data.objects[ob.name].vs.subdir) == 0:
+					bpy.data.objects[ob.name].vs.subdir = self.default_armature_subdir # ob itself seems to be within the undo buffer!
 			p_cache.scene_updated = True
 			
 			props.groupIndex = -1
@@ -307,20 +307,20 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if groupIndex == -1:
 			if not object in self.validObs:
 				return
-			subdir = object.smd_subdir
+			subdir = object.vs.subdir
 			if object.type == 'ARMATURE':
 				if not object.animation_data: return # otherwise we create a folder but put nothing in it
 				if len(subdir) == 0: subdir = self.default_armature_subdir
 		else:
 			if len(set(self.validObs).intersection( set(object.users_group[groupIndex].objects) )) == 0:
 				return
-			subdir = object.users_group[groupIndex].smd_subdir
+			subdir = object.users_group[groupIndex].vs.subdir
 		
 		# handle subfolder
 		subdir = subdir.lstrip("/") # don't want //s here!
 
 		# assemble filename
-		path = os.path.join(bpy.path.abspath(context.scene.smd_path), subdir)
+		path = os.path.join(bpy.path.abspath(context.scene.vs.export_path), subdir)
 		if not os.path.exists(path):
 			try:
 				os.makedirs(path)
@@ -334,15 +334,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if self.writeSMD(object, groupIndex, path + getFileExt()):
 				self.countSMDs += 1
-			if bpy.context.scene.smd_format == 'SMD' and hasShapes(object,groupIndex): # DMX will export mesh and shapes to the same file
+			if bpy.context.scene.vs.export_format == 'SMD' and hasShapes(object,groupIndex): # DMX will export mesh and shapes to the same file
 				if self.writeSMD(object, groupIndex, path + getFileExt(flex=True), FLEX):
 					self.countSMDs += 1
 		elif object.type == 'ARMATURE':
 			ad = object.animation_data
 			
-			if object.data.smd_action_selection == 'FILTERED':
+			if object.data.vs.action_selection == 'FILTERED':
 				for action in bpy.data.actions:
-					if action.users and (not object.smd_action_filter or action.name.lower().find(object.smd_action_filter.lower()) != -1):
+					if action.users and (not object.vs.action_filter or action.name.lower().find(object.vs.action_filter.lower()) != -1):
 						ad.action = action
 						if self.writeSMD(object, -1, os.path.join(path, action.name + getFileExt() ), ANIM):
 							self.countSMDs += 1
@@ -379,7 +379,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return
 		
 		curID = 0
-		if smd.a.data.smd_implicit_zero_bone:
+		if smd.a.data.vs.implicit_zero_bone:
 			smd.file.write("0 \"blender_implicit\" -1\n")
 			curID += 1
 		
@@ -462,7 +462,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.window_manager.progress_update(i / num_frames)
 			smd.file.write("time {}\n".format(i))
 			
-			if smd.a.data.smd_implicit_zero_bone:
+			if smd.a.data.vs.implicit_zero_bone:
 				smd.file.write("0 0 0 0 0 0 0\n")
 
 			for posebone in smd.a.pose.bones:
@@ -477,10 +477,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 				# Get the bone's Matrix from the current pose
 				PoseMatrix = posebone.matrix
-				if smd.a.data.smd_legacy_rotation:
+				if smd.a.data.vs.legacy_rotation:
 					PoseMatrix *= mat_BlenderToSMD 
 				if parent:
-					if smd.a.data.smd_legacy_rotation: parentMat = parent.matrix * mat_BlenderToSMD 
+					if smd.a.data.vs.legacy_rotation: parentMat = parent.matrix * mat_BlenderToSMD 
 					else: parentMat = parent.matrix
 					PoseMatrix = smd.a.matrix_world * parentMat.inverted() * PoseMatrix
 				else:
@@ -508,7 +508,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		ops.object.mode_set(mode='OBJECT')
 		
-		print("- Exported {} frames{}".format(num_frames," (legacy rotation)" if smd.a.data.smd_legacy_rotation else ""))
+		print("- Exported {} frames{}".format(num_frames," (legacy rotation)" if smd.a.data.vs.legacy_rotation else ""))
 		return
 		
 	def getWeightmap(self,ob):
@@ -571,7 +571,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 	def GetMaterialName(self, ob, poly):
 		smd = self.smd
 		mat_name = None
-		if not bpy.context.scene.smd_use_image_names and len(ob.material_slots) > poly.material_index:
+		if not bpy.context.scene.vs.use_image_names and len(ob.material_slots) > poly.material_index:
 			mat = ob.material_slots[poly.material_index].material
 			if mat:
 				mat_name = getObExportName(mat)
@@ -592,16 +592,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if not internal:
 			smd.file.write("triangles\n")
 			have_cleared_pose = False
-
-			if not bpy.context.scene.smd_use_image_names:
-				materials = []
-				for baked in smd.bakeInfo:
-					if baked.type == 'MESH':
-						for mat_slot in baked.material_slots:
-							mat = mat_slot.material
-							if mat and mat.get('smd_name') and mat not in materials:
-								smd.file.write( "// Blender material \"{}\" has smd_name \"{}\"\n".format(mat.name,mat['smd_name']) )
-								materials.append(mat)
 
 			for baked in smd.bakeInfo:
 				if baked.type == 'MESH':
@@ -683,7 +673,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			face_index += 1
 
 		if bad_face_mats:
-			self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,smd.jobName,"" if bpy.context.scene.smd_use_image_names else " or material"))
+			self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,smd.jobName,"" if bpy.context.scene.vs.use_image_names else " or material"))
 		print("- Exported",face_index,"polys")
 		removeObject(smd.m)
 		return
@@ -799,7 +789,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		elif in_object.type in mesh_compatible:
 			# hide all metaballs that we don't want
 			for object in bpy.context.scene.objects:
-				if (smd.g or object != in_object) and object.type == 'META' and (not object.smd_export or not (smd.g and smd.g in object.users_group)):
+				if (smd.g or object != in_object) and object.type == 'META' and (not object.vs.export or not (smd.g and smd.g in object.users_group)):
 					for element in object.data.elements:
 						element.hide = True
 			bpy.context.scene.update() # actually found a use for this!!
@@ -811,7 +801,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				have_baked_metaballs = False
 				flex_obs = []
 				for object in smd.g.objects:
-					if object.smd_export and object in self.validObs and object.type in mesh_compatible and not (object.type == 'META' and have_baked_metaballs):
+					if object.vs.export and object in self.validObs and object.type in mesh_compatible and not (object.type == 'META' and have_baked_metaballs):
 						bakes_in.append(object)
 						if not have_baked_metaballs: have_baked_metaballs = object.type == 'META'
 						
@@ -831,6 +821,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.window_manager.progress_update(i / len(bakes_in))
 			obj = bakes_in[i]
 			solidify_fill_rim = False
+			
+			print("Baking",obj.name)
 
 			if obj.type in shape_types and obj.data.shape_keys:
 				shape_keys = obj.data.shape_keys.key_blocks
@@ -942,12 +934,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if x == 0: bakes_out.append(baked)
 					else: smd.dmxShapes[obj.name].append(baked)
 					if smd.g:
-						baked.smd_flex_controller_source = smd.g.smd_flex_controller_source
-						baked.smd_flex_controller_mode = smd.g.smd_flex_controller_mode
+						baked.vs.flex_controller_source = smd.g.vs.flex_controller_source
+						baked.vs.flex_controller_mode = smd.g.vs.flex_controller_mode
 				else:
 					bakes_out.append(baked)
 				
-				if obj.smd_triangulate or not smd.isDMX:
+				if obj.vs.triangulate or not smd.isDMX:
 					ops.object.mode_set(mode='EDIT')
 					ops.mesh.quads_convert_to_tris()
 					ops.object.mode_set(mode='OBJECT')
@@ -960,9 +952,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if obj.type == 'CURVE':
 					ops.object.mode_set(mode='EDIT')
 					ops.mesh.select_all(action='SELECT')
-					if obj.data.smd_faces == 'BOTH':
+					if obj.data.vs.faces == 'BOTH':
 						ops.mesh.duplicate()
-					if obj.data.smd_faces != 'LEFT':
+					if obj.data.vs.faces != 'LEFT':
 						ops.mesh.flip_normals()
 					elif solidify_fill_rim:
 						self.warning("Curve {} has the Solidify modifier with rim fill, but is still exporting polys on both sides.".format(obj.name))
@@ -1085,7 +1077,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		print("-",os.path.realpath(filepath))
 		#benchReset()
 		
-		if len(smd.bakeInfo) and smd.bakeInfo[0].smd_flex_controller_mode == 'ADVANCED' and not hasFlexControllerSource(smd.bakeInfo[0]):
+		if len(smd.bakeInfo) and smd.bakeInfo[0].vs.flex_controller_mode == 'ADVANCED' and not hasFlexControllerSource(smd.bakeInfo[0]):
 			self.error( "Could not find flex controllers for \"{}\"".format(smd.jobName) )
 			return
 		
@@ -1199,7 +1191,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						count = len(vert_weights)
 						if count > 3: badJointCounts += 1
 						jointCount = max(jointCount,count)
-					if smd.a.data.smd_implicit_zero_bone:
+					if smd.a.data.vs.implicit_zero_bone:
 						jointCount += 1
 						
 				if badJointCounts:
@@ -1231,7 +1223,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					jointWeights = [ 1.0 ] * len(ob.data.vertices)
 					jointIndices = [ smd.boneNameToID[ob['bp']] ] * len(ob.data.vertices)
 				
-				if has_shapes: balance_width = ob.dimensions.x * ( 1 - (src_ob.data.smd_flex_stereo_sharpness / 100) )
+				if has_shapes: balance_width = ob.dimensions.x * ( 1 - (src_ob.data.vs.flex_stereo_sharpness / 100) )
 				num_verts = len(ob.data.vertices)
 				for vert in ob.data.vertices:
 					pos.append(datamodel.Vector3(vert.co))
@@ -1259,7 +1251,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 							weights[i] = vert_weights[i][1]
 							total_weight += weights[i]
 							i+=1
-						if smd.a.data.smd_implicit_zero_bone and total_weight < 1:
+						if smd.a.data.vs.implicit_zero_bone and total_weight < 1:
 							weights[-1] = float(1 - total_weight)
 						
 						jointWeights.extend(weights)
@@ -1312,7 +1304,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						material_elem = materials.get(mat_name)
 						if not material_elem:
 							materials[mat_name] = material_elem = dm.add_element(mat_name,"DmeMaterial",id=mat_name + "mat")
-							material_elem["mtlName"] = os.path.join(bpy.context.scene.smd_material_path, mat_name).replace('\\','/')
+							material_elem["mtlName"] = os.path.join(bpy.context.scene.vs.material_path, mat_name).replace('\\','/')
 						
 						faceSet = dm.add_element(mat_name,"DmeFaceSet",id=ob_name+mat_name+"faces")
 						faceSet["material"] = material_elem
@@ -1330,7 +1322,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 				if bad_face_mats:
-					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,ob['src_name'],"" if bpy.context.scene.smd_use_image_names else " or material"))
+					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,ob['src_name'],"" if bpy.context.scene.vs.use_image_names else " or material"))
 				#bench("faces")
 				
 				# shapes
@@ -1344,15 +1336,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 					num_correctives = 0
 					num_wrinkles = 0
 					
-					if ob.smd_flex_controller_mode == 'ADVANCED':
-						text = bpy.data.texts.get(ob.smd_flex_controller_source)
+					if ob.vs.flex_controller_mode == 'ADVANCED':
+						text = bpy.data.texts.get(ob.vs.flex_controller_source)
 						msg = "- Loading flex controllers from "
 						element_path = [ "combinationOperator" ]
 						if text:
 							print(msg + "text block \"{}\"".format(text.name))
 							controller_dm = datamodel.parse(text.as_string(),element_path=element_path)
 						else:
-							path = os.path.realpath(bpy.path.abspath(ob.smd_flex_controller_source))
+							path = os.path.realpath(bpy.path.abspath(ob.vs.flex_controller_source))
 							print(msg + path)
 							controller_dm = datamodel.load(path=path,element_path=element_path)
 						
@@ -1364,7 +1356,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if "_" in shape_name:
 							num_correctives += 1
 						else:
-							if ob.smd_flex_controller_mode == 'SIMPLE':
+							if ob.vs.flex_controller_mode == 'SIMPLE':
 								DmeCombinationInputControl = dm.add_element(shape_name,"DmeCombinationInputControl",id=ob_name+shape_name+"controller")
 								control_elems.append(DmeCombinationInputControl)
 							
@@ -1453,7 +1445,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 					
 					first_pass = not root.get("combinationOperator")
-					if ob.smd_flex_controller_mode == 'ADVANCED':
+					if ob.vs.flex_controller_mode == 'ADVANCED':
 						if first_pass:
 							DmeCombinationOperator = controller_dm.root["combinationOperator"]
 							root["combinationOperator"] = DmeCombinationOperator
@@ -1575,7 +1567,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		benchReset()
 		bpy.context.window_manager.progress_update(0.99)
 		try:
-			if bpy.context.scene.smd_use_kv2:
+			if bpy.context.scene.vs.use_kv2:
 				dm.write(filepath,"keyvalues2",1)
 			else:
 				dm.write(filepath,"binary",DatamodelEncodingVersion())

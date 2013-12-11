@@ -94,12 +94,12 @@ class SmdClean(bpy.types.Operator):
 				ops.object.mode_set(mode=object_mode)
 			
 			if type(object) == bpy.types.Object and object.type == 'ARMATURE': # clean from actions too
-				if object.data.smd_action_selection == 'CURRENT':
+				if object.data.vs.action_selection == 'CURRENT':
 					if object.animation_data and object.animation_data.action:
 						removeProps(object.animation_data.action)
 				else:
 					for action in bpy.data.actions:
-						if action.name.lower().find( object.data.smd_action_filter.lower() ) != -1:
+						if action.name.lower().find( object.data.vs.action_filter.lower() ) != -1:
 							removeProps(action)
 
 		active_obj = bpy.context.active_object
@@ -146,11 +146,33 @@ def scene_update(scene):
 	
 	p_cache.scene_updated = False
 	
-	scene.smd_export_list.clear()
+	if bpy.context.scene.get("smd_path"):
+		def convert(id,p_g):
+			for prop in dir(p_g):
+				if prop[0] == "_" or prop in ["bl_rna", "rna_type", "prop"]: continue
+				val = id.get("smd_" + prop)
+				if val != None:
+					id.vs[prop] = val
+			for prop in id.keys():
+				if prop.startswith("smd"):
+					del id[prop]
+				
+		for s in bpy.data.scenes:
+			s.vs["export_path"] = s.get("smd_path")
+			s.vs["engine_path"] = s.get("smd_studiomdl_custom_path")
+			convert(s,SceneProps)
+		for ob in bpy.data.objects: convert(ob,ObjectProps)
+		for a in bpy.data.armatures: convert(a,ArmatureProps)
+		for g in bpy.data.groups: convert(g,GroupProps)
+		for g in bpy.data.curves: convert(g,CurveProps)
+		for g in bpy.data.meshes: convert(g,MeshProps)
+				
+	
+	scene.vs.export_list.clear()
 	validObs = GUI.getValidObs()
 	
 	def makeDisplayName(item,action = None):
-		return os.path.join(item.smd_subdir if item.smd_subdir != "." else None, getObExportName(action if action else item) + getFileExt())
+		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, getObExportName(action if action else item) + getFileExt())
 	
 	if len(validObs):
 		ungrouped_objects = validObs[:]
@@ -163,15 +185,15 @@ def scene_update(scene):
 			valid = False
 			for object in group.objects:
 				if object in validObs:
-					if not group.smd_mute and object in ungrouped_objects:
+					if not group.vs.mute and object in ungrouped_objects:
 						ungrouped_objects.remove(object)
 					valid = True
 			if valid:
 				scene_groups.append(group)
 				
 		for g in scene_groups:
-			i = scene.smd_export_list.add()
-			if g.smd_mute:
+			i = scene.vs.export_list.add()
+			if g.vs.mute:
 				i.name = g.name + " (suppressed)"
 			else:
 				i.name = makeDisplayName(g)
@@ -182,7 +204,7 @@ def scene_update(scene):
 		ungrouped_objects.sort(key=lambda ob: ob.name.lower())
 		for ob in ungrouped_objects:
 			if ob.type == 'FONT':
-				ob.smd_triangulate = True # preserved if the user converts to mesh
+				ob.vs.triangulate = True # preserved if the user converts to mesh
 			
 			i_name = i_type = i_icon = None
 			if ob.type == 'ARMATURE':
@@ -194,16 +216,16 @@ def scene_update(scene):
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
 				i_type = "OBJECT"
 			if i_name:
-				i = scene.smd_export_list.add()
+				i = scene.vs.export_list.add()
 				i.name = i_name
 				i.ob_type = i_type
 				i.icon = i_icon
 				i.item_name = ob.name
 
 def export_active_changed(self, context):
-	id = context.scene.smd_export_list[context.scene.smd_export_list_active].get_id()
+	id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
 	
-	if type(id) == bpy.types.Group and id.smd_mute: return
+	if type(id) == bpy.types.Group and id.vs.mute: return
 	for ob in context.scene.objects: ob.select = False
 	
 	if type(id) == bpy.types.Group:
@@ -215,7 +237,7 @@ def export_active_changed(self, context):
 
 def group_selected_changed(self,context):
 	for ob in context.scene.objects: ob.select = False
-	id = self.objects[self.smd_selected_item]
+	id = self.objects[self.vs.selected_item]
 	id.select = True
 	context.scene.objects.active = id
 
@@ -229,6 +251,73 @@ def studiomdl_path_changed(self, context):
 	else:
 		print(prefix + "now exporting DMX binary {} / model {}".format(version[0],version[1]))
 
+#
+# Property Groups
+#
+from bpy.types import PropertyGroup
+
+encodings = []
+for enc in datamodel.list_support()['binary']: encodings.append( (str(enc), 'Binary ' + str(enc), '' ) )
+formats = []
+for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '') )
+
+class SceneProps(PropertyGroup):
+	export_path = StringProperty(name="Export Root",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
+	qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
+	qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
+	engine_path = StringProperty(name="Engine Path",description="Directory containing studiomdl", subtype="DIR_PATH",update=studiomdl_path_changed)
+	
+	dmx_encoding = EnumProperty(name="DMX encoding",description="Manual override for binary DMX encoding version",items=tuple(encodings),default='2')
+	dmx_format = EnumProperty(name="DMX format",description="Manual override for DMX model format version",items=tuple(formats),default='1')
+	
+	export_format = EnumProperty(name="Export Format",items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
+	up_axis = EnumProperty(name="Target Up Axis",items=axes,default='Z',description="Use for compatibility with data from other 3D tools")
+	use_image_names = BoolProperty(name="Ignore Materials",description="Only export face-assigned image filenames",default=False)
+	layer_filter = BoolProperty(name="Export visible layers only",description="Ignore objects in hidden layers",default=False)
+	material_path = StringProperty(name="DMX material path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
+	export_list_active = IntProperty(name="Active exportable",default=0,update=export_active_changed)
+	export_list = CollectionProperty(type=SMD_CT_ObjectExportProps,options={'SKIP_SAVE','HIDDEN'})	
+	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
+	game_path = StringProperty(name="Game path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH")
+
+class ObjectProps(PropertyGroup):
+	export = BoolProperty(name="Scene Export",description="Export this item with the scene",default=True)
+	subdir = StringProperty(name="Subfolder",description="Optional path relative to scene output folder")
+	action_filter = StringProperty(name="Action Filter",description="Only actions with names matching this filter will be exported")
+	flex_controller_modes = (
+		('SIMPLE',"Simple","Generate one flex controller per shape key"),
+		('ADVANCED',"Advanced","Insert the flex controllers of an existing DMX file")
+	)
+	flex_controller_mode = EnumProperty(name="DMX Flex Controller generation",description="How flex controllers are defined",items=flex_controller_modes,default='SIMPLE')
+	flex_controller_source = StringProperty(name="DMX Flex Controller source",description="A DMX file (or Text datablock) containing flex controllers",subtype='FILE_PATH')
+	triangulate = BoolProperty(name="Triangulate",description="Avoids concave DMX faces, which are not supported by studiomdl",default=False)
+
+class ArmatureProps(PropertyGroup):
+	implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files")
+	arm_modes = (
+		('CURRENT',"Current / NLA","The armature's assigned action, or everything in an NLA track"),
+		('FILTERED',"Action Filter","All actions that match the armature's filter term")
+	)
+	action_selection = EnumProperty(name="Action Selection", items=arm_modes,description="How actions are selected for export",default='CURRENT')
+	legacy_rotation = BoolProperty(name="Legacy rotation",description="Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",default=False)
+
+class GroupProps(PropertyGroup):
+	export = ObjectProps.export
+	subdir = ObjectProps.subdir
+	flex_controller_mode = ObjectProps.flex_controller_mode
+	flex_controller_source = ObjectProps.flex_controller_source
+	mute = BoolProperty(name="Suppress",description="Export this group's objects individually",default=False)
+	selected_item = IntProperty(update=group_selected_changed)
+
+class MeshProps(PropertyGroup):
+	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
+
+class CurveProps(PropertyGroup):
+	faces = EnumProperty(name="Faces generation",description="Determines which sides of the mesh resulting from this curve will have polygons",default='LEFT',items=(
+	('LEFT', 'Left side', 'Generate polygons on the left side'),
+	('RIGHT', 'Right side', 'Generate polygons on the right side'),
+	('BOTH', 'Both  sides', 'Generate polygons on both sides')) )
+
 def register():
 	bpy.utils.register_module(__name__)
 	bpy.types.INFO_MT_file_import.append(menu_func_import)
@@ -239,63 +328,15 @@ def register():
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
 	
-	bpy.types.Scene.smd_path = StringProperty(name="SMD Export Root",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
-	bpy.types.Scene.smd_qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
-	bpy.types.Scene.smd_qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
-	bpy.types.Scene.smd_studiomdl_custom_path = StringProperty(name="Source SDK Path",description="Directory containing studiomdl", subtype="DIR_PATH",update=studiomdl_path_changed)
-	
-	encodings = []
-	for enc in datamodel.list_support()['binary']: encodings.append( (str(enc), 'Binary ' + str(enc), '' ) )
-	bpy.types.Scene.smd_dmx_encoding = EnumProperty(name="DMX encoding",description="Manual override for binary DMX encoding version",items=tuple(encodings),default='2')
-	
-	formats = []
-	for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '') )
-	bpy.types.Scene.smd_dmx_format = EnumProperty(name="DMX format",description="Manual override for DMX model format version",items=tuple(formats),default='1')
-	
-	bpy.types.Scene.smd_format = EnumProperty(name="SMD Export Format",items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
-	bpy.types.Scene.smd_up_axis = EnumProperty(name="SMD Target Up Axis",items=axes,default='Z',description="Use for compatibility with data from other 3D tools")
-	bpy.types.Scene.smd_use_image_names = BoolProperty(name="SMD Ignore Materials",description="Only export face-assigned image filenames",default=False)
-	bpy.types.Scene.smd_layer_filter = BoolProperty(name="SMD Export visible layers only",description="Ignore objects in hidden layers",default=False)
-	bpy.types.Scene.smd_material_path = StringProperty(name="DMX material path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
-	bpy.types.Scene.smd_export_list_active = IntProperty(name="SMD active object",default=0,update=export_active_changed)
-	bpy.types.Scene.smd_export_list = CollectionProperty(type=SMD_CT_ObjectExportProps,options={'SKIP_SAVE','HIDDEN'})	
-	bpy.types.Scene.smd_use_kv2 = BoolProperty(name="SMD Write KeyValues2",description="Write ASCII DMX files",default=False)
-	bpy.types.Scene.smd_game_path = StringProperty(name="QC Compile Target",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH")
-	
-	bpy.types.Object.smd_export = BoolProperty(name="SMD Scene Export",description="Export this item with the scene",default=True)
-	bpy.types.Object.smd_subdir = StringProperty(name="SMD Subfolder",description="Optional path relative to scene output folder")
-	bpy.types.Object.smd_action_filter = StringProperty(name="SMD Action Filter",description="Only actions with names matching this filter will be exported")
-	flex_controller_modes = (
-		('SIMPLE',"Simple","Generate one flex controller per shape key"),
-		('ADVANCED',"Advanced","Insert the flex controllers of an existing DMX file")
-	)
-	bpy.types.Object.smd_flex_controller_mode = EnumProperty(name="DMX Flex Controller generation",description="How flex controllers are defined",items=flex_controller_modes,default='SIMPLE')
-	bpy.types.Object.smd_flex_controller_source = StringProperty(name="DMX Flex Controller source",description="A DMX file (or Text datablock) containing flex controllers",subtype='FILE_PATH')
-	bpy.types.Object.smd_triangulate = BoolProperty(name="Triangulate",description="Avoids concave DMX faces, which are not supported by studiomdl",default=False)
-	
-	bpy.types.Armature.smd_implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files")
-	arm_modes = (
-		('CURRENT',"Current / NLA","The armature's assigned action, or everything in an NLA track"),
-		('FILTERED',"Action Filter","All actions that match the armature's filter term")
-	)
-	bpy.types.Armature.smd_action_selection = EnumProperty(name="Action Selection", items=arm_modes,description="How actions are selected for export",default='CURRENT')
-	bpy.types.Armature.smd_legacy_rotation = BoolProperty(name="Legacy rotation",description="Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",default=False)
-
-	bpy.types.Group.smd_export = bpy.types.Object.smd_export
-	bpy.types.Group.smd_subdir = bpy.types.Object.smd_subdir
-	bpy.types.Group.smd_expand = BoolProperty(name="SMD show expanded",description="Show the contents of this group in the Scene Exports panel",default=False)
-	bpy.types.Group.smd_mute = BoolProperty(name="SMD ignore",description="Export this group's objects individually",default=False)
-	bpy.types.Group.smd_flex_controller_mode = bpy.types.Object.smd_flex_controller_mode
-	bpy.types.Group.smd_flex_controller_source = bpy.types.Object.smd_flex_controller_source
-	bpy.types.Group.smd_selected_item = IntProperty(update=group_selected_changed)
-	
-	bpy.types.Mesh.smd_flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
-	
-	bpy.types.Curve.smd_faces = EnumProperty(name="SMD export which faces",items=(
-	('LEFT', 'Left side', 'Generate polygons on the left side'),
-	('RIGHT', 'Right side', 'Generate polygons on the right side'),
-	('BOTH', 'Both  sides', 'Generate polygons on both sides'),
-	), description="Determines which sides of the mesh resulting from this curve will have polygons",default='LEFT')
+	def make_pointer(prop_type):
+		return PointerProperty(name="Blender Source Tools settings",type=prop_type)
+		
+	bpy.types.Scene.vs = make_pointer(SceneProps)
+	bpy.types.Object.vs = make_pointer(ObjectProps)
+	bpy.types.Armature.vs = make_pointer(ArmatureProps)
+	bpy.types.Group.vs = make_pointer(GroupProps)
+	bpy.types.Mesh.vs = make_pointer(MeshProps)
+	bpy.types.Curve.vs = make_pointer(CurveProps)
 
 def unregister():
 	bpy.utils.unregister_module(__name__)
@@ -304,43 +345,12 @@ def unregister():
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
 	bpy.app.handlers.scene_update_post.remove(scene_update)
 
-	Scene = bpy.types.Scene
-	del Scene.smd_path
-	del Scene.smd_qc_compile
-	del Scene.smd_qc_path
-	del Scene.smd_studiomdl_custom_path
-	del Scene.smd_dmx_encoding
-	del Scene.smd_dmx_format
-	del Scene.smd_up_axis
-	del Scene.smd_format
-	del Scene.smd_use_image_names
-	del Scene.smd_layer_filter
-	del Scene.smd_material_path
-	del Scene.smd_use_kv2
-
-	Object = bpy.types.Object
-	del Object.smd_export
-	del Object.smd_subdir
-	del Object.smd_action_filter
-	del Object.smd_flex_controller_mode
-	del Object.smd_flex_controller_source
-
-	del bpy.types.Armature.smd_implicit_zero_bone
-	del bpy.types.Armature.smd_action_selection
-	del bpy.types.Armature.smd_legacy_rotation
-
-	Group = bpy.types.Group
-	del Group.smd_export
-	del Group.smd_subdir
-	del Group.smd_expand
-	del Group.smd_mute
-	del Group.smd_flex_controller_mode
-	del Group.smd_flex_controller_source
-	del Group.smd_selected_item
-
-	del bpy.types.Curve.smd_faces
-	
-	del bpy.types.Mesh.smd_flex_stereo_sharpness
+	del bpy.types.Scene.vs
+	del bpy.types.Object.vs
+	del bpy.types.Armature.vs
+	del bpy.types.Group.vs
+	del bpy.types.Mesh.vs
+	del bpy.types.Curve.vs
 
 if __name__ == "__main__":
 	register()

@@ -44,7 +44,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 					icon = "ACTION"
 					count = 1
 					if export_name:
-						text = os.path.join(ob.smd_subdir if ob.smd_subdir != "." else None,ad.action.name + getFileExt())
+						text = os.path.join(ob.vs.subdir if ob.vs.subdir != "." else None,ad.action.name + getFileExt())
 					else:
 						text = ad.action.name
 				elif ad.nla_tracks:
@@ -63,14 +63,14 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 	# returns the appropriate text for the filtered list of all action
 	def getActionFilterText(self,context):
 		ob = context.active_object
-		if ob.smd_action_filter:
-			if ob.smd_action_filter != p_cache.action_filter:
-				p_cache.action_filter = ob.smd_action_filter
+		if ob.vs.action_filter:
+			if ob.vs.action_filter != p_cache.action_filter:
+				p_cache.action_filter = ob.vs.action_filter
 				cached_action_count = 0
 				for action in bpy.data.actions:
-					if action.name.lower().find(ob.smd_action_filter.lower()) != -1:
+					if action.name.lower().find(ob.vs.action_filter.lower()) != -1:
 						cached_action_count += 1
-			return "\"{}\" actions ({})".format(ob.smd_action_filter,cached_action_count), cached_action_count
+			return "\"{}\" actions ({})".format(ob.vs.action_filter,cached_action_count), cached_action_count
 		else:
 			return "All actions ({})".format(len(bpy.data.actions)), len(bpy.data.actions)
 
@@ -109,10 +109,10 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				if ob.users_group:
 					for i in range(len(ob.users_group)):
 						group = ob.users_group[i]
-						if not group.smd_mute:
+						if not group.vs.mute:
 							want_single_export = False
 							label = group.name + getFileExt()
-							if bpy.context.scene.smd_format == 'SMD':
+							if bpy.context.scene.vs.export_format == 'SMD':
 								if hasShapes(ob,i):
 									label += "/.vta"
 
@@ -123,19 +123,19 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				# Single
 				if want_single_export:
 					label = getObExportName(ob) + getFileExt()
-					if bpy.context.scene.smd_format == 'SMD' and hasShapes(ob):
+					if bpy.context.scene.vs.export_format == 'SMD' and hasShapes(ob):
 						label += "/.vta"
 					l.operator(SmdExporter.bl_idname, text=label, icon=MakeObjectIcon(ob,prefix="OUTLINER_OB_")).exportMode = 'SINGLE'
 
 
 			elif ob.type == 'ARMATURE':
-				if embed_arm or ob.data.smd_action_selection == 'CURRENT':
+				if embed_arm or ob.data.vs.action_selection == 'CURRENT':
 					text,icon,count = SMD_MT_ExportChoice.getActionSingleTextIcon(self,context)
 					if count:
 						l.operator(SmdExporter.bl_idname, text=text, icon=icon).exportMode = 'SINGLE_ANIM'
 					else:
 						l.label(text=text, icon=icon)
-				if embed_arm or (len(bpy.data.actions) and ob.data.smd_action_selection == 'FILTERED'):
+				if embed_arm or (len(bpy.data.actions) and ob.data.vs.action_selection == 'FILTERED'):
 					# filtered action list
 					l.operator(SmdExporter.bl_idname, text=SMD_MT_ExportChoice.getActionFilterText(self,context)[0], icon='ACTION').exportMode= 'SINGLE'
 
@@ -170,39 +170,39 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		row = l.row()
 		row.alignment = 'CENTER'
-		row.prop(scene,"smd_layer_filter",text="Visible layers only")
-		row.prop(scene,"smd_use_image_names",text="Ignore Blender materials")
+		row.prop(scene.vs,"layer_filter",text="Visible layers only")
+		row.prop(scene.vs,"use_image_names",text="Ignore Blender materials")
 
 		row = l.row()
-		row.alert = len(scene.smd_path) == 0
-		row.prop(scene,"smd_path",text="Export Path")
+		row.alert = len(scene.vs.export_path) == 0
+		row.prop(scene.vs,"export_path",text="Export Path")
 		
 		if allowDMX():
 			row = l.row().split(0.33)
 			row.label(text="Export Format:")
-			row.row().prop(scene,"smd_format",expand=True)
+			row.row().prop(scene.vs,"export_format",expand=True)
 		row = l.row().split(0.33)
 		row.label(text="Export Up Axis:")
-		row.row().prop(scene,"smd_up_axis", expand=True)
+		row.row().prop(scene.vs,"up_axis", expand=True)
 		
 		if shouldExportDMX():
 			l.separator()
 		
 		row = l.row()
-		row.alert = len(scene.smd_studiomdl_custom_path) > 0 and not studiomdlPathValid()
-		row.prop(scene,"smd_studiomdl_custom_path",text="Engine Path")
+		row.alert = len(scene.vs.export_path) > 0 and not studiomdlPathValid()
+		row.prop(scene.vs,"engine_path")
 		
-		if scene.smd_format == 'DMX':
+		if scene.vs.export_format == 'DMX':
 			if getDmxVersionsForSDK() == None:
 				row = l.split(0.33)
 				row.label(text="DMX Version:")
 				row = row.row(align=True)
-				row.prop(scene,"smd_dmx_encoding",text="")
-				row.prop(scene,"smd_dmx_format",text="")
-				row.enabled = len(scene.smd_studiomdl_custom_path) == 0 or studiomdlPathValid()
+				row.prop(scene.vs,"dmx_encoding",text="")
+				row.prop(scene.vs,"dmx_format",text="")
+				row.enabled = len(scene.vs.export_path) == 0 or studiomdlPathValid()
 			if canExportDMX():
 				row = l.row()
-				row.prop(scene,"smd_material_path",text="Material Path")
+				row.prop(scene.vs,"material_path",text="Material Path")
 				row.enabled = shouldExportDMX()
 		
 		col = l.column(align=True)
@@ -219,15 +219,15 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		
 		row = layout.row(align=True)
 		if type(id) == bpy.types.Group:
-			row.enabled = id.smd_mute == False
+			row.enabled = id.vs.mute == False
 			
-		row.prop(id,"smd_export",icon='CHECKBOX_HLT' if id.smd_export and row.enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
+		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and row.enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
 		row.label(item.name,icon=item.icon)
 
 class SMD_UL_GroupItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		r = layout.row(align=True)
-		r.prop(item,"smd_export",text="",icon='CHECKBOX_HLT' if item.smd_export else 'CHECKBOX_DEHLT',emboss=False)
+		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
 		r.label(text=item.name,icon=MakeObjectIcon(item,suffix="_DATA"))
 		
 	def filter_items(self, context, data, propname):
@@ -261,12 +261,12 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		l = self.layout
 		scene = context.scene
 		
-		l.template_list("SMD_UL_ExportItems","",scene,"smd_export_list",scene,"smd_export_list_active",rows=3,maxrows=8)
+		l.template_list("SMD_UL_ExportItems","",scene.vs,"export_list",scene.vs,"export_list_active",rows=3,maxrows=8)
 		
-		if not len(scene.smd_export_list):
+		if not len(scene.vs.export_list):
 			return
 		
-		active_item = scene.smd_export_list[min(scene.smd_export_list_active,len(scene.smd_export_list)-1)]
+		active_item = scene.vs.export_list[min(scene.vs.export_list_active,len(scene.vs.export_list)-1)]
 		item = (bpy.data.groups if active_item.ob_type == 'GROUP' else bpy.data.objects)[active_item.item_name]
 				
 		want_shapes = False
@@ -274,18 +274,18 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		
 		col = l.column()
 		
-		if not (is_group and item.smd_mute):
-			col.prop(item,"smd_subdir",text="Subfolder",icon='FILE_FOLDER')
+		if not (is_group and item.vs.mute):
+			col.prop(item.vs,"subdir",text="Subfolder",icon='FILE_FOLDER')
 		
 		if is_group:
 			col = self.makeSettingsBox(text="Group properties",icon='GROUP')
-			if not item.smd_mute:				
-				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item,"smd_selected_item",type='GRID',columns=2)
+			if not item.vs.mute:				
+				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2)
 			
 			suppress_row = col.row()
 			suppress_row.alignment = 'CENTER'
-			suppress_row.prop(item,"smd_mute",text="Suppress")
-			if item.smd_mute:
+			suppress_row.prop(item.vs,"mute",text="Suppress")
+			if item.vs.mute:
 				return
 		elif item:
 			armature = item.find_armature()
@@ -293,13 +293,13 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			if armature:
 				col = self.makeSettingsBox(text="Armature properties ({})".format(armature.name),icon='OUTLINER_OB_ARMATURE')
 				if armature == item: # only display action stuff if the user has actually selected the armature
-					col.row().prop(armature.data,"smd_action_selection",expand=True)
-					if armature.data.smd_action_selection == 'FILTERED':
-						col.prop(armature,"smd_action_filter",text="Action Filter")
+					col.row().prop(armature.data.vs,"action_selection",expand=True)
+					if armature.data.vs.action_selection == 'FILTERED':
+						col.prop(armature.vs,"action_filter",text="Action Filter")
 
 				if not shouldExportDMX():
-					col.prop(armature.data,"smd_implicit_zero_bone")
-					col.prop(armature.data,"smd_legacy_rotation")
+					col.prop(armature.data.vs,"implicit_zero_bone")
+					col.prop(armature.data.vs,"legacy_rotation")
 					
 				if armature.animation_data and not 'ActLib' in dir(bpy.types):
 					col.template_ID(armature.animation_data, "action", new="action.new")
@@ -307,21 +307,21 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				col = self.makeSettingsBox(text="Curve properties",icon='OUTLINER_OB_CURVE')
 				col.label(text="Generate polygons on:")
 				row = col.row()
-				row.prop(item.data,"smd_faces",expand=True)
+				row.prop(item.data.vs,"faces",expand=True)
 		
 			if hasShapes(item,-1): want_shapes = item
 		
-		if want_shapes and bpy.context.scene.smd_format == 'DMX':
+		if want_shapes and bpy.context.scene.vs.export_format == 'DMX':
 			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')
 			
 			objects = item.objects if is_group else [item]
 			
-			col.row().prop(item,"smd_flex_controller_mode",expand=True)
+			col.row().prop(item.vs,"flex_controller_mode",expand=True)
 			
-			if item.smd_flex_controller_mode == 'ADVANCED':
+			if item.vs.flex_controller_mode == 'ADVANCED':
 				controller_source = col.row()
 				controller_source.alert = hasFlexControllerSource(item) == False
-				controller_source.prop(item,"smd_flex_controller_source",text="Controller source",icon = 'TEXT' if item.smd_flex_controller_source in bpy.data.texts else 'NONE')
+				controller_source.prop(item.vs,"flex_controller_source",text="Controller source",icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
 				
 				row = col.row(align=True)
 				row.context_pointer_set("active_object",objects[0])
@@ -333,9 +333,9 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				datablocks_dispayed = []
 				
 				for ob in objects:
-					if ob.smd_export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed:
+					if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed:
 						if not len(datablocks_dispayed): col.separator()
-						col.prop(ob.data,"smd_flex_stereo_sharpness",text="Stereo sharpness ({})".format(ob.data.name))
+						col.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness ({})".format(ob.data.name))
 						datablocks_dispayed.append(ob.data)
 			
 			num_shapes = 0
@@ -369,10 +369,10 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			return
 			
 		row = l.row()
-		row.alert = len(scene.smd_game_path) > 0 and not gamePathValid()
-		row.prop(scene,"smd_game_path",text="Game Path")
+		row.alert = len(scene.vs.game_path) > 0 and not gamePathValid()
+		row.prop(scene.vs,"game_path",text="Game Path")
 		
-		if len(scene.smd_game_path) == 0 and not gamePathValid():
+		if len(scene.vs.game_path) == 0 and not gamePathValid():
 			row = l.row()
 			row.label(icon='ERROR',text="No Game Path and invalid VPROJECT")
 			row.enabled = False
@@ -380,9 +380,9 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		
 		# QCs		
 		p_cache.qc_lastPath_row = l.row()
-		if scene.smd_qc_path != p_cache.qc_lastPath or len(p_cache.qc_paths) == 0 or time.time() > p_cache.qc_lastUpdate + 2:
+		if scene.vs.qc_path != p_cache.qc_lastPath or len(p_cache.qc_paths) == 0 or time.time() > p_cache.qc_lastUpdate + 2:
 			p_cache.qc_paths = SMD_OT_Compile.getQCs()
-			p_cache.qc_lastPath = scene.smd_qc_path
+			p_cache.qc_lastPath = scene.vs.qc_path
 		p_cache.qc_lastUpdate = time.time()
 		have_qcs = len(p_cache.qc_paths) > 0
 	
@@ -393,13 +393,13 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		
 		error_row = l.row()
 		compile_row = l.row()
-		compile_row.prop(scene,"smd_qc_compile")
+		compile_row.prop(scene.vs,"qc_compile")
 		compile_row.operator(SMD_OT_Compile.bl_idname,text="Compile all now",icon='SCRIPT')
 		
 		if not have_qcs:
-			if scene.smd_qc_path:
+			if scene.vs.qc_path:
 				p_cache.qc_lastPath_row.alert = True
 			compile_row.enabled = False
-		p_cache.qc_lastPath_row.prop(scene,"smd_qc_path",text="QC Path") # can't add this until the above test completes!
+		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path",text="QC Path") # can't add this until the above test completes!
 		
 		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN')

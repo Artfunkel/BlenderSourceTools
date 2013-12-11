@@ -86,7 +86,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		return {'FINISHED'}
 
 	def invoke(self, context, event):
-		self.properties.upAxis = context.scene.smd_up_axis
+		self.properties.upAxis = context.scene.vs.up_axis
 		bpy.context.window_manager.fileselect_add(self)
 		return {'RUNNING_MODAL'}
 
@@ -236,7 +236,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		# Got this far? Then this is a fresh import which needs a new armature.
 		smd.a = self.createArmature(self.qc.jobName if self.qc else smd.jobName)
 		if self.qc: self.qc.a = smd.a
-		smd.a.data.smd_implicit_zero_bone = False # Too easy to break compatibility, plus the skeleton is probably set up already
+		smd.a.data.vs.implicit_zero_bone = False # Too easy to break compatibility, plus the skeleton is probably set up already
 		
 		boneParents = {}
 		renamedBones = []
@@ -509,11 +509,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Key each frame
 					for f,keyframe in keyframes[bone].items():
 						# Transform
-						if smd.a.data.smd_legacy_rotation:
+						if smd.a.data.vs.legacy_rotation:
 							keyframe.matrix *= mat_BlenderToSMD.inverted()
 						
 						if bone.parent:
-							if smd.a.data.smd_legacy_rotation: parentMat = bone.parent.matrix * mat_BlenderToSMD
+							if smd.a.data.vs.legacy_rotation: parentMat = bone.parent.matrix * mat_BlenderToSMD
 							else: parentMat = bone.parent.matrix
 							bone.matrix = parentMat * keyframe.matrix
 						else:
@@ -997,7 +997,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			# up axis
 			if line[0] == "$upaxis":
-				qc.upAxis = bpy.context.scene.smd_up_axis = line[1].upper()
+				qc.upAxis = bpy.context.scene.vs.up_axis = line[1].upper()
 				qc.upAxisMat = getUpAxisMat(line[1])
 				continue
 		
@@ -1404,7 +1404,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					skipfaces = []
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]
-						bpy.context.scene.smd_material_path = os.path.dirname(mat_path).replace("\\","/")
+						bpy.context.scene.vs.material_path = os.path.dirname(mat_path).replace("\\","/")
 						mat, mat_ind = self.getMeshMaterial(os.path.basename(mat_path))
 						face_verts = []
 						dmx_face = 0
