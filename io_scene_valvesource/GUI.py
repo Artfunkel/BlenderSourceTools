@@ -186,6 +186,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
 		if shouldExportDMX():
+			if bpy.app.debug_value > 0: l.prop(scene.vs,"use_kv2")
 			l.separator()
 		
 		row = l.row()
@@ -236,7 +237,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		name = self.filter_name.lower()
 		validObs = getValidObs()
 		for i,ob in enumerate(data.objects):
-			if (use_name and ob.name.lower().find(name) == -1) or not ob in validObs:
+			if ob.type not in mesh_compatible or (use_name and ob.name.lower().find(name) == -1) or not ob in validObs:
 				filter[i] &= ~self.bitflag_filter_item
 				
 		return filter, bpy.types.UI_UL_list.sort_items_by_name(data.objects) if self.use_filter_sort_alpha else []
@@ -280,13 +281,18 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		if is_group:
 			col = self.makeSettingsBox(text="Group properties",icon='GROUP')
 			if not item.vs.mute:				
-				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2)
+				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2,rows=2,maxrows=10)
 			
-			suppress_row = col.row()
-			suppress_row.alignment = 'CENTER'
-			suppress_row.prop(item.vs,"mute",text="Suppress")
+			r = col.row()
+			r.alignment = 'CENTER'
+			r.prop(item.vs,"mute",text="Suppress")
 			if item.vs.mute:
 				return
+			elif shouldExportDMX():
+				r.prop(item.vs,"automerge")
+			
+			want_shapes = hasShapes_id(item)
+			
 		elif item:
 			armature = item.find_armature()
 			if item.type == 'ARMATURE': armature = item

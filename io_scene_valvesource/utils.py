@@ -244,7 +244,7 @@ def removeObject(obj):
 
 	return None if d else type
 
-def hasShapes(id):
+def hasShapes_id(id):
 	def _test(id_):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	

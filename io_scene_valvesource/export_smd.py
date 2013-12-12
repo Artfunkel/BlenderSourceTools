@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bmesh, subprocess
+import bpy, bmesh, subprocess, collections
 from bpy import ops
 from mathutils import *
 from math import *
@@ -72,7 +72,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		scene = bpy.context.scene
 		print("\n")
 
-		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.studiomdl_custom_path),"studiomdl.exe")
+		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.engine_path),"studiomdl.exe")
 
 		if path:
 			p_cache.qc_paths = [path]
@@ -143,7 +143,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if len(context.scene.vs.export_path) == 0:
 			self.report({'ERROR'},"Scene unconfigured. See the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
 			return {'CANCELLED'}
-		if context.scene.vs.export_path.startswith("//") and not bpy.context.blend_data.filepath:
+		if context.scene.vs.export_path.startswith("//") and not context.blend_data.filepath:
 			self.report({'ERROR'},"Cannot export to a relative path until the blend file has been saved.")
 			return {'CANCELLED'}
 		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
@@ -152,11 +152,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		# Creating an undo level from edit mode is still buggy in 2.68a
 		prev_mode = prev_hidden = None
-		if bpy.context.active_object:
-			if bpy.context.active_object.hide:
-				prev_hidden = bpy.context.active_object 
-				bpy.context.active_object.hide = False
-			prev_mode = bpy.context.mode
+		if context.active_object:
+			if context.active_object.hide:
+				prev_hidden = context.active_object 
+				context.active_object.hide = False
+			prev_mode = context.mode
 			if prev_mode.find("EDIT") != -1: prev_mode = 'EDIT'
 			elif prev_mode.find("PAINT") != -1: # FFS Blender!
 				prev_mode = prev_mode.split('_')
@@ -167,8 +167,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		ops.ed.undo_push(message=self.bl_label)
 		
 		try:
-			bpy.context.tool_settings.use_keyframe_insert_auto = False
-			bpy.context.tool_settings.use_keyframe_insert_keyingset = False
+			context.tool_settings.use_keyframe_insert_auto = False
+			context.tool_settings.use_keyframe_insert_keyingset = False
 			
 			if props.exportMode == 'SINGLE_ANIM': # really hacky, hopefully this will stay a one-off!
 				if context.active_object.type == 'ARMATURE':
@@ -821,8 +821,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.window_manager.progress_update(i / len(bakes_in))
 			obj = bakes_in[i]
 			solidify_fill_rim = False
-			
-			print("Baking",obj.name)
 
 			if obj.type in shape_types and obj.data.shape_keys:
 				shape_keys = obj.data.shape_keys.key_blocks
@@ -876,6 +874,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					ops.mesh.select_all(action="SELECT")
 					if obj.matrix_world.is_negative:
 						ops.mesh.flip_normals()
+					ops.mesh.select_all(action="DESELECT")
 					ops.object.mode_set(mode='OBJECT')
 				
 				_ApplyVisualTransform(obj)
@@ -975,11 +974,29 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='OBJECT')
 			obj.select = False
 		
-		smd.bakeInfo.extend(bakes_out) # save to manager
+		if smd.g and smd.g.vs.automerge:
+			bone_parents = collections.defaultdict(list)
+			for ob in bakes_out:
+				bp = ob.get('bp')
+				if bp: bone_parents[bp].append(ob)
+			for bp, parts in bone_parents.items():
+				if len(parts) <= 1: continue
+				for ob in parts: bakes_out.remove(ob)
+				
+				for ob in bpy.context.scene.objects: ob.select = ob in parts
+				bpy.context.scene.objects.active = parts[0]
+				bpy.ops.object.join()
+				joined = bpy.context.active_object
+				bakes_out.append(joined)
+				joined['bp'] = bp
+				joined['src_name'] = joined.name = bp + "_meshes"
 		
+		smd.bakeInfo.extend(bakes_out) # save to manager
+	
+	# new export func, not in use yet
 	def export(self, exportable):
-		self.object = object
-		self.jobType = export_type
+		self.object = exportable.get_id()
+		#self.jobType = export_type
 		self.startTime = time.time()
 		
 		print( "\nBlender Source Tools now exporting {}{}".format(smd.jobName," (shape keys)" if smd.jobType == FLEX else "") )

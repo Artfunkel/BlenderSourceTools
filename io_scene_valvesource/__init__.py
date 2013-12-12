@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (Artfunkel)",
-	"version": (1, 10, 4),
+	"version": (1, 11, 0),
 	"blender": (2, 66, 0),
 	"api": 54697,
 	"category": "Import-Export",
@@ -185,7 +185,7 @@ def scene_update(scene):
 			valid = False
 			for object in group.objects:
 				if object in validObs:
-					if not group.vs.mute and object in ungrouped_objects:
+					if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
 						ungrouped_objects.remove(object)
 					valid = True
 			if valid:
@@ -237,7 +237,7 @@ def export_active_changed(self, context):
 
 def group_selected_changed(self,context):
 	for ob in context.scene.objects: ob.select = False
-	id = self.objects[self.vs.selected_item]
+	id = self.id_data.objects[self.id_data.vs.selected_item]
 	id.select = True
 	context.scene.objects.active = id
 
@@ -293,7 +293,7 @@ class ObjectProps(PropertyGroup):
 	triangulate = BoolProperty(name="Triangulate",description="Avoids concave DMX faces, which are not supported by studiomdl",default=False)
 
 class ArmatureProps(PropertyGroup):
-	implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files")
+	implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files (SMD only)")
 	arm_modes = (
 		('CURRENT',"Current / NLA","The armature's assigned action, or everything in an NLA track"),
 		('FILTERED',"Action Filter","All actions that match the armature's filter term")
@@ -308,6 +308,7 @@ class GroupProps(PropertyGroup):
 	flex_controller_source = ObjectProps.flex_controller_source
 	mute = BoolProperty(name="Suppress",description="Export this group's objects individually",default=False)
 	selected_item = IntProperty(update=group_selected_changed)
+	automerge = BoolProperty(name="Merge mechanical parts",description="Optimises DMX export of meshes sharing the same parent bone",default=True)
 
 class MeshProps(PropertyGroup):
 	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
