@@ -65,7 +65,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				self.report({'ERROR'},"Format of {} not recognised".format(os.path.basename(self.properties.filepath)))
 			return {'CANCELLED'}
 
-		self.errorReport("imported","file",self,self.countSMDs)
+		self.errorReport("imported","file",self.countSMDs)
 		if self.countSMDs:
 			ops.object.select_all(action='DESELECT')
 			new_obs = set(bpy.context.scene.objects).difference(pre_obs)

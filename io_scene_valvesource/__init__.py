@@ -51,7 +51,7 @@ for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file_
 from . import datamodel, import_smd, export_smd, flex, GUI
 from .utils import *
 
-class SMD_CT_ObjectExportProps(bpy.types.PropertyGroup):
+class VS_CT_ObjectExportProps(bpy.types.PropertyGroup):
 	ob_type = StringProperty()
 	icon = StringProperty()
 	item_name = StringProperty()
@@ -63,78 +63,15 @@ class SMD_CT_ObjectExportProps(bpy.types.PropertyGroup):
 			if self.ob_type in ['ACTION', 'OBJECT']:
 				return bpy.data.objects[self.item_name]
 			else:
-				raise TypeError("Unknown object type in SMD_CT_ObjectExportProps")
+				raise TypeError("Unknown object type \"{}\" in VS_CT_ObjectExportProps".format(self.ob_type))
 		except KeyError:
 			p_cache.scene_updated = True
-
-class SmdClean(bpy.types.Operator):
-	bl_idname = "smd.clean"
-	bl_label = "Clean SMD data"
-	bl_description = "Deletes SMD-related properties"
-	bl_options = {'REGISTER', 'UNDO'}
-
-	mode = EnumProperty(items=( ('OBJECT','Object','Active object'), ('ARMATURE','Armature','Armature bones and actions'), ('SCENE','Scene','Scene and all contents') ),default='SCENE')
-
-	def execute(self,context):
-		self.numPropsRemoved = 0
-		def removeProps(object,bones=False):
-			if not bones:
-				for prop in object.items():
-					if prop[0].startswith("smd_"):
-						del object[prop[0]]
-						self.numPropsRemoved += 1
-
-			if bones and object.ob_type == 'ARMATURE':
-				# For some reason deleting custom properties from bones doesn't work well in Edit Mode
-				bpy.context.scene.objects.active = object
-				object_mode = object.mode
-				ops.object.mode_set(mode='OBJECT')
-				for bone in object.data.bones:
-					removeProps(bone)
-				ops.object.mode_set(mode=object_mode)
-			
-			if type(object) == bpy.types.Object and object.type == 'ARMATURE': # clean from actions too
-				if object.data.vs.action_selection == 'CURRENT':
-					if object.animation_data and object.animation_data.action:
-						removeProps(object.animation_data.action)
-				else:
-					for action in bpy.data.actions:
-						if action.name.lower().find( object.data.vs.action_filter.lower() ) != -1:
-							removeProps(action)
-
-		active_obj = bpy.context.active_object
-		active_mode = active_obj.mode if active_obj else None
-
-		if self.properties.mode == 'SCENE':
-			for object in context.scene.objects:
-				removeProps(object)
-					
-			for group in bpy.data.groups:
-				for g_ob in group.objects:
-					if context.scene in g_ob.users_scene:
-						removeProps(group)
-			removeProps(context.scene)
-
-		elif self.properties.mode == 'OBJECT':
-			removeProps(active_obj)
-
-		elif self.properties.mode == 'ARMATURE':
-			assert(active_obj.type == 'ARMATURE')
-			removeProps(active_obj,bones=True)			
-
-		bpy.context.scene.objects.active = active_obj
-		if active_obj:
-			ops.object.mode_set(mode=active_mode)
-
-		bpy.data.objects.is_updated = True
-		self.report({'INFO'},"Deleted {} SMD properties".format(self.numPropsRemoved))
-		return {'FINISHED'}		
 
 def menu_func_import(self, context):
 	self.layout.operator(import_smd.SmdImporter.bl_idname, text="Source Engine (.smd, .vta, .dmx, .qc)")
 
 def menu_func_export(self, context):
-	self.layout.operator(export_smd.SmdExporter.bl_idname, text="Source Engine (.smd, .vta, .dmx)")
+	self.layout.menu("SMD_MT_ExportChoice", text="Source Engine (.smd, .vta, .dmx)")
 
 def menu_func_shapekeys(self,context):
 	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text="Activate dependency shapes", icon='SHAPEKEY_DATA')
@@ -171,8 +108,8 @@ def scene_update(scene):
 	scene.vs.export_list.clear()
 	validObs = GUI.getValidObs()
 	
-	def makeDisplayName(item,action = None):
-		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, getObExportName(action if action else item) + getFileExt())
+	def makeDisplayName(item,name=None):
+		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
 	
 	if len(validObs):
 		ungrouped_objects = validObs[:]
@@ -208,9 +145,16 @@ def scene_update(scene):
 			
 			i_name = i_type = i_icon = None
 			if ob.type == 'ARMATURE':
-				if ob.animation_data and ob.animation_data.action:
-					i_name = makeDisplayName(ob,ob.animation_data.action)
+				ad = ob.animation_data
+				if ad:
 					i_icon = i_type = "ACTION"
+					if ob.data.vs.action_selection == 'FILTERED':
+						i_name = "\"{}\" actions ({})".format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
+					elif ad.action:
+						i_name = makeDisplayName(ob,ad.action.name)
+					elif len(ad.nla_tracks):
+						i_name = makeDisplayName(ob)
+						i_icon = "NLA"
 			else:
 				i_name = makeDisplayName(ob)
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
@@ -276,14 +220,14 @@ class SceneProps(PropertyGroup):
 	layer_filter = BoolProperty(name="Export visible layers only",description="Ignore objects in hidden layers",default=False)
 	material_path = StringProperty(name="DMX material path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
 	export_list_active = IntProperty(name="Active exportable",default=0,update=export_active_changed)
-	export_list = CollectionProperty(type=SMD_CT_ObjectExportProps,options={'SKIP_SAVE','HIDDEN'})	
+	export_list = CollectionProperty(type=VS_CT_ObjectExportProps,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path = StringProperty(name="Game path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH")
 
 class ObjectProps(PropertyGroup):
 	export = BoolProperty(name="Scene Export",description="Export this item with the scene",default=True)
 	subdir = StringProperty(name="Subfolder",description="Optional path relative to scene output folder")
-	action_filter = StringProperty(name="Action Filter",description="Only actions with names matching this filter will be exported")
+	action_filter = StringProperty(name="Action Filter",description="Actions with names matching this filter pattern and have users will be exported")
 	flex_controller_modes = (
 		('SIMPLE',"Simple","Generate one flex controller per shape key"),
 		('ADVANCED',"Advanced","Insert the flex controllers of an existing DMX file")
@@ -295,8 +239,8 @@ class ObjectProps(PropertyGroup):
 class ArmatureProps(PropertyGroup):
 	implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files (SMD only)")
 	arm_modes = (
-		('CURRENT',"Current / NLA","The armature's assigned action, or everything in an NLA track"),
-		('FILTERED',"Action Filter","All actions that match the armature's filter term")
+		('CURRENT',"Current / NLA","The armature's currently assigned action or NLA tracks"),
+		('FILTERED',"Action Filter","All actions that match the armature's filter term and have users")
 	)
 	action_selection = EnumProperty(name="Action Selection", items=arm_modes,description="How actions are selected for export",default='CURRENT')
 	legacy_rotation = BoolProperty(name="Legacy rotation",description="Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",default=False)

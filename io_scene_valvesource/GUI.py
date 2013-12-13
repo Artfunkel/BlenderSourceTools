@@ -25,133 +25,37 @@ from .update import SmdToolsUpdate # comment this line if you make third-party c
 from .flex import *
 
 class SMD_MT_ExportChoice(bpy.types.Menu):
-	bl_label = "SMD/DMX export mode"
-
-	# returns an icon, a label, and the number of valid actions
-	# supports single actions, NLA tracks, or nothing
-	def getActionSingleTextIcon(self,context,ob = None):
-		icon = "OUTLINER_DATA_ARMATURE"
-		count = 0
-		text = "No Actions or NLA"
-		export_name = False
-		if not ob:
-			ob = context.active_object
-			export_name = True # slight hack since having ob currently aligns with wanting a short name
-		if ob:
-			ad = ob.animation_data
-			if ad:
-				if ad.action:
-					icon = "ACTION"
-					count = 1
-					if export_name:
-						text = os.path.join(ob.vs.subdir if ob.vs.subdir != "." else None,ad.action.name + getFileExt())
-					else:
-						text = ad.action.name
-				elif ad.nla_tracks:
-					nla_actions = []
-					for track in ad.nla_tracks:
-						if not track.mute:
-							for strip in track.strips:
-								if not strip.mute and strip.action not in nla_actions:
-									nla_actions.append(strip.action)
-					icon = "NLA"
-					count = len(nla_actions)
-					text = "NLA actions (" + str(count) + ")"
-
-		return text,icon,count
-
-	# returns the appropriate text for the filtered list of all action
-	def getActionFilterText(self,context):
-		ob = context.active_object
-		if ob.vs.action_filter:
-			if ob.vs.action_filter != p_cache.action_filter:
-				p_cache.action_filter = ob.vs.action_filter
-				cached_action_count = 0
-				for action in bpy.data.actions:
-					if action.name.lower().find(ob.vs.action_filter.lower()) != -1:
-						cached_action_count += 1
-			return "\"{}\" actions ({})".format(ob.vs.action_filter,cached_action_count), cached_action_count
-		else:
-			return "All actions ({})".format(len(bpy.data.actions)), len(bpy.data.actions)
+	bl_label = "Source Tools export"
 
 	def draw(self, context):
-		# This function is also embedded in property panels on scenes and armatures
 		l = self.layout
-		ob = context.active_object
-
-		try:
-			l = self.embed_scene
-			embed_scene = True
-		except AttributeError:
-			embed_scene = False
-		try:
-			l = self.embed_arm
-			embed_arm = True
-		except AttributeError:
-			embed_arm = False
+				
+		if len(context.selected_objects):
+			exportables = getSelectedExportables()
 			
-		selected_groups = set()
-		for ob in context.selected_objects:
-			for group in ob.users_group:
-				selected_groups.add(group)
-
-		if embed_scene and (len(context.selected_objects) == 0 or not ob):
-			row = l.row()
-			row.operator(SmdExporter.bl_idname, text="No selection") # filler to stop the scene button moving
-			row.enabled = False
-
-		# Normal processing
-		# FIXME: in the properties panel, hidden objects appear in context.selected_objects...in the 3D view they do not
-		elif (ob and len(context.selected_objects) <= 1 and len(selected_groups) <= 1) or embed_arm:
-			if ob.type in mesh_compatible:
-				want_single_export = True
-				# Groups
-				if ob.users_group:
-					for i in range(len(ob.users_group)):
-						group = ob.users_group[i]
-						if not group.vs.mute:
-							want_single_export = False
-							label = group.name + getFileExt()
-							if bpy.context.scene.vs.export_format == 'SMD':
-								if hasShapes(ob,i):
-									label += "/.vta"
-
-							op = l.operator(SmdExporter.bl_idname, text=label, icon="GROUP") # group
-							op.exportMode = 'SINGLE' # will be merged and exported as one
-							op.groupIndex = i
-							break
-				# Single
-				if want_single_export:
-					label = getObExportName(ob) + getFileExt()
-					if bpy.context.scene.vs.export_format == 'SMD' and hasShapes(ob):
-						label += "/.vta"
-					l.operator(SmdExporter.bl_idname, text=label, icon=MakeObjectIcon(ob,prefix="OUTLINER_OB_")).exportMode = 'SINGLE'
-
-
-			elif ob.type == 'ARMATURE':
-				if embed_arm or ob.data.vs.action_selection == 'CURRENT':
-					text,icon,count = SMD_MT_ExportChoice.getActionSingleTextIcon(self,context)
-					if count:
-						l.operator(SmdExporter.bl_idname, text=text, icon=icon).exportMode = 'SINGLE_ANIM'
-					else:
-						l.label(text=text, icon=icon)
-				if embed_arm or (len(bpy.data.actions) and ob.data.vs.action_selection == 'FILTERED'):
-					# filtered action list
-					l.operator(SmdExporter.bl_idname, text=SMD_MT_ExportChoice.getActionFilterText(self,context)[0], icon='ACTION').exportMode= 'SINGLE'
-
-			else: # invalid object
-				label = "Cannot export " + ob.name
-				try:
-					l.label(text=label,icon=MakeObjectIcon(ob,prefix='OUTLINER_OB_'))
-				except: # bad icon
-					l.label(text=label,icon='ERROR')
-
-		# Multiple objects
-		elif (len(context.selected_objects) > 1 or len(selected_groups) > 1) and not embed_arm:
-			l.operator(SmdExporter.bl_idname, text="Selected objects\\groups", icon='GROUP').exportMode = 'MULTI' # multiple obects
-
-		if not embed_arm:
-			l.operator(SmdExporter.bl_idname, text="Scene export ({})".format(count_exports(context)), icon='SCENE_DATA').exportMode = 'SCENE'
+			if not len(exportables):
+				row = l.row()
+				row.operator(SmdExporter.bl_idname, text="Cannot export selection",icon='BLANK1')
+				row.enabled = False
+			else:
+				single_obs = list([ex for ex in exportables if ex.ob_type != 'GROUP'])
+				groups = list([ex for ex in exportables if ex.ob_type == 'GROUP'])
+				groups.sort(key=lambda g: g.name.lower())
+				
+				group_layout = l
+				for i,group in enumerate(groups):
+					if type(self) == SMD_PT_Scene:
+						if i == 0: group_col = l.column(align=True)
+						if i % 2 == 0: group_layout = group_col.row(align=True)
+					group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').group = group.get_id().name
+				
+				num_obs = len(single_obs)
+				if num_obs > 1:
+					l.operator(SmdExporter.bl_idname, text="Selected objects ({} files)".format(num_obs), icon='OBJECT_DATA').exportMode = 'MULTI'
+				elif num_obs:
+					l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon).exportMode = 'SINGLE'
+		
+		op = l.operator(SmdExporter.bl_idname, text="Scene export ({} files)".format(count_exports(context)), icon='SCENE_DATA').exportMode = 'SCENE'
 
 class SMD_PT_Scene(bpy.types.Panel):
 	bl_label = "Source Engine Export"
@@ -165,8 +69,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		scene = context.scene
 		num_to_export = 0
 
-		self.embed_scene = l.row()
-		SMD_MT_ExportChoice.draw(self,context)
+		l.operator(SmdExporter.bl_idname,text="Export")
 		
 		row = l.row()
 		row.alignment = 'CENTER'
@@ -186,7 +89,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
 		if shouldExportDMX():
-			if bpy.app.debug_value > 0: l.prop(scene.vs,"use_kv2")
+			if bpy.app.debug_value > 0 or scene.vs.use_kv2: l.prop(scene.vs,"use_kv2")
 			l.separator()
 		
 		row = l.row()
@@ -301,7 +204,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				if armature == item: # only display action stuff if the user has actually selected the armature
 					col.row().prop(armature.data.vs,"action_selection",expand=True)
 					if armature.data.vs.action_selection == 'FILTERED':
-						col.prop(armature.vs,"action_filter",text="Action Filter")
+						col.prop(armature.vs,"action_filter")
 
 				if not shouldExportDMX():
 					col.prop(armature.data.vs,"implicit_zero_bone")

@@ -265,6 +265,9 @@ def hasShapes(ob,groupIndex = -1):
 	else:
 		return _test(ob)
 
+def actionsForFilter(filter):
+	import fnmatch
+	return list([action for action in bpy.data.actions if action.users and fnmatch.fnmatch(action.name, filter)])
 def shouldExportGroup(group):
 	return group.vs.export and not group.vs.mute
 
@@ -285,6 +288,23 @@ def getValidObs():
 				validObs.append(o)
 	return validObs
 
+def getExportablesForId(id):
+	out = set()
+	for exportable in bpy.context.scene.vs.export_list:
+		if exportable.get_id() == id: return [exportable]
+		if exportable.ob_type == 'GROUP':
+			group = exportable.get_id()
+			if not group.vs.mute and id.name in group.objects:
+				out.add(exportable)
+	return list(out)
+
+def getSelectedExportables():
+	exportables = set()
+	for ob in bpy.context.selected_objects:
+		exportables.update(getExportablesForId(ob))
+		#print(exportables)
+	return exportables
+	
 class Logger:
 	def __init__(self):
 		self.log_warnings = []
@@ -300,23 +320,29 @@ class Logger:
 		message = " ".join(str(s) for s in string)
 		print(" ERROR:",message)
 		self.log_errors.append(message)
+	
+	def list_errors(self, menu, context):
+		l = menu.layout
+		if len(self.log_errors):
+			for msg in self.log_errors:
+				l.label("ERROR: "+msg)
+			l.separator()
+		if len(self.log_warnings):
+			for msg in self.log_warnings:
+				l.label("WARNING: "+msg)
 
-	def errorReport(self, jobName, output, caller, numOut):
+	def errorReport(self, jobName, output, numOut):
 		message = "{} {}{} {}".format(numOut,output,"s" if numOut != 1 else "",jobName)
 		if numOut:
 			message += " in {} seconds".format( round( time.time() - self.startTime, 1 ) )
 
 		if len(self.log_errors) or len(self.log_warnings):
-			message += " with {} errors and {} warnings:".format(len(self.log_errors),len(self.log_warnings))
-
-			for err in self.log_errors:
-				message += "\nERROR: " + err
-			for warn in self.log_warnings:
-				message += "\nWARNING: " + warn
-			caller.report({'ERROR'},message)
-		else:
-			caller.report({'INFO'},message)
-			print(message)
+			msg_summary = "{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings))
+			message += " with " + msg_summary
+			bpy.context.window_manager.popup_menu(self.list_errors,title=msg_summary,icon='ERROR')
+		
+		self.report({'INFO'},message)
+		print(message)
 
 class SmdInfo:
 	isDMX = 0 # version number, or 0 for SMD
