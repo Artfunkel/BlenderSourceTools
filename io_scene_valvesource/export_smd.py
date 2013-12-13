@@ -236,7 +236,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 								self.exportObject(context,object,groupIndex=g_index)
 								break # only export the first valid object
 					elif id.smd_export:
-						self.exportObject(context,object)
+						self.exportObject(context,id)
 
 			jobMessage = "exported"
 
