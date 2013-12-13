@@ -1199,8 +1199,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 						count = len(vert_weights)
 						if count > 3: badJointCounts += 1
 						jointCount = max(jointCount,count)
-					if smd.a.data.smd_implicit_zero_bone:
-						jointCount += 1
 						
 				if badJointCounts:
 					self.warning("{} verts on \"{}\" have over 3 weight links. Studiomdl does not support this!".format(badJointCounts,ob['src_name']))
@@ -1259,8 +1257,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 							weights[i] = vert_weights[i][1]
 							total_weight += weights[i]
 							i+=1
-						if smd.a.data.smd_implicit_zero_bone and total_weight < 1:
-							weights[-1] = float(1 - total_weight)
 						
 						jointWeights.extend(weights)
 						jointIndices.extend(indices)
