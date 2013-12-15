@@ -51,13 +51,15 @@ def _get_kv2_indent():
 	return '\t' * _kv2_indent
 
 def _validate_array_list(l,array_type):
-	if not l: return
+	if not l: return None
 	try:
+		out = list(l)
 		for i in range(len(l)):
-			if type(l[i]) != array_type:
-				l[i] = array_type(l[i])
-	except:
-		raise TypeError("Could not convert all values to {}".format(array_type))
+			if type(out[i]) != array_type:
+				out[i] = array_type(out[i])
+	except Exception as e:
+		raise TypeError("Could not convert all values to {}: {}".format(array_type,e))
+	return out
 			
 def _quote(str):
 	return "\"{}\"".format(str)
@@ -111,7 +113,7 @@ class _Array(list):
 	type_str = ""	
 	
 	def __init__(self,l=None):
-		_validate_array_list(l,self.type)
+		l = _validate_array_list(l,self.type)
 		if l:
 			return super().__init__(l)
 		else:
@@ -162,11 +164,11 @@ class _StrArray(_Array):
 
 class _Vector(list):
 	type_str = ""
-	def __init__(self,list):
-		_validate_array_list(list,float)
-		if len(list) != len(self.type_str):
+	def __init__(self,l):
+		if len(l) != len(self.type_str):
 			raise TypeError("Expected {} values".format(len(self.type_str)))
-		super().__init__(list)
+		l = _validate_array_list(l,float)
+		super().__init__(l)
 		
 	def __repr__(self):
 		out = ""
@@ -194,9 +196,9 @@ class Angle(Vector3):
 	pass
 class _VectorArray(_Array):
 	type = list
-	def __init__(self,list=None):
-		_validate_array_list(self,list)
-		_Array.__init__(self,list)
+	def __init__(self,l=None):
+		l = _validate_array_list(l,self.type)
+		_Array.__init__(self,l)
 class _Vector2Array(_VectorArray):
 	type = Vector2
 class _Vector3Array(_VectorArray):
@@ -258,10 +260,10 @@ class Time(float):
 class _TimeArray(_Array):
 	type = Time
 		
-def make_array(list,t):
+def make_array(l,t):
 	if t not in _dmxtypes_all:
 		raise TypeError("{} is not a valid datamodel attribute type".format(t))
-	return _get_array_type(t)(list)
+	return _get_array_type(t)(l)
 		
 class AttributeError(KeyError):
 	'''Raised when an attribute is not found on an element. Essentially a KeyError, but subclassed because it's normally an unrecoverable data issue.'''

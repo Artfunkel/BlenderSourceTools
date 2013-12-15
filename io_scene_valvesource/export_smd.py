@@ -289,28 +289,39 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				for bp, parts in bone_parents.items():
 					if len(parts) <= 1: continue
+					shape_names = set()
+					for key in [key for part in parts for key in part.shapes.keys()]:
+						shape_names.add(key)
+					
 					ops.object.select_all(action='DESELECT')
-					shapes = set()
 					for part in parts:
 						part.object.select = True
-						shapes.intersection(part.shapes.keys())
+						part.basis_mesh = part.object.data.copy()
 						bake_results.remove(part)
-					bpy.context.scene.objects.active = parts[0].object
+						bpy.context.scene.objects.active = part.object
 					
 					bpy.ops.object.join()
-					
 					joined = self.BakeResult(bp + "_meshes")
 					joined.object = bpy.context.active_object
 					joined.envelope = bp
-					
-					print(shapes)
-					ops.object.select_all(action='DESELECT')
-					for i in range(len(parts[0].shapes)):
-						for part in parts:
-							for shape_name,shape in parts:
-								pass
-							
 					bake_results.append(joined)
+					
+					for name in shape_names:
+						ops.object.select_all(action='DESELECT')
+						for part in parts:
+							mesh = part.shapes.get(name)
+							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,name),object_data = mesh if mesh else part.basis_mesh)
+							bpy.context.scene.objects.link(ob)
+							ob.matrix_local = part.matrix
+							ob.select = True
+							bpy.context.scene.objects.active = ob
+							
+						bpy.ops.object.join()
+						joined.shapes[name] = bpy.context.active_object.data
+						
+						bpy.context.scene.objects.unlink(ob)
+						bpy.data.objects.remove(ob)
+						
 		else:
 			bake_results.append(self.bakeObj(id))
 		
@@ -712,11 +723,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 	
 	class BakeResult:
 		object = None
+		matrix = Matrix()
 		envelope = None
 		
 		def __init__(self,name):
 			self.name = name
 			self.shapes = {}
+			self.matrix = Matrix()
 			
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id):
@@ -726,9 +739,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.scene.objects.link(id)
 		if id.data and id.data.library:
 			id.data = id.data.copy()
+		
+		bpy.context.scene.objects.active = id
 		ops.object.mode_set(mode='OBJECT')
 		ops.object.select_all(action='DESELECT')
-		bpy.context.scene.objects.active = id
 		id.select = True
 	
 		cur_parent = id
@@ -737,10 +751,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 				result.envelope = cur_parent.parent_bone
 				self.armature = cur_parent.parent
 			
-			result.top_parent = cur_parent
+			top_parent = cur_parent
 			cur_parent = cur_parent.parent
 		
-		result.top_parent.location = Vector() # centre the topmost parent (potentially the object itself)
+		top_parent.location = Vector() # centre the topmost parent (potentially the object itself)
+		result.matrix = id.matrix_world
 		
 		if id.data.users > 1:
 			id.data = id.data.copy()
@@ -771,6 +786,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					result.envelope = con.subtarget
 		
 		has_edge_split = False
+		solidify_fill_rim = False
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
 				if result.envelope:
@@ -1037,11 +1053,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if not bone.parent:
 					DmeModel_children.append(writeBone(bone))
 					
-		#bench("skeleton")
+		#bench("skeleton")			
 		for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 			root["model"] = DmeModel
 			
-			dags = []
 			ob = bake.object
 			
 			if len(ob.data.polygons) == 0:
@@ -1063,13 +1078,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if DatamodelFormatVersion() >= 11: jointList.append(DmeDag)
 			DmeDag["shape"] = DmeMesh
 			DmeDag["transform"] = trfm
-			dags.append(DmeDag)
 			
+			DmeModel_children.append(DmeDag)
 			DmeModel_transforms.append(makeTransform(bake.name, ob.matrix_world, "ob_base"+bake.name))
 			
 			jointCount = 0
 			badJointCounts = 0
-			ob_weights = None
 			if type(bake.envelope) == bpy.types.ArmatureModifier:
 				ob_weights = self.getWeightmap(bake)
 				for vert_weights in ob_weights:
@@ -1092,8 +1106,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			vertex_data["flipVCoordinates"] = True
 			vertex_data["jointCount"] = jointCount
 			
-			pos = []
-			norms = []
+			num_verts = len(ob.data.vertices)
+			
+			pos = [None] * num_verts
+			norms = [None] * num_verts
 			texco = []
 			texcoIndices = []
 			jointWeights = []
@@ -1106,20 +1122,20 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			#bench("setup")
 			
-			if bake.envelope and not ob_weights:
+			if type(bake.envelope) == str:
 				jointWeights = [ 1.0 ] * len(ob.data.vertices)
-				jointIndices = [ self.bone_ids[bake.envelope] ] * len(ob.data.vertices)
+				bone_id = self.bone_ids[bake.envelope]
+				jointIndices = [ bone_id ] * len(ob.data.vertices)
 			
-			num_verts = len(ob.data.vertices)
 			for vert in ob.data.vertices:
-				pos.append(datamodel.Vector3(vert.co))
-				norms.append(datamodel.Vector3(vert.normal))
+				pos[vert.index] = datamodel.Vector3(vert.co)
+				norms[vert.index] = datamodel.Vector3(vert.normal)
 				vert.select = False
 				
-				if len(bake.shapes):
+				if len(bake.shapes) and balance_vg.index < len(vert.groups):
 					balance.append(balance_vg.weight(vert.index))
 				
-				if bake.envelope and ob_weights:
+				if type(bake.envelope) == bpy.types.ArmatureModifier:
 					weights = [0.0] * jointCount
 					indices = [0] * jointCount
 					i = 0
@@ -1353,13 +1369,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				#bench("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
-			
-			DmeModel_children.extend(dags)
 		
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
 			ad = self.armature.animation_data
 						
-			anim_len = ad.action.frame_range[1] if ad.action else max([[strip.frame_end for strip in strips] for strips in [track.strips for track in ad.nla_tracks]][0])
+			anim_len = ad.action.frame_range[1] if ad.action else max([strip.frame_end for track in ad.nla_tracks for strip in track.strips])
 			
 			if ad.action and ('fps') in dir(ad.action):
 				fps = bpy.context.scene.render.fps = action.fps
@@ -1385,14 +1399,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 			channels = DmeChannelsClip["channels"] = datamodel.make_array([],datamodel.Element)
 			bone_channels = {}
 			def makeChannel(bone):
-				if bone: bone_channels[bone] = []
+				bone_channels[bone] = []
 				channel_template = [
 					[ "_p", "position", "Vector3", datamodel.Vector3 ],
 					[ "_o", "orientation", "Quaternion", datamodel.Quaternion ]
 				]
-				name = bone.name if bone else "blender_implicit"
 				for template in channel_template:
-					cur = dm.add_element(name + template[0],"DmeChannel",id=name+template[0])
+					cur = dm.add_element(bone.name + template[0],"DmeChannel",id=bone.name+template[0])
 					cur["toAttribute"] = template[1]
 					cur["toElement"] = bone_transforms[bone] if bone else jointTransforms[0]
 					cur["mode"] = 1				
