@@ -1275,10 +1275,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					shape_elems.append(DmeVertexDeltaData)
 					
 					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
-					if wrinkle_scale:
-						vertexFormat.append("wrinkle")
-						num_wrinkles += 1
-					
+										
 					wrinkle = []
 					wrinkleIndices = []
 					
@@ -1290,7 +1287,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
-					if wrinkle_scale: delta_lengths = {}
+					if wrinkle_scale: delta_lengths = [None] * len(ob.data.vertices)
 					
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
@@ -1318,16 +1315,19 @@ class SmdExporter(bpy.types.Operator, Logger):
 									wrinkle.append(delta_lengths[loop.vertex_index])
 									wrinkleIndices.append(l_i)
 					
-						wrinkle_mod = wrinkle_scale / max_delta
-						if (wrinkle_mod != 1):
-							for i in range(len(wrinkle)):
-								wrinkle[i] *= wrinkle_mod
+						if max_delta:
+							wrinkle_mod = wrinkle_scale / max_delta
+							if (wrinkle_mod != 1):
+								for i in range(len(wrinkle)):
+									wrinkle[i] *= wrinkle_mod
 					
 					DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
 					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
 					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
 					DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
 					if wrinkle_scale:
+						vertexFormat.append("wrinkle")
+						num_wrinkles += 1
 						DmeVertexDeltaData["wrinkle"] = datamodel.make_array(wrinkle,float)
 						DmeVertexDeltaData["wrinkleIndices"] = datamodel.make_array(wrinkleIndices,int)
 					
