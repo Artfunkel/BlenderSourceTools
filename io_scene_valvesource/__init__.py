@@ -89,15 +89,17 @@ def scene_update(scene):
 				if prop[0] == "_" or prop in ["bl_rna", "rna_type", "prop"]: continue
 				val = id.get("smd_" + prop)
 				if val != None:
-					id.vs[prop] = val
+					if prop == "path":
+						id.vs.export_path = val
+					elif prop == "studiomdl_custom_path":
+						id.vs.engine_path = val
+					else:
+						id.vs[prop] = val
 			for prop in id.keys():
 				if prop.startswith("smd"):
 					del id[prop]
 				
-		for s in bpy.data.scenes:
-			s.vs["export_path"] = s.get("smd_path")
-			s.vs["engine_path"] = s.get("smd_studiomdl_custom_path")
-			convert(s,SceneProps)
+		for s in bpy.data.scenes: convert(s,SceneProps)
 		for ob in bpy.data.objects: convert(ob,ObjectProps)
 		for a in bpy.data.armatures: convert(a,ArmatureProps)
 		for g in bpy.data.groups: convert(g,GroupProps)

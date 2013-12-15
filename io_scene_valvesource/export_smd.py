@@ -835,8 +835,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW') # bake it!
 		
-		result.object = id.copy()
-		result.object.data = data
+		if id.type == 'MESH':
+			result.object = id.copy()
+			result.object.data = data
+		else:
+			result.object = bpy.data.objects.new(name=id.name,object_data=data)
 		
 		bpy.context.scene.objects.link(result.object)
 		bpy.context.scene.objects.active = result.object

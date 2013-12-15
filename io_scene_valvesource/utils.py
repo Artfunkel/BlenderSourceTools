@@ -339,7 +339,12 @@ class Logger:
 		if len(self.log_errors) or len(self.log_warnings):
 			msg_summary = "{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings))
 			message += " with " + msg_summary
-			bpy.context.window_manager.popup_menu(self.list_errors,title=msg_summary,icon='ERROR')
+			if "popup_menu" in dir(bpy.context.window_manager):
+				bpy.context.window_manager.popup_menu(self.list_errors,title=msg_summary,icon='ERROR')
+			
+			print(msg_summary)
+			for msg in self.log_errors: print("Error:",msg)
+			for msg in self.log_warnings: print("Warning:",msg)
 		
 		self.report({'INFO'},message)
 		print(message)
