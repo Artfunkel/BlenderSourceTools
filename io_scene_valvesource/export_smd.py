@@ -759,6 +759,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if id.data.users > 1:
 			id.data = id.data.copy()
+			
+		if id.type == 'MESH':
+			ops.object.mode_set(mode='EDIT')
+			ops.mesh.reveal()
+			if id.matrix_world.is_negative:
+				ops.mesh.select_all(action="SELECT")
+				ops.mesh.flip_normals()
+				ops.mesh.select_all(action="DESELECT")
+			ops.object.mode_set(mode='OBJECT')
 		
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # necessary?
 		
@@ -794,15 +803,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				else:
 					self.armature = mod.object
 					result.envelope = mod
-			
-				if id.type == "MESH":
-					ops.object.mode_set(mode='EDIT')
-					ops.mesh.reveal()
-					if id.matrix_world.is_negative:
-						ops.mesh.select_all(action="SELECT")
-						ops.mesh.flip_normals()
-						ops.mesh.select_all(action="DESELECT")
-					ops.object.mode_set(mode='OBJECT')
 		
 			elif mod.type == 'EDGE_SPLIT':
 				has_edge_split = 'WITH_SHARP' if mod.use_edge_angle else 'NO_SHARP'
@@ -823,10 +823,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 				edgesplit.use_edge_angle = False
 			
 			any_sharp = False
+			ops.object.mode_set(mode='OBJECT')
 			for poly in id.data.polygons:
 				poly.select = not poly.use_smooth
 				if poly.select: any_sharp = True
 			if any_sharp:
+				ops.object.mode_set(mode='EDIT')
 				ops.mesh.mark_sharp()
 			
 		ops.object.mode_set(mode='OBJECT')
