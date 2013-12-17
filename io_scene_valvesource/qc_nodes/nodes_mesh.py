@@ -8,13 +8,14 @@ def id_icon(id):
 	return io_scene_valvesource.MakeObjectIcon(id,prefix='OUTLINER_OB_') if id else 'BLANK1'
 def exportable_is_mesh(self,exportable):
 	return type(exportable.get_id()) == bpy.types.Group or exportable.get_id().type in io_scene_valvesource.utils.mesh_compatible
-def exportable_to_id(self,exportable): # io_scene_valvesource.SMD_CT_ObjectExportProps
-	return exportable.get_id() if exportable else None
+def exportable_to_id(self,exportable):
+	if isinstance(exportable,io_scene_valvesource.SMD_CT_ObjectExportProps): return exportable.get_id()
+	else: return exportable
 def id_is_empty(self,id):
 		return id.type == 'EMPTY' and bpy.context.scene in id.users_scene
 
 class QcMesh(PropertyGroup):
-	exportable = DatablockProperty(type=bpy.types.ID, name="Replacement mesh", description="The Source Tools exportable to use at this Level of Detail", cast=exportable_to_id, poll=exportable_is_mesh)
+	exportable = PointerProperty(type=bpy.types.ID, name="Replacement mesh", description="The Source Tools exportable to use at this Level of Detail", cast=exportable_to_id, poll=exportable_is_mesh)
 class QcMesh_ListItem(bpy.types.UIList):
 	def draw_item(self, c, l, data, item, icon, active_data, active_propname, index):
 		r = l.row()
@@ -25,9 +26,9 @@ class QcMesh_ListItem(bpy.types.UIList):
 ################## EYES ###################
 ###########################################
 class QcEye(PropertyGroup):
-	material = DatablockProperty(name='Eyewhite', type=bpy.types.Material,
+	material = PointerProperty(name='Eyewhite', type=bpy.types.Material,
 			description='The material on which the iris will be rendered')
-	object = DatablockProperty(name='Object', type=bpy.types.Object, poll=id_is_empty,
+	object = PointerProperty(name='Object', type=bpy.types.Object, poll=id_is_empty,
 			description='An Empty which defines the eye\'s location, scale, and parent bone')
 	
 	angle = FloatProperty(name='Iris angle',default=math.radians(3),description='Humans are typically 2-4 degrees walleyed',soft_min=0,soft_max=math.radians(6),subtype='ANGLE')
@@ -65,8 +66,8 @@ class QcEye_Remove(bpy.types.Operator):
 ################# MOUTHS ##################
 ###########################################
 class QcMouth(PropertyGroup):
-		empty = DatablockProperty(name="Object", type=bpy.types.Object, poll=id_is_empty, description="An Empty object which defines the parent bone and orientation of this mouth")
-		flex = StringProperty(name="Flex controller",description="The name of the flex controller (not shape!) which defines this mouth")
+	empty = PointerProperty(name="Object", type=bpy.types.Object, poll=id_is_empty, description="An Empty object which defines the parent bone and orientation of this mouth")
+	flex = StringProperty(name="Flex controller",description="The name of the flex controller (not shape!) which defines this mouth")
 
 class QcMouth_ListItem(bpy.types.UIList):
 	def draw_item(self, c, l, data, item, icon, active_data, active_propname, index):
@@ -107,7 +108,7 @@ class QcMouth_Remove(bpy.types.Operator):
 class QcRefMesh(Node):
 	'''Adds a visible mesh'''
 	bl_label = "Mesh"
-	bl_width_default = 250
+	bl_width_default = 280
 			
 	tab = EnumProperty(name="Display mode",default='BASIC',
 		items=( ('BASIC','Home',"Choose reference and LOD meshes", 'OBJECT_DATA', 0),
@@ -138,11 +139,6 @@ class QcRefMesh(Node):
 			for i in range(bpy.context.space_data.node_tree.num_lods + 1):
 				c.prop_search(self.lods[i],"exportable",context.scene,"smd_export_list", icon=id_icon(self.lods[i].exportable),text="LOD {}".format(i) if i > 0 else "Default Mesh")
 				if i == 0: c.separator()
-			#l.template_list("QcMesh_ListItem","",
-			#		self,"lods",
-			#		bpy.context.space_data.node_tree,"dummy_active",
-			#		rows=3,maxrows=9)
-			#l.template_ID_preview(self.lods[0],"exportable")
 		
 		if self.tab == 'EYE':
 			r.operator(QcEye_Add.bl_idname,icon="ZOOMIN")

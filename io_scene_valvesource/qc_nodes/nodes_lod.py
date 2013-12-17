@@ -67,8 +67,8 @@ class QcBoneOp_ListItem(bpy.types.UIList):
 ################## MATERIAL OPS ##################
 ##################################################
 class QcLod_MaterialOperation(PropertyGroup):
-	material = DatablockProperty(name="Target material",type=bpy.types.Material,description="The material to remove or replace")
-	replace = DatablockProperty(name="Replacement material",type=bpy.types.Material,description="The material to replace the target with, or blank to remove the target")
+	material = PointerProperty(name="Target material",type=bpy.types.Material,description="The material to remove or replace")
+	replace = PointerProperty(name="Replacement material",type=bpy.types.Material,description="The material to replace the target with, or blank to remove the target")
 
 class QcMaterialOp_Add(bpy.types.Operator):
 	'''Add a Material Operation to the current LOD'''

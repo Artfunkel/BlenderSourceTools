@@ -48,8 +48,11 @@ for mod in [mod for mod in sys.modules.items() if mod[0].startswith(__name__ + "
 from . import datamodel, import_smd, export_smd, flex, GUI
 from .utils import *
 
-have_nodes = "DatablockProperty" in dir(bpy.props)
-if have_nodes: from . import qc_nodes
+try:
+	from . import qc_nodes
+	have_nodes = True
+except:
+	have_nodes = False
 
 class SMD_CT_ObjectExportProps(bpy.types.PropertyGroup):
 	ob_type = StringProperty()

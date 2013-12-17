@@ -78,7 +78,7 @@ class QcSequence(Node):
 				('EXTRACT', 'Motion Extract', "Configure world movement", 'MANIPUL', 2)
 	))
 	
-	action = DatablockProperty(name="Action",type=bpy.types.Action,description="The Action to compile, or blank for the model's default pose")
+	action = PointerProperty(name="Action",type=bpy.types.Action,description="The Action to compile, or blank for the model's default pose")
 	use_loop = BoolProperty(name="Loop",description="Perform loop processing")
 	use_hidden = BoolProperty(name="Hidden",description="Hides this sequence from the game")
 	use_autoplay = BoolProperty(name="Autoplay",description="Play this sequence at all times")
@@ -134,6 +134,9 @@ class QcBlendControl(bpy.types.PropertyGroup):
 		r.prop(self,"min")
 		r.prop(self,"max")
 
+class QcBlendSequenceActionLink(PropertyGroup):
+	action = PointerProperty(name="Action",type=bpy.types.Action)
+	
 class QcBlendSequence(Node):
 	bl_label = 'Blend Sequence'
 	bl_icon = 'ACTION'
@@ -145,8 +148,14 @@ class QcBlendSequence(Node):
 				('ACTIVITY','Activities',"Configure Activity weights", 'DRIVER', 1)
 	))
 	
-	actions = DatablockVectorProperty(name="Actions",type=bpy.types.Action,size=32)
-	action_count = IntProperty(name="Size",description="Number of Actions in the sequence",min=1,max=32,default=9,soft_max=9)
+	actions = CollectionProperty(name="Actions",type=QcBlendSequenceActionLink)
+	def resize_actions(self,context):
+		while len(self.actions) > self.action_count:
+			self.actions.remove(len(self.actions)-1)
+		while len(self.actions) < self.action_count:
+			self.actions.add()
+	
+	action_count = IntProperty(name="Size",description="Number of Actions in the sequence",min=1,max=32,default=9,soft_max=9,update=resize_actions)
 	blend_width = IntProperty(name="Columns",description="Number of columns to arrange Actions in",min=1,max=32,default=3,soft_max=3)
 	
 	activities = CollectionProperty(type=QcActivity)
@@ -173,7 +182,7 @@ class QcBlendSequence(Node):
 					if (ii >= self.action_count):
 						r.label(text="")
 					else:
-						r.prop(self,"actions",index=ii,text="")
+						r.prop(self.actions[ii],"action",text="")
 					ii += 1
 			
 			c = l.column(align=True)
