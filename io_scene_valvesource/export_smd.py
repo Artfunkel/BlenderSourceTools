@@ -167,6 +167,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='OBJECT')
 		
 		self.validObs = getValidObs()
+		self.bake_results = []
 		
 		ops.ed.undo_push(message=self.bl_label)
 		
@@ -284,6 +285,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if id.vs.automerge:
 				bone_parents = collections.defaultdict(list)
+				scene_obs = bpy.context.scene.objects
 				for bake in [bake for bake in bake_results if type(bake.envelope) == str]:
 					bone_parents[bake.envelope].append(bake)
 				
@@ -295,32 +297,38 @@ class SmdExporter(bpy.types.Operator, Logger):
 					
 					ops.object.select_all(action='DESELECT')
 					for part in parts:
-						part.object.select = True
-						part.basis_mesh = part.object.data.copy()
+						ob = part.object.copy()
+						ob.data = ob.data.copy()
+						scene_obs.link(ob)
+						ob.select = True
+						scene_obs.active = ob
 						bake_results.remove(part)
-						bpy.context.scene.objects.active = part.object
 					
 					bpy.ops.object.join()
 					joined = self.BakeResult(bp + "_meshes")
 					joined.object = bpy.context.active_object
+					joined.object.name = joined.object.data.name = joined.name
 					joined.envelope = bp
 					bake_results.append(joined)
 					
-					for name in shape_names:
+					for shape_name in shape_names:
 						ops.object.select_all(action='DESELECT')
+						
 						for part in parts:
-							mesh = part.shapes.get(name)
-							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,name),object_data = mesh if mesh else part.basis_mesh)
-							bpy.context.scene.objects.link(ob)
+							mesh = part.shapes.get(shape_name)
+							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh if mesh else part.object.data.copy())
+							scene_obs.link(ob)
 							ob.matrix_local = part.matrix
 							ob.select = True
-							bpy.context.scene.objects.active = ob
-							
-						bpy.ops.object.join()
-						joined.shapes[name] = bpy.context.active_object.data
+							scene_obs.active = ob
 						
-						bpy.context.scene.objects.unlink(ob)
+						bpy.ops.object.join()
+						joined.shapes[shape_name] = bpy.context.active_object.data
+						
+						scene_obs.unlink(ob)
 						bpy.data.objects.remove(ob)
+						
+					scene_obs.active = joined.object
 						
 		else:
 			bake_results.append(self.bakeObj(id))
@@ -332,7 +340,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature.name))
 		
 		if self.armature and self.armature != id:
-			self.bakeObj(self.armature)
+			self.armature = self.bakeObj(self.armature).object
 		
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		
@@ -725,6 +733,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		object = None
 		matrix = Matrix()
 		envelope = None
+		src = None
 		
 		def __init__(self,name):
 			self.name = name
@@ -733,18 +742,22 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id):
+		for bake in [bake for bake in self.bake_results if bake.src == id]:
+			return bake
+		
 		result = self.BakeResult(id.name)
-		if id.library:
-			id = id.copy()
-			bpy.context.scene.objects.link(id)
-		if id.data and id.data.library:
-			id.data = id.data.copy()
+		result.src = id
+		self.bake_results.append(result)
+		
+		id = id.copy()
+		bpy.context.scene.objects.link(id)
+		id.data = id.data.copy()
 		
 		bpy.context.scene.objects.active = id
 		ops.object.mode_set(mode='OBJECT')
 		ops.object.select_all(action='DESELECT')
 		id.select = True
-	
+		
 		cur_parent = id
 		while cur_parent:
 			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE' and not result.envelope:
@@ -771,16 +784,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # necessary?
 		
-		if id.type != 'ARMATURE':
-			ops.object.transform_apply(scale=True)
-		if id != self.armature:
-			id.matrix_world = getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
-		if not shouldExportDMX():
-			ops.object.transform_apply(location=True,rotation=True)
+		id.matrix_world = getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
 		
 		if id.type == 'ARMATURE':
 			self.armature = result.object = id
 			return result
+		else:
+			ops.object.transform_apply(scale=True)
+			if not shouldExportDMX(): ops.object.transform_apply(location=True,rotation=True)
 		
 		if id.type == 'CURVE':
 			id.data.dimensions = '3D'
@@ -822,26 +833,49 @@ class SmdExporter(bpy.types.Operator, Logger):
 				edgesplit = id.modifiers.new(name="SMD Edge Split",type='EDGE_SPLIT') # creates sharp edges
 				edgesplit.use_edge_angle = False
 			
-			any_sharp = False
-			ops.object.mode_set(mode='OBJECT')
-			for poly in id.data.polygons:
-				poly.select = not poly.use_smooth
-				if poly.select: any_sharp = True
-			if any_sharp:
-				ops.object.mode_set(mode='EDIT')
-				ops.mesh.mark_sharp()
-			
 		ops.object.mode_set(mode='OBJECT')
 		
-		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW') # bake it!
+		if hasShapes(id):
+			# calculate vert balance
+			if shouldExportDMX():
+				balance_width = id.dimensions.x * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
+				vg = id.vertex_groups.new("__dmx_balance__")
+				zeroes = []
+				ones = []
+				for vert in id.data.vertices:
+					if balance_width == 0:
+						if vert.co.x > 0: ones.append(vert.index)
+						else: zeroes.append(vert.index)
+					else:
+						balance = min(1,max(0, (-vert.co.x / balance_width / 2) + 0.5))
+						if balance == 1: ones.append(vert.index)
+						elif balance == 0: zeroes.append(vert.index)
+						else: vg.add([vert.index], balance, 'REPLACE')
+				vg.add(ones, 1, 'REPLACE')
+				vg.add(zeroes, 0, 'REPLACE')
+			
+			
+			# bake shapes
+			id.show_only_shape_key = True
+			for i, shape in enumerate(id.data.shape_keys.key_blocks):
+				if i == 0: continue
+				id.active_shape_key_index = i
+				baked_shape = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
+				baked_shape.name = "{} -> {}".format(id.name,shape.name)
+				result.shapes[shape.name] = baked_shape
+			
+			id.active_shape_key_index = 0
 		
+		# Bake basis shape
+		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
+		data.name = id.name + "_baked"
 		if id.type == 'MESH':
-			result.object = id.copy()
-			result.object.data = data
+			result.object = id
+			id.data = data
 		else:
 			result.object = bpy.data.objects.new(name=id.name,object_data=data)
+			bpy.context.scene.objects.link(result.object)
 		
-		bpy.context.scene.objects.link(result.object)
 		bpy.context.scene.objects.active = result.object
 		ops.object.select_all(action='DESELECT')
 		result.object.select = True
@@ -877,39 +911,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for mod in [mod for mod in result.object.modifiers if mod.type == 'ARMATURE']:
 			mod.show_viewport = False # performance boost?
 		
-		if hasShapes(id):
-			if shouldExportDMX():
-				balance_width = result.object.dimensions.x * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
-				vg = result.object.vertex_groups.new("__dmx_balance__")
-				zeroes = []
-				ones = []
-				for vert in result.object.data.vertices:
-					if balance_width == 0:
-						if vert.co.x > 0: ones.append(vert.index)
-						else: zeroes.append(vert.index)
-					else:
-						balance = min(1,max(0, (-vert.co.x / balance_width / 2) + 0.5))
-						if balance == 1: ones.append(vert.index)
-						elif balance == 0: zeroes.append(vert.index)
-						else: vg.add([vert.index], balance, 'REPLACE')
-				vg.add(ones, 1, 'REPLACE')
-				vg.add(zeroes, 0, 'REPLACE')
-			
-			id.show_only_shape_key = True
-			for i, shape in enumerate(id.data.shape_keys.key_blocks):
-				if i == 0: continue
-				id.active_shape_key_index = i
-				result.shapes[shape.name] = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
 		return result
 
 	def writeSMD(self, bake_result, filepath, flex=False):
-		smd = self.smd = SmdInfo()
-		smd.jobType = smd_type
-		smd.isDMX = filepath.endswith(".dmx")
-		if groupIndex != -1:
-			smd.g = object.users_group[groupIndex]
-		smd.startTime = time.time()
-		smd.uiTime = 0
+		self.startTime = time.time()
 		
 		def _workStartNotice():
 			if not quiet:
@@ -1122,6 +1127,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			balance = []
 			
 			Indices = []
+			normsIndices = []
 			
 			uv_layer = ob.data.uv_layers.active.data
 			
@@ -1156,23 +1162,16 @@ class SmdExporter(bpy.types.Operator, Logger):
 					jointIndices.extend(indices)
 				if len(pos) % 50 == 0:
 					bpy.context.window_manager.progress_update(len(pos) / num_verts)
-			
-			for poly in ob.data.polygons:
-				for l_i in poly.loop_indices:
-					loop = ob.data.loops[l_i]
-					
-					texco.append(datamodel.Vector2(uv_layer[loop.index].uv))
-					texcoIndices.append(loop.index)
-					
-					Indices.append(loop.vertex_index)
+
+			for loop in [ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]:
+				texco.append(datamodel.Vector2(uv_layer[loop.index].uv))
+				texcoIndices.append(loop.index)
+				Indices.append(loop.vertex_index)
 			
 			#bench("verts")
 			
 			vertex_data["positions"] = datamodel.make_array(pos,datamodel.Vector3)
 			vertex_data["positionsIndices"] = datamodel.make_array(Indices,int)
-			
-			vertex_data["normals"] = datamodel.make_array(norms,datamodel.Vector3)
-			vertex_data["normalsIndices"] = datamodel.make_array(Indices,int)
 			
 			vertex_data["textureCoordinates"] = datamodel.make_array(texco,datamodel.Vector2)
 			vertex_data["textureCoordinatesIndices"] = datamodel.make_array(texcoIndices,int)
@@ -1213,11 +1212,21 @@ class SmdExporter(bpy.types.Operator, Logger):
 				face_list.extend(poly.loop_indices)
 				face_list.append(-1)
 				
+				if (poly.use_smooth):
+					normsIndices.extend([ob.data.loops[i].vertex_index for i in poly.loop_indices])
+				else:
+					norms.append(poly.normal)
+					normsIndices.extend([len(norms) -1 ] * poly.loop_total)
+				
 				p+=1
 				if p % 20 == 0:
 					bpy.context.window_manager.progress_update(len(face_list) / num_polys)
 			
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
+			
+			vertex_data["normals"] = datamodel.make_array(norms,datamodel.Vector3)
+			vertex_data["normalsIndices"] = datamodel.make_array(normsIndices,int)
+			
 			if bad_face_mats:
 				self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,bake.name,"" if bpy.context.scene.vs.use_image_names else " or material"))
 			#bench("faces")
@@ -1291,7 +1300,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					shape_norms = []
 					shape_normIndices = []
 					if wrinkle_scale: delta_lengths = [None] * len(ob.data.vertices)
-					
+										
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
 						
@@ -1336,6 +1345,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					
 					bpy.data.meshes.remove(shape)
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
+					
 				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)
 				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 				DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)

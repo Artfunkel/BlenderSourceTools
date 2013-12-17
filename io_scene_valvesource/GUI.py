@@ -93,7 +93,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 			l.separator()
 		
 		row = l.row()
-		row.alert = len(scene.vs.export_path) > 0 and not studiomdlPathValid()
+		row.alert = len(scene.vs.engine_path) > 0 and not studiomdlPathValid()
 		row.prop(scene.vs,"engine_path")
 		
 		if scene.vs.export_format == 'DMX':
@@ -103,7 +103,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 				row = row.row(align=True)
 				row.prop(scene.vs,"dmx_encoding",text="")
 				row.prop(scene.vs,"dmx_format",text="")
-				row.enabled = len(scene.vs.export_path) == 0 or studiomdlPathValid()
+				row.enabled = len(scene.vs.engine_path) == 0 or studiomdlPathValid()
 			if canExportDMX():
 				row = l.row()
 				row.prop(scene.vs,"material_path",text="Material Path")
