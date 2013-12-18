@@ -168,6 +168,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		self.validObs = getValidObs()
 		self.bake_results = []
+		self.armature = None
+		self.bone_ids = {}
+		self.materials_used = set()
 		
 		ops.ed.undo_push(message=self.bl_label)
 		
@@ -235,10 +238,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 	def exportId(self,context,id):
 		self.attemptedExports += 1
 		self.startTime = time.time()
-		
-		self.armature = None
-		self.bone_ids = {}
-		self.materials_used = set()
 		
 		subdir = id.vs.subdir
 		
@@ -361,149 +360,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			export_name = id.name
 			
 		self.files_exported += write_func(bake_results, export_name, path)
-
-	# nodes block
-	def writeBones(self,quiet=False):
-		smd = self.smd
-		smd.file.write("nodes\n")
-
-		if not smd.a:
-			smd.file.write("0 \"root\" -1\nend\n")
-			if not quiet: print("- No skeleton to export")
-			return
-		
-		curID = 0
-		if smd.a.data.vs.implicit_zero_bone:
-			smd.file.write("0 \"blender_implicit\" -1\n")
-			curID += 1
-		
-		# Write to file
-		for bone in smd.a.data.bones:		
-			if not bone.use_deform:
-				print("- Skipping non-deforming bone \"{}\"".format(bone.name))
-				continue
-
-			parent = bone.parent
-			while parent:
-				if parent.use_deform:
-					break
-				parent = parent.parent
-
-			line = "{} ".format(curID)
-			smd.boneNameToID[bone.name] = curID
-			curID += 1
-
-			bone_name = bone.get('smd_name')
-			if bone_name:
-				comment = " # smd_name override from \"{}\"".format(bone.name)
-			else:
-				bone_name = bone.name
-				comment = ""	
-			line += "\"" + bone_name + "\" "
-
-			if parent:
-				line += str(smd.boneNameToID[parent.name])
-			else:
-				line += "-1"
-
-			smd.file.write(line + comment + "\n")
-
-		smd.file.write("end\n")
-		num_bones = len(smd.a.data.bones)
-		if not quiet: print("- Exported",num_bones,"bones")
-		
-		max_bones = 1023 if smd.isDMX else 128
-		if num_bones > max_bones:
-			self.warning("{} bone limit is {}, you have {}!".format("DMX" if smd.isDMX else "SMD",max_bones,num_bones))
-
-	# skeleton block
-	def writeFrames(self):
-		smd = self.smd
-		if smd.jobType == FLEX: # writeShapes() does its own skeleton block
-			return
-
-		smd.file.write("skeleton\n")
-
-		if not smd.a:
-			smd.file.write("time 0\n0 0 0 0 0 0 0\nend\n")
-			return
-		
-		# remove any non-keyframed positions
-		for posebone in smd.a.pose.bones:
-			posebone.matrix_basis.identity()
-		bpy.context.scene.update()
-
-		# If this isn't an animation, mute all pose constraints
-		if smd.jobType != ANIM:
-			for bone in smd.a.pose.bones:
-				for con in bone.constraints:
-					con.mute = True
-
-		# Get the working frame range
-		num_frames = 1
-		if smd.jobType == ANIM:
-			action = smd.a.animation_data.action
-			start_frame, last_frame = action.frame_range
-			num_frames = int(last_frame - start_frame) + 1 # add 1 due to the way range() counts
-			bpy.context.scene.frame_set(start_frame)
-			
-			if 'fps' in dir(action):
-				bpy.context.scene.render.fps = action.fps
-				bpy.context.scene.render.fps_base = 1
-
-		# Start writing out the animation
-		for i in range(num_frames):
-			bpy.context.window_manager.progress_update(i / num_frames)
-			smd.file.write("time {}\n".format(i))
-			
-			if smd.a.data.vs.implicit_zero_bone:
-				smd.file.write("0 0 0 0 0 0 0\n")
-
-			for posebone in smd.a.pose.bones:
-				if not posebone.bone.use_deform: continue
-		
-				parent = posebone.parent	
-				# Skip over any non-deforming parents
-				while parent:
-					if parent.bone.use_deform:
-						break
-					parent = parent.parent
-		
-				# Get the bone's Matrix from the current pose
-				PoseMatrix = posebone.matrix
-				if smd.a.data.vs.legacy_rotation:
-					PoseMatrix *= mat_BlenderToSMD 
-				if parent:
-					if smd.a.data.vs.legacy_rotation: parentMat = parent.matrix * mat_BlenderToSMD 
-					else: parentMat = parent.matrix
-					PoseMatrix = smd.a.matrix_world * parentMat.inverted() * PoseMatrix
-				else:
-					PoseMatrix = smd.a.matrix_world * PoseMatrix				
-		
-				# Get position
-				pos = PoseMatrix.to_translation()
-				
-				# Get Rotation
-				rot = PoseMatrix.to_euler()
-
-				# Construct the string
-				pos_str = rot_str = ""
-				for j in [0,1,2]:
-					pos_str += " " + getSmdFloat(pos[j])
-					rot_str += " " + getSmdFloat(rot[j])
-		
-				# Write!
-				smd.file.write( str(smd.boneNameToID[posebone.name]) + pos_str + rot_str + "\n" )
-
-			# All bones processed, advance the frame
-			bpy.context.scene.frame_set(bpy.context.scene.frame_current + 1)	
-
-		smd.file.write("end\n")
-
-		ops.object.mode_set(mode='OBJECT')
-		
-		print("- Exported {} frames{}".format(num_frames," (legacy rotation)" if smd.a.data.vs.legacy_rotation else ""))
-		return
 		
 	def getWeightmap(self,bake_result):
 		out = []
@@ -578,156 +434,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return mat_name, True
 		else:
 			return "no_material", ob.draw_type != 'TEXTURED' # assume it's a collision mesh if it's not textured
-
-	# triangles block
-	def writePolys(self,internal=False):
-		smd = self.smd
-		if not internal:
-			smd.file.write("triangles\n")
-			have_cleared_pose = False
-
-			for baked in smd.bakeInfo:
-				if baked.type == 'MESH':
-					# write out each object in turn. Joining them would destroy unique armature modifier settings
-					smd.m = baked
-					if len(smd.m.data.polygons) == 0:
-						self.error("Object {} has no faces, cannot export".format(smd.jobName))
-						continue
-
-					if smd.amod.get(smd.m['src_name']) and not have_cleared_pose:
-						# This is needed due to a Blender bug. Setting the armature to Rest mode doesn't actually
-						# change the pose bones' data!
-						for posebone in smd.amod[smd.m['src_name']].object.pose.bones:
-							posebone.matrix_basis.identity()
-						bpy.context.scene.update()
-						have_cleared_pose = True
-					ops.object.mode_set(mode='OBJECT')
-
-					self.writePolys(internal=True)
-
-			smd.file.write("end\n")
-			return
-
-		# internal mode:
-
-		md = smd.m.data
-		face_index = 0
-
-		uv_loop = md.uv_layers.active.data
-		uv_tex = md.uv_textures.active.data
-		
-		weights = self.getWeightmap(smd.m)
-		
-		ob_weight_str = None
-		if smd.m.get('bp'):
-			ob_weight_str = " 1 {} 1".format(smd.boneNameToID[smd.m['bp']])
-		elif len(weights) == 0:
-			ob_weight_str = " 0"
-		
-		bad_face_mats = 0
-		p = 0
-		for poly in md.polygons:
-			if p % 10 == 0: bpy.context.window_manager.progress_update(p / len(md.polygons))
-			mat_name, mat_success = self.GetMaterialName(smd.m, poly)
-			if not mat_success:
-				bad_face_mats += 1
-			
-			smd.file.write(mat_name + "\n")
-			
-			for i in range(len(poly.vertices)):
-				# Vertex locations, normal directions
-				loc = norms = ""
-				v = md.vertices[poly.vertices[i]]
-				norm = v.normal
-				for j in range(3):
-					loc += " " + getSmdFloat(v.co[j])
-					norms += " " + getSmdFloat(norm[j])
-
-				# UVs
-				uv = ""
-				for j in range(2):
-					uv += " " + getSmdFloat(uv_loop[poly.loop_start + i].uv[j])
-
-				# Weightmaps
-				weight_string = ""
-				if ob_weight_str:
-					weight_string = ob_weight_str
-				else:
-					valid_weights = 0
-					for link in weights[v.index]:
-						if link[1] > 0:
-							weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
-							valid_weights += 1
-					weight_string = " {}{}".format(valid_weights,weight_string)
-
-				# Finally, write it all to file
-				smd.file.write("0" + loc + norms + uv + weight_string + "\n")
-
-			face_index += 1
-
-		if bad_face_mats:
-			self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,smd.jobName,"" if bpy.context.scene.vs.use_image_names else " or material"))
-		print("- Exported",face_index,"polys")
-		removeObject(smd.m)
-		return
-
-	# vertexanimation block
-	def writeShapes(self):
-		smd = self.smd
-		num_verts = 0
-
-		def _writeTime(time, shape = None):
-			smd.file.write( "time {}{}\n".format(time, " # {}".format(shape['shape_name']) if shape else "") )
-
-		# VTAs are always separate files. The nodes block is handled by the normal function, but skeleton is done here to afford a nice little hack
-		smd.file.write("skeleton\n")
-		
-		for i in range(len(smd.bakeInfo)):
-			shape = smd.bakeInfo[i]
-			_writeTime(i, shape if i != 0 else None)
-		smd.file.write("end\n")
-
-		smd.file.write("vertexanimation\n")
-		
-		vert_offset = 0
-		total_verts = 0
-		smd.m = smd.bakeInfo[0]
-		
-		for i in range(len(smd.bakeInfo)):
-			bpy.context.window_manager.progress_update((i+1) / (len(smd.bakeInfo)+1))
-			_writeTime(i)
-			shape = smd.bakeInfo[i]
-			start_time = time.time()
-			num_bad_verts = 0
-			smd_vert_id = 0
-			for poly in smd.m.data.polygons:
-				for vert in poly.vertices:
-					shape_vert = shape.data.vertices[vert]
-					mesh_vert = smd.m.data.vertices[vert]
-					if i != 0:
-						diff_vec = shape_vert.co - mesh_vert.co
-						for ordinate in diff_vec:
-							if ordinate > 8:
-								num_bad_verts += 1
-								break
-					if i == 0 or (diff_vec > epsilon or shape_vert.normal - mesh_vert.normal > epsilon):
-						cos = norms = ""
-						for x in range(3):
-							cos += " " + getSmdFloat(shape_vert.co[x])
-							norms += " " + getSmdFloat(shape_vert.normal[x])
-						smd.file.write(str(smd_vert_id) + cos + norms + "\n")
-						total_verts += 1
-				
-					smd_vert_id +=1
-			if num_bad_verts:
-				self.error("Shape \"{}\" has {} vertex movements that exceed eight units. Source does not support this!".format(shape['shape_name'],num_bad_verts))		
-			if shape != smd.m:
-				removeObject(shape)
-		
-		removeObject(smd.m)
-		smd.file.write("end\n")
-		print("- Exported {} flex shapes ({} verts)".format(i,total_verts))
-		return	
 	
 	class BakeResult:
 		object = None
@@ -833,7 +539,20 @@ class SmdExporter(bpy.types.Operator, Logger):
 				edgesplit = id.modifiers.new(name="SMD Edge Split",type='EDGE_SPLIT') # creates sharp edges
 				edgesplit.use_edge_angle = False
 			
+			if id.vs.triangulate or not shouldExportDMX():
+				ops.object.mode_set(mode='EDIT')
+				ops.mesh.select_all(action='SELECT')
+				ops.mesh.quads_convert_to_tris()
+		
 		ops.object.mode_set(mode='OBJECT')
+		
+		# Bake reference mesh
+		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
+		data.name = id.name + "_baked"
+		
+		if len(data.polygons) == 0:
+			self.error("Object {} has no polygons, skipping".format(id.name))
+			return
 		
 		if hasShapes(id):
 			# calculate vert balance
@@ -854,7 +573,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				vg.add(ones, 1, 'REPLACE')
 				vg.add(zeroes, 0, 'REPLACE')
 			
-			
 			# bake shapes
 			id.show_only_shape_key = True
 			for i, shape in enumerate(id.data.shape_keys.key_blocks):
@@ -866,9 +584,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			id.active_shape_key_index = 0
 		
-		# Bake basis shape
-		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
-		data.name = id.name + "_baked"
+		# put baked ref mesh into an object
 		if id.type == 'MESH':
 			result.object = id
 			id.data = data
@@ -879,11 +595,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bpy.context.scene.objects.active = result.object
 		ops.object.select_all(action='DESELECT')
 		result.object.select = True
-		
-		if id.vs.triangulate or not shouldExportDMX():
-			ops.object.mode_set(mode='EDIT')
-			ops.mesh.quads_convert_to_tris()
-			ops.object.mode_set(mode='OBJECT')
 		
 		# handle which sides of a curve should have polys
 		if id.type == 'CURVE':
@@ -913,79 +624,282 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		return result
 
-	def writeSMD(self, bake_result, filepath, flex=False):
-		self.startTime = time.time()
+	def writeSMD(self, bake_results, name, filepath, flex=False):
+		startTime = time.time()
 		
-		def _workStartNotice():
-			if not quiet:
-				print( "\nSMD EXPORTER: now working on {}{}".format(smd.jobName," (shape keys)" if smd.jobType == FLEX else "") )
-
-		if object.type in mesh_compatible:
-			# We don't want to bake any meshes with poses applied
-			# NOTE: this won't change the posebone values, but it will remove deformations
-			armatures = []
-			for scene_object in bpy.context.scene.objects:
-				if scene_object.type == 'ARMATURE' and scene_object.data.pose_position == 'POSE':
-					scene_object.data.pose_position = 'REST'
-					armatures.append(scene_object)
-
-			if not smd.jobType:
-				smd.jobType = REF
-			if smd.g:
-				smd.jobName = smd.g.name
-			else:
-				smd.jobName = getObExportName(object)
-			smd.m = object
-			_workStartNotice()
-			#smd.a = smd.m.find_armature() # Blender bug: only works on meshes
-			self.bakeObj(smd.m)
-			if len(smd.bakeInfo) == 0:
-				return False
-
-			# re-enable poses
-			for object in armatures:
-				object.data.pose_position = 'POSE'
-			bpy.context.scene.update()
-		elif object.type == 'ARMATURE':
-			if not smd.jobType:
-				smd.jobType = ANIM
-			smd.a = object
-			smd.jobName = getObExportName(object.animation_data.action)
-			_workStartNotice()
-		else:
-			raise TypeError("PROGRAMMER ERROR: writeSMD() has object not in",exportable_types)
-
-		if smd.a and smd.jobType != FLEX:
-			self.bakeObj(smd.a) # MUST be baked after the mesh		
-
-		if smd.isDMX:
-			return self.writeDMX(object, groupIndex, filepath, smd_type, quiet )
+		full_path = os.path.realpath(os.path.join(filepath,name + (".vta" if flex else ".smd")))
 		
 		try:
-			smd.file = open(filepath, 'w')
+			self.smd_file = open(full_path, 'w')
 		except Exception as err:
-			self.error("Could not create SMD. Python reports: {}.".format(err))
-		print("-",os.path.realpath(filepath))
+			self.error("Could not create SMD file. Python reports: {}.".format(err))
+			return 0
+		print("-",full_path)
 			
-		smd.file.write("version 1\n")
+		self.smd_file.write("version 1\n")
 
-		# these write empty blocks if no armature is found. Required!
-		self.writeBones(quiet = smd.jobType == FLEX)
-		self.writeFrames()
+		# BONES
+		self.smd_file.write("nodes\n")
+		if not self.armature:
+			self.smd_file.write("0 \"root\" -1\nend\n")
+			if not flex: print("- No skeleton to export")
+		else:
+			curID = 0
+			if self.armature.data.vs.implicit_zero_bone:
+				self.smd_file.write("0 \"blender_implicit\" -1\n")
+				curID += 1
+			
+			# Write to file
+			for bone in self.armature.data.bones:		
+				if not bone.use_deform:
+					print("- Skipping non-deforming bone \"{}\"".format(bone.name))
+					continue
 
-		if smd.m:
-			if smd.jobType in [REF,PHYS]:
-				self.writePolys()
-				print("- Exported {} materials".format(len(smd.materials_used)))
-				for mat in smd.materials_used:
+				parent = bone.parent
+				while parent:
+					if parent.use_deform:
+						break
+					parent = parent.parent
+
+				line = "{} ".format(curID)
+				self.bone_ids[bone.name] = curID
+				curID += 1
+
+				bone_name = bone.name
+				line += "\"" + bone_name + "\" "
+
+				if parent:
+					line += str(self.bone_ids[parent.name])
+				else:
+					line += "-1"
+
+				self.smd_file.write(line + "\n")
+
+			self.smd_file.write("end\n")
+			num_bones = len(self.armature.data.bones)
+			if not flex: print("- Exported",num_bones,"bones")
+			
+			max_bones = 128
+			if num_bones > max_bones:
+				self.warning("Exported {} bones, but SMD only supports {}!".format(num_bones,max_bones))
+		
+		if not flex:
+			# ANIMATION
+			self.smd_file.write("skeleton\n")
+			if not self.armature:
+				self.smd_file.write("time 0\n0 0 0 0 0 0 0\nend\n")
+			else:
+				# Get the working frame range
+				anim_len = 1
+				if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE':
+					ad = self.armature.animation_data
+					anim_len = animationLength(ad) + 1
+					
+					if ad.action and 'fps' in dir(ad.action):
+						bpy.context.scene.render.fps = ad.action.fps
+						bpy.context.scene.render.fps_base = 1
+
+				# Start writing out the animation
+				for i in range(anim_len):
+					bpy.context.window_manager.progress_update(i / anim_len)
+					self.smd_file.write("time {}\n".format(i))
+					
+					if self.armature.data.vs.implicit_zero_bone:
+						self.smd_file.write("0 0 0 0 0 0 0\n")
+
+					for posebone in self.armature.pose.bones:
+						if not posebone.bone.use_deform: continue
+				
+						parent = posebone.parent	
+						# Skip over any non-deforming parents
+						while parent:
+							if parent.bone.use_deform:
+								break
+							parent = parent.parent
+				
+						# Get the bone's Matrix from the current pose
+						PoseMatrix = posebone.matrix
+						if self.armature.data.vs.legacy_rotation:
+							PoseMatrix *= mat_BlenderToSMD 
+						if parent:
+							if self.armature.data.vs.legacy_rotation: parentMat = parent.matrix * mat_BlenderToSMD 
+							else: parentMat = parent.matrix
+							PoseMatrix = self.armature.matrix_world * parentMat.inverted() * PoseMatrix
+						else:
+							PoseMatrix = self.armature.matrix_world * PoseMatrix				
+				
+						# Get position
+						pos = PoseMatrix.to_translation()
+						
+						# Get Rotation
+						rot = PoseMatrix.to_euler()
+
+						# Construct the string
+						pos_str = rot_str = ""
+						for j in [0,1,2]:
+							pos_str += " " + getSmdFloat(pos[j])
+							rot_str += " " + getSmdFloat(rot[j])
+				
+						# Write!
+						self.smd_file.write( str(self.bone_ids[posebone.name]) + pos_str + rot_str + "\n" )
+
+					# All bones processed, advance the frame
+					bpy.context.scene.frame_set(bpy.context.scene.frame_current + 1)	
+
+				self.smd_file.write("end\n")
+
+				ops.object.mode_set(mode='OBJECT')
+				
+				print("- Exported {} frames{}".format(anim_len," (legacy rotation)" if self.armature.data.vs.legacy_rotation else ""))
+
+			# POLYGONS
+			done_header = False
+			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
+				if not done_header:
+					self.smd_file.write("triangles\n")
+					done_header = True
+				face_index = 0
+				ob = bake.object
+				data = ob.data
+
+				uv_loop = data.uv_layers.active.data
+				uv_tex = data.uv_textures.active.data
+				
+				weights = self.getWeightmap(bake)
+				
+				ob_weight_str = None
+				if type(bake.envelope) == str:
+					ob_weight_str = " 1 {} 1".format(self.bone_ids[bake.envelope])
+				elif len(weights) == 0:
+					ob_weight_str = " 0"
+				
+				bad_face_mats = 0
+				p = 0
+				for poly in data.polygons:
+					if p % 10 == 0: bpy.context.window_manager.progress_update(p / len(data.polygons))
+					mat_name, mat_success = self.GetMaterialName(ob, poly)
+					if not mat_success:
+						bad_face_mats += 1
+					
+					self.smd_file.write(mat_name + "\n")
+					
+					for i in range(len(poly.vertices)):
+						# Vertex locations, normal directions
+						loc = norms = ""
+						v = data.vertices[poly.vertices[i]]
+						norm = v.normal if poly.use_smooth else poly.normal
+						for j in range(3):
+							loc += " " + getSmdFloat(v.co[j])
+							norms += " " + getSmdFloat(norm[j])
+
+						# UVs
+						uv = ""
+						for j in range(2):
+							uv += " " + getSmdFloat(uv_loop[poly.loop_start + i].uv[j])
+
+						# Weightmaps
+						weight_string = ""
+						if ob_weight_str:
+							weight_string = ob_weight_str
+						else:
+							valid_weights = 0
+							for link in weights[v.index]:
+								if link[1] > 0:
+									weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
+									valid_weights += 1
+							weight_string = " {}{}".format(valid_weights,weight_string)
+
+						# Finally, write it all to file
+						self.smd_file.write("0" + loc + norms + uv + weight_string + "\n")
+
+					face_index += 1
+
+				if bad_face_mats:
+					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,name,"" if bpy.context.scene.vs.use_image_names else " or material"))
+				
+				self.smd_file.write("end\n")
+				print("- Exported",face_index,"polys")
+				
+				print("- Exported {} materials".format(len(self.materials_used)))
+				for mat in self.materials_used:
 					print("   " + mat)
-			elif smd.jobType == FLEX:
-				self.writeShapes()
+		else:
+			self.smd_file.write("skeleton\n")
+			
+			def _writeTime(time, shape_name = None):
+				self.smd_file.write( "time {}{}\n".format(time, " # {}".format(shape_name) if shape_name else ""))
+			
+			shape_names = set()
+			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
+				for shape_name in bake.shapes.keys():
+					shape_names.add(shape_name)
+				
+			_writeTime(0)
+			for i, shape_name in enumerate(shape_names):
+				_writeTime(i+1, shape_name)
+			self.smd_file.write("end\n")
 
-		smd.file.close()
-		if not quiet: printTimeMessage(smd.startTime,smd.jobName,"export")
+			self.smd_file.write("vertexanimation\n")
+			
+			vert_offset = 0
+			total_verts = 0
+			vert_id = 0
+			shape_id = 1
+			
+			def _makeVertLine(i,vert,poly):
+				return "{} {} {}\n".format(i, " ".join([str(getSmdFloat(val)) for val in vert.co]), " ".join([str(getSmdFloat(val)) for val in (vert.normal if poly.use_smooth else poly.normal)]))
+			
+			_writeTime(0)
+			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
+				bake.offset = vert_id
+				verts = bake.object.data.vertices
+				for poly in bake.object.data.polygons:
+					for vi in poly.vertices:
+						self.smd_file.write(_makeVertLine(vert_id,verts[vi],poly))
+						vert_id += 1
+			
+			for i, shape_name in enumerate(shape_names):
+				bpy.context.window_manager.progress_update(i / len(shape_names))
+				_writeTime(i+1,shape_name)
+				for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
+					shape = bake.shapes.get(shape_name)
+					if not shape: continue
+					
+					num_bad_verts = 0
+					vert_id = bake.offset
+					mesh_verts = bake.object.data.vertices
+					shape_verts = shape.vertices
+					for poly in bake.object.data.polygons:
+						for vert in poly.vertices:
+							shape_vert = shape_verts[vert]
+							mesh_vert = mesh_verts[vert]
+							
+							diff_vec = shape_vert.co - mesh_vert.co
+							for ordinate in diff_vec:
+								if ordinate > 8:
+									num_bad_verts += 1
+									break
+							
+							if diff_vec > epsilon or (poly.use_smooth and shape_vert.normal - mesh_vert.normal > epsilon):
+								self.smd_file.write(_makeVertLine(vert_id,shape_vert,poly))
+								total_verts += 1
+							vert_id +=1
+						
+					if num_bad_verts:
+						self.error("Shape \"{}\" has {} vertex movements that exceed eight units. Source does not support this!".format(shape_name,num_bad_verts))		
+					#bpy.data.meshes.remove(shape)
+				
+			self.smd_file.write("end\n")
+			print("- Exported {} flex shapes ({} verts)".format(i,total_verts))
 
-		return True
+		self.smd_file.close()
+		printTimeMessage(startTime,name,"export")
+		
+		if not flex:
+			for bake in [bake for bake in bake_results if len(bake.shapes)]:
+				self.writeSMD(bake_results,name,filepath,flex=True)
+				return 2
+		return 1
 
 	def writeDMX(self, bake_results, name, filepath):
 		start = time.time()
@@ -1069,9 +983,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			ob = bake.object
 			
-			if len(ob.data.polygons) == 0:
-				self.error("Object {} has no faces, cannot export".format(bake.name))
-				return 0
 			#print("\n" + bake.name)
 			vertex_data = dm.add_element("bind","DmeVertexData",id=bake.name+"verts")
 			
@@ -1312,7 +1223,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if delta_length:
 							shape_pos.append(datamodel.Vector3(delta))
 							shape_posIndices.append(ob_vert.index)
-							
+						
 						if ob_vert.normal != shape_vert.normal:
 							shape_norms.append(datamodel.Vector3(shape_vert.normal))
 							shape_normIndices.append(ob_vert.index)
@@ -1386,9 +1297,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 		
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
-			ad = self.armature.animation_data
+			ad = armature.animation_data
 						
-			anim_len = ad.action.frame_range[1] if ad.action else max([strip.frame_end for track in ad.nla_tracks for strip in track.strips])
+			anim_len = animationLength(ad)
 			
 			if ad.action and ('fps') in dir(ad.action):
 				fps = bpy.context.scene.render.fps = action.fps
