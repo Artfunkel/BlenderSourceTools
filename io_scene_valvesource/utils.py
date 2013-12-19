@@ -147,7 +147,7 @@ def count_exports(context):
 	return num
 
 def animationLength(ad):
-	return ad.action.frame_range[1] if ad.action else int(max([strip.frame_end for track in ad.nla_tracks for strip in track.strips]))
+	return int(ad.action.frame_range[1] if ad.action else max([strip.frame_end for track in ad.nla_tracks for strip in track.strips]))
 	
 def getFileExt(flex=False):
 	if allowDMX() and bpy.context.scene.vs.export_format == 'DMX':
@@ -342,7 +342,7 @@ class Logger:
 		if len(self.log_errors) or len(self.log_warnings):
 			msg_summary = "{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings))
 			message += " with " + msg_summary
-			if "popup_menu" in dir(bpy.context.window_manager):
+			if not bpy.app.background:
 				bpy.context.window_manager.popup_menu(self.list_errors,title=msg_summary,icon='ERROR')
 			
 			print(msg_summary)
