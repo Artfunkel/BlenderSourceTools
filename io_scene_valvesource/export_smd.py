@@ -464,6 +464,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		ops.object.select_all(action='DESELECT')
 		id.select = True
 		
+		id.active_shape_key_index = 0
+		
 		cur_parent = id
 		while cur_parent:
 			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE' and not result.envelope:
@@ -581,8 +583,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				baked_shape = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 				result.shapes[shape.name] = baked_shape
-			
-			id.active_shape_key_index = 0
 		
 		# put baked ref mesh into an object
 		if id.type == 'MESH':
@@ -983,7 +983,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			ob = bake.object
 			
-			#print("\n" + bake.name)
 			vertex_data = dm.add_element("bind","DmeVertexData",id=bake.name+"verts")
 			
 			DmeMesh = dm.add_element(bake.name,"DmeMesh",id=bake.name+"mesh")
@@ -1101,6 +1100,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			v = 0
 			p = 0
 			num_polys = len(ob.data.polygons)
+			flat_polys = {}
 			
 			for poly in ob.data.polygons:
 				mat_name, mat_success = self.GetMaterialName(ob, poly)
@@ -1127,6 +1127,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					normsIndices.extend([ob.data.loops[i].vertex_index for i in poly.loop_indices])
 				else:
 					norms.append(poly.normal)
+					flat_polys[poly] = len(norms)-1
 					normsIndices.extend([len(norms) -1 ] * poly.loop_total)
 				
 				p+=1
@@ -1227,18 +1228,24 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if ob_vert.normal != shape_vert.normal:
 							shape_norms.append(datamodel.Vector3(shape_vert.normal))
 							shape_normIndices.append(ob_vert.index)
-						
-					if wrinkle_scale:
+					
+					if wrinkle_scale or len(flat_polys):
 						max_delta = 0
 						for poly in ob.data.polygons:
-							for l_i in poly.loop_indices:
-								loop = ob.data.loops[l_i]
-								if loop.vertex_index in shape_posIndices:
-									max_delta = max(max_delta,delta_lengths[loop.vertex_index])
-									wrinkle.append(delta_lengths[loop.vertex_index])
-									wrinkleIndices.append(l_i)
-					
-						if max_delta:
+							if wrinkle_scale:
+								for l_i in poly.loop_indices:
+									loop = ob.data.loops[l_i]
+									if loop.vertex_index in shape_posIndices:
+										max_delta = max(max_delta,delta_lengths[loop.vertex_index])
+										wrinkle.append(delta_lengths[loop.vertex_index])
+										wrinkleIndices.append(l_i)
+							if not poly.use_smooth:
+								shape_norm = shape.polygons[poly.index].normal
+								if poly.normal != shape_norm:
+									shape_norms.append(shape_norm)
+									shape_normIndices.append(flat_polys[poly])
+				
+						if wrinkle_scale and max_delta:
 							wrinkle_mod = wrinkle_scale / max_delta
 							if (wrinkle_mod != 1):
 								for i in range(len(wrinkle)):
