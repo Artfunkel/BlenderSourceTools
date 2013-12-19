@@ -1,4 +1,4 @@
-import bpy, os, shutil
+import bpy, os, shutil # see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
 
 results_path = os.path.realpath("../TestResults")
 if not os.path.exists(results_path): os.makedirs(results_path)

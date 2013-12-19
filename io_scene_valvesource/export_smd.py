@@ -122,8 +122,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		('SCENE','Scene','Export the objects and animations selected in Scene Properties'),
 		))
 	group = bpy.props.StringProperty(name="Name of the Group to export")
-	
-	default_armature_subdir = "anims"
 
 	@classmethod
 	def poll(self,context):
@@ -171,6 +169,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.armature = None
 		self.bone_ids = {}
 		self.materials_used = set()
+		
+		for ob in self.validObs:
+			if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0:
+				ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
 		
@@ -224,10 +226,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				ops.object.mode_set(mode=prev_mode)
 			if prev_hidden:
 				prev_hidden.hide = True
-				
-			for ob in self.validObs:
-				if ob.type == 'ARMATURE' and len(bpy.data.objects[ob.name].vs.subdir) == 0:
-					bpy.data.objects[ob.name].vs.subdir = self.default_armature_subdir # ob itself seems to be within the undo buffer!
 			p_cache.scene_updated = True
 			
 			bpy.context.window_manager.progress_end()
@@ -245,7 +243,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if type(id) == bpy.types.Object and id.type == 'ARMATURE':
 			if not id.animation_data: return # otherwise we create a folder but put nothing in it
-			if len(subdir) == 0: subdir = self.default_armature_subdir
 		
 		subdir = subdir.lstrip("/") # don't want //s here!
 		
