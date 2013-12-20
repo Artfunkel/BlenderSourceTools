@@ -279,7 +279,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						
 				bake_results.append(self.bakeObj(ob))
 			
-			if id.vs.automerge:
+			if shouldExportDMX() and id.vs.automerge:
 				bone_parents = collections.defaultdict(list)
 				scene_obs = bpy.context.scene.objects
 				for bake in [bake for bake in bake_results if type(bake.envelope) == str]:
@@ -702,7 +702,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					self.smd_file.write("time {}\n".format(i))
 					
 					if self.armature.data.vs.implicit_zero_bone:
-						self.smd_file.write("0 0 0 0 0 0 0\n")
+						self.smd_file.write("0  0 0 0  0 0 0\n")
 
 					for posebone in self.armature.pose.bones:
 						if not posebone.bone.use_deform: continue
@@ -719,26 +719,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if self.armature.data.vs.legacy_rotation:
 							PoseMatrix *= mat_BlenderToSMD 
 						if parent:
-							if self.armature.data.vs.legacy_rotation: parentMat = parent.matrix * mat_BlenderToSMD 
-							else: parentMat = parent.matrix
-							PoseMatrix = self.armature.matrix_world * parentMat.inverted() * PoseMatrix
+							parentMat = parent.matrix
+							if self.armature.data.vs.legacy_rotation: parentMat *= mat_BlenderToSMD 
+							PoseMatrix = parentMat.inverted() * PoseMatrix
 						else:
 							PoseMatrix = self.armature.matrix_world * PoseMatrix				
 				
-						# Get position
-						pos = PoseMatrix.to_translation()
-						
-						# Get Rotation
-						rot = PoseMatrix.to_euler()
-
-						# Construct the string
-						pos_str = rot_str = ""
-						for j in [0,1,2]:
-							pos_str += " " + getSmdFloat(pos[j])
-							rot_str += " " + getSmdFloat(rot[j])
-				
-						# Write!
-						self.smd_file.write( str(self.bone_ids[posebone.name]) + pos_str + rot_str + "\n" )
+						self.smd_file.write("{}  {}  {}\n".format(self.bone_ids[posebone.name], getSmdVec(PoseMatrix.to_translation()), getSmdVec(PoseMatrix.to_euler())))
 
 					# All bones processed, advance the frame
 					bpy.context.scene.frame_set(bpy.context.scene.frame_current + 1)	
@@ -782,12 +769,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 					
 					for i in range(len(poly.vertices)):
 						# Vertex locations, normal directions
-						loc = norms = ""
 						v = data.vertices[poly.vertices[i]]
-						norm = v.normal if poly.use_smooth else poly.normal
-						for j in range(3):
-							loc += " " + getSmdFloat(v.co[j])
-							norms += " " + getSmdFloat(norm[j])
+						pos_norm = "  {}  {}  ".format(getSmdVec(v.co),getSmdVec(v.normal if poly.use_smooth else poly.normal))
 
 						# UVs
 						uv = ""
@@ -800,27 +783,27 @@ class SmdExporter(bpy.types.Operator, Logger):
 							weight_string = ob_weight_str
 						else:
 							valid_weights = 0
-							for link in weights[v.index]:
-								if link[1] > 0:
-									weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
-									valid_weights += 1
+							for link in [link for link in weights[v.index] if link[1] > 0]:
+								weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
+								valid_weights += 1
 							weight_string = " {}{}".format(valid_weights,weight_string)
 
 						# Finally, write it all to file
-						self.smd_file.write("0" + loc + norms + uv + weight_string + "\n")
+						self.smd_file.write("0" + pos_norm + uv + weight_string + "\n")
 
 					face_index += 1
 
 				if bad_face_mats:
 					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,name,"" if bpy.context.scene.vs.use_image_names else " or material"))
 				
-				self.smd_file.write("end\n")
 				print("- Exported",face_index,"polys")
 				
 				print("- Exported {} materials".format(len(self.materials_used)))
 				for mat in self.materials_used:
 					print("   " + mat)
-		else:
+			
+			self.smd_file.write("end\n")
+		else: # flex == True
 			self.smd_file.write("skeleton\n")
 			
 			def _writeTime(time, shape_name = None):

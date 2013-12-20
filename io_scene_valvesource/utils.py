@@ -163,8 +163,9 @@ def isWild(in_str):
 
 # rounds to 6 decimal places, converts between "1e-5" and "0.000001", outputs str
 def getSmdFloat(fval):
-	val = "{:.6f}".format(float(fval))
-	return val
+	return "{:.6f}".format(float(fval))
+def getSmdVec(iterable):
+	return " ".join([getSmdFloat(val) for val in iterable])
 
 def appendExt(path,ext):
 	if not path.lower().endswith("." + ext) and not path.lower().endswith(".dmx"):
