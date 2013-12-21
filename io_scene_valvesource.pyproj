@@ -5,8 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{5e446a8f-55cc-4931-9e47-9a392d07b69a}</ProjectGuid>
     <ProjectHome>io_scene_valvesource\</ProjectHome>
-    <StartupFile>
-    </StartupFile>
+    <StartupFile>..\interactive_startup.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -15,9 +14,9 @@
     <InterpreterVersion>3.3</InterpreterVersion>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
-    <IsWindowsApplication>False</IsWindowsApplication>
+    <IsWindowsApplication>True</IsWindowsApplication>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments />
+    <CommandLineArguments>"$(SolutionDir)Tests\Scout.blend"</CommandLineArguments>
     <InterpreterPath>
     </InterpreterPath>
     <InterpreterArguments>
@@ -35,9 +34,18 @@
     <Compile Include="update.py" />
     <Compile Include="utils.py" />
     <Compile Include="__init__.py" />
+    <Compile Include="..\interactive_startup.py">
+      <Link>external\interactive_startup.py</Link>
+    </Compile>
+    <Compile Include="..\tests.py">
+      <Link>external\tests.py</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="{2af0f10d-7135-4994-9156-5d01c9c11b7e}\3.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="external\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
 </Project>
