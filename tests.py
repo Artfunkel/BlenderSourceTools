@@ -6,7 +6,7 @@ if not os.path.exists(results_path): os.makedirs(results_path)
 sdk_content_path = os.getenv("SOURCESDK") + "_content\\"
 steam_common_path = os.path.realpath(os.path.join(sdk_content_path,"..","..","common"))
 
-bpy.ops.wm.addon_enable(module="io_scene_valvesource")
+bpy.ops.wm.read_homefile()
 C = bpy.context
 
 def section(*args):
@@ -16,6 +16,8 @@ def runExportTest(blend):
 	bpy.ops.wm.open_mainfile(filepath=os.path.join("Tests",blend + ".blend"))
 	blend_name = os.path.splitext(blend)[0]
 	C.scene.vs.export_path = os.path.join(results_path,blend_name)
+	if os.path.isdir(C.scene.vs.export_path):
+		shutil.rmtree(C.scene.vs.export_path)
 
 	def ex(mode):
 		result = bpy.ops.export_scene.smd(exportMode=mode)
@@ -63,13 +65,17 @@ class Tests(unittest.TestCase):
 			result = bpy.ops.import_scene.smd(filepath=path)
 			if result != {'FINISHED'}:
 				print('/a')
+		out_dir = os.path.join(results_path,"import")
+		if os.path.isdir(out_dir):
+			shutil.rmtree(out_dir)
+		os.makedirs(out_dir)
 
 		section("QC SMD import")
 		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_sdk.qc")
-		bpy.ops.ed.undo()
+		bpy.ops.wm.save_mainfile(filepath=os.path.join(out_dir,"Male_06_sdk.blend"),check_existing=False)
+		bpy.ops.wm.read_homefile()
 
 		section("SMD Ref + Anim import")
 		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_reference.smd")
 		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_Animations_sdk/ShootSMG1.smd")
-		bpy.ops.ed.undo()
-		bpy.ops.ed.undo()
+		bpy.ops.wm.save_mainfile(filepath=os.path.join(out_dir,"ref_then_anim.blend"),check_existing=False)

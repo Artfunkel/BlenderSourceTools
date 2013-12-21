@@ -82,6 +82,8 @@ def scene_update(scene):
 		return
 	
 	p_cache.scene_updated = False
+
+	if not "vs" in dir(scene): return
 	
 	if bpy.context.scene.get("smd_path"):
 		def convert(id,p_g):
