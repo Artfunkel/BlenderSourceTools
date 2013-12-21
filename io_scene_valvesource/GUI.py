@@ -194,7 +194,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			elif shouldExportDMX():
 				r.prop(item.vs,"automerge")
 			
-			want_shapes = hasShapes_id(item)
+			want_shapes = hasShapes(item)
 			
 		elif item:
 			armature = item.find_armature()
@@ -218,7 +218,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				row = col.row()
 				row.prop(item.data.vs,"faces",expand=True)
 		
-			if hasShapes(item,-1): want_shapes = item
+			if hasShapes(item): want_shapes = item
 		
 		if want_shapes and bpy.context.scene.vs.export_format == 'DMX':
 			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')

@@ -248,7 +248,7 @@ def removeObject(obj):
 
 	return None if d else type
 
-def hasShapes_id(id):
+def hasShapes(id):
 	def _test(id_):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
@@ -257,17 +257,6 @@ def hasShapes_id(id):
 			if _test(g_ob): return True
 	else:
 		return _test(id)
-		
-def hasShapes(ob,groupIndex = -1):
-	def _test(t_ob):
-		return t_ob.type in shape_types and t_ob.data.shape_keys and len(t_ob.data.shape_keys.key_blocks) > 1
-
-	if groupIndex != -1:
-		for g_ob in ob.users_group[groupIndex].objects:
-			if _test(g_ob): return True
-		return False
-	else:
-		return _test(ob)
 
 def actionsForFilter(filter):
 	import fnmatch

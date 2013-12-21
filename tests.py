@@ -8,6 +8,7 @@ steam_common_path = os.path.realpath(os.path.join(sdk_content_path,"..","..","co
 
 bpy.ops.wm.read_homefile()
 C = bpy.context
+D = bpy.data
 
 def section(*args):
 	print("\n\n********\n********  {} {}".format(C.scene.name,*args),"\n********")
@@ -58,6 +59,7 @@ class Tests(unittest.TestCase):
 
 	def test_Export_TF2(self):
 		runExportTest("scout")
+		C.scene.objects.active = D.objects['head=zero']
 		bpy.ops.export_scene.dmx_flex_controller()
 
 	def test_import_Citizen(self):

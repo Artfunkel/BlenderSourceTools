@@ -29,47 +29,35 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self, context):
-		if context.active_object:
-			group_index = -1
-			for i,g in enumerate(context.active_object.users_group):
-				if not g.vs.mute:
-					group_index = i
-					break
-			return hasShapes(context.active_object,group_index)
-		else:
-			return False
+		for exportable in getExportablesForId(context.active_object):
+			if hasShapes(exportable.get_id()): return True
+		return False
 	
 	def execute(self, context):
-		ob = bpy.context.active_object
 		dm = datamodel.DataModel("model",1)
 		
-		text_name = ob.name
 		objects = []
 		shapes = []
-		target = ob
-		if len(ob.users_group) == 0:
-			objects.append(ob)
-		else:
-			for g in ob.users_group:
-				if g.vs.mute: continue
-				text_name = g.name
-				target = g
-				for g_ob in g.objects:
-					if g_ob.vs.export and hasShapes(g_ob):
-						objects.append(g_ob)
+		
+		for exportable in getExportablesForId(context.active_object):
+			id = exportable.get_id()
+			if hasShapes(id):
+				if type(id) == bpy.types.Group:
+					objects.extend(list([ob for ob in id.objects if ob.data and ob.data.shape_keys]))
+				else:
+					objects.append(id)
+				target = id
 				break
 		
-		text = bpy.data.texts.new( "flex_{}".format(text_name) )
+		text = bpy.data.texts.new( "flex_{}".format(target.name) )
 		
 		root = dm.add_element(text.name)
-		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=ob.name+"controllers")
+		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=target.name+"controllers")
 		root["combinationOperator"] = DmeCombinationOperator
 		controls = DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
 		
-		
 		for ob in objects:
-			for shape in ob.data.shape_keys.key_blocks[1:]:
-				if "_" in shape.name: continue
+			for shape in [shape for shape in ob.data.shape_keys.key_blocks[1:] if not "_" in shape.name]:
 				DmeCombinationInputControl = dm.add_element(shape.name,"DmeCombinationInputControl",id=ob.name+shape.name+"inputcontrol")
 				controls.append(DmeCombinationInputControl)
 				

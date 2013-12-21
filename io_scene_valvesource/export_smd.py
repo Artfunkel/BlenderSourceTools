@@ -687,14 +687,19 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.smd_file.write("time 0\n0 0 0 0 0 0 0\nend\n")
 			else:
 				# Get the working frame range
-				anim_len = 1
-				if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE':
+				is_anim = len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE'
+				if is_anim:
 					ad = self.armature.animation_data
 					anim_len = animationLength(ad) + 1
 					
 					if ad.action and 'fps' in dir(ad.action):
 						bpy.context.scene.render.fps = ad.action.fps
 						bpy.context.scene.render.fps_base = 1
+				else:
+					anim_len = 1
+					for posebone in self.armature.pose.bones:
+						posebone.matrix_basis.identity()
+					bpy.context.scene.update()
 
 				# Start writing out the animation
 				for i in range(anim_len):
@@ -703,6 +708,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 					
 					if self.armature.data.vs.implicit_zero_bone:
 						self.smd_file.write("0  0 0 0  0 0 0\n")
+
+					if is_anim:
+						bpy.context.scene.frame_set(i)
 
 					for posebone in self.armature.pose.bones:
 						if not posebone.bone.use_deform: continue
@@ -726,9 +734,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 							PoseMatrix = self.armature.matrix_world * PoseMatrix				
 				
 						self.smd_file.write("{}  {}  {}\n".format(self.bone_ids[posebone.name], getSmdVec(PoseMatrix.to_translation()), getSmdVec(PoseMatrix.to_euler())))
-
-					# All bones processed, advance the frame
-					bpy.context.scene.frame_set(bpy.context.scene.frame_current + 1)	
 
 				self.smd_file.write("end\n")
 
