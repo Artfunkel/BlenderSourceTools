@@ -20,21 +20,21 @@ def runExportTest(blend):
 	if os.path.isdir(C.scene.vs.export_path):
 		shutil.rmtree(C.scene.vs.export_path)
 
-	def ex(mode):
-		result = bpy.ops.export_scene.smd(exportMode=mode)
+	def ex(do_scene):
+		result = bpy.ops.export_scene.smd(export_scene=do_scene)
 		if result != {'FINISHED'}:
 			print('\a')
 
 	C.scene.vs.export_format = 'DMX'
 	section("DMX default")
-	ex('SCENE')
+	ex(True)
 	section("DMX Dota 2")
 	C.scene.vs.engine_path = os.path.join(steam_common_path,"dota 2 beta","bin")
-	ex('SCENE')
+	ex(True)
 
 	C.scene.vs.export_format = 'SMD'
 	section("SMD scene")
-	ex('SCENE')
+	ex(True)
 
 	qc_name = bpy.path.abspath("//" + blend_name + ".qc")
 	if os.path.exists(qc_name):

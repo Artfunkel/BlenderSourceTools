@@ -112,16 +112,12 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		return num_good_compiles
 
 class SmdExporter(bpy.types.Operator, Logger):
-	'''Export SMD or DMX files and compile them with QC scripts'''
+	'''Export and compile Source Engine models'''
 	bl_idname = "export_scene.smd"
 	bl_label = "Export SMD/VTA/DMX"
 	
-	exportMode = bpy.props.EnumProperty(options={'HIDDEN'},items=(
-		('SINGLE','Active','Only the active object'),
-		('MULTI','Selection','All selected objects'),
-		('SCENE','Scene','Export the objects and animations selected in Scene Properties'),
-		))
-	group = bpy.props.StringProperty(name="Name of the Group to export")
+	group = bpy.props.StringProperty(name="Group name",description="Name of a Group to export")
+	export_scene = bpy.props.BoolProperty(name="Scene export",description="Export all items selected in the Source Engine Exportables panel",default=False) 
 
 	@classmethod
 	def poll(self,context):
@@ -187,7 +183,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			self.files_exported = self.attemptedExports = 0
 			
-			if self.exportMode == 'SCENE':
+			if self.export_scene:
 				for id in [exportable.get_id() for exportable in context.scene.vs.export_list]:
 					if type(id) == Group and shouldExportGroup(id):
 						self.exportId(context, id)

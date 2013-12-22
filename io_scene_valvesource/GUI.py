@@ -51,11 +51,11 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				
 				num_obs = len(single_obs)
 				if num_obs > 1:
-					l.operator(SmdExporter.bl_idname, text="Selected objects ({} files)".format(num_obs), icon='OBJECT_DATA').exportMode = 'MULTI'
+					l.operator(SmdExporter.bl_idname, text="Selected objects ({} files)".format(num_obs), icon='OBJECT_DATA')
 				elif num_obs:
-					l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon).exportMode = 'SINGLE'
+					l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
 		
-		op = l.operator(SmdExporter.bl_idname, text="Scene export ({} files)".format(count_exports(context)), icon='SCENE_DATA').exportMode = 'SCENE'
+		op = l.operator(SmdExporter.bl_idname, text="Scene export ({} files)".format(count_exports(context)), icon='SCENE_DATA').export_scene = True
 
 class SMD_PT_Scene(bpy.types.Panel):
 	bl_label = "Source Engine Export"
