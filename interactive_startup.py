@@ -1,7 +1,11 @@
-import bpy, sys
+from bpy_git import bpy
+
+if len(sys.argv) > 1:
+	bpy.ops.wm.open_mainfile(filepath=sys.argv[1])
+else:
+	bpy.ops.wm.open_homefile()
 
 bpy.ops.wm.addon_enable(module="io_scene_valvesource")
-bpy.ops.wm.open_mainfile(filepath=sys.argv[1])
 
 C = bpy.context
 D = bpy.data
