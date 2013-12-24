@@ -506,8 +506,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 					self.armature = con.target
 					result.envelope = con.subtarget
 		
-		has_edge_split = False
-		solidify_fill_rim = False
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
 				if result.envelope:
@@ -515,29 +513,16 @@ class SmdExporter(bpy.types.Operator, Logger):
 				else:
 					self.armature = mod.object
 					result.envelope = mod
-		
-			elif mod.type == 'EDGE_SPLIT':
-				has_edge_split = 'WITH_SHARP' if mod.use_edge_angle else 'NO_SHARP'
-				mod.use_edge_sharp = True # required for splitting flat-shaded faces
 			elif mod.type == 'SOLIDIFY' and not solidify_fill_rim:
 				solidify_fill_rim = mod.use_rim
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':
 				self.error("Cannot export shape keys from \"{}\" because it has a '{}' Decimate modifier. Only Un-Subdivide mode is supported.".format(id.name,mod.decimate_type))
 				return result
 
-		if id.type == 'MESH':
+		if id.type == 'MESH' and id.vs.triangulate or not shouldExportDMX():
 			ops.object.mode_set(mode='EDIT')
-			if has_edge_split == 'NO_SHARP': # unset user sharp edges
-				ops.mesh.select_all(mode='SELECT')
-				ops.mesh.mark_sharp(clear=True)
-			else:
-				edgesplit = id.modifiers.new(name="SMD Edge Split",type='EDGE_SPLIT') # creates sharp edges
-				edgesplit.use_edge_angle = False
-			
-			if id.vs.triangulate or not shouldExportDMX():
-				ops.object.mode_set(mode='EDIT')
-				ops.mesh.select_all(action='SELECT')
-				ops.mesh.quads_convert_to_tris()
+			ops.mesh.select_all(action='SELECT')
+			ops.mesh.quads_convert_to_tris()
 		
 		ops.object.mode_set(mode='OBJECT')
 		
