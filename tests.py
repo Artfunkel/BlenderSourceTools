@@ -95,3 +95,50 @@ class bpy_266a(unittest.TestCase,Tests):
 
 class bpy_git(unittest.TestCase,Tests):
 	bpy_version = "bpy_git"
+
+
+class Datamodel():
+	@staticmethod
+	def load_datamodel():
+		os.curdir = "io_scene_valvesource"
+		global datamodel
+		import datamodel
+
+	def create(self,name):
+		self.load_datamodel()
+		self.dm = datamodel.DataModel(name,1)
+		self.dm.add_element("root")
+
+	def save(self):
+		out_dir = os.path.join(results_path,"datamodel")
+		out_file = os.path.join(out_dir,"{}_{}.dmx".format(self.dm.format,self.format[0]))
+		os.makedirs(out_dir, exist_ok=True)
+		if os.path.isfile(out_file):
+			os.unlink(out_file)
+		self.dm.write(out_file,self.format[0],self.format[1])
+
+	def test_Vector(self):
+		self.create("vector")
+		self.dm.root["vecs"] = datamodel.make_array([datamodel.Vector3([0,1,2]) for i in range(20000)],datamodel.Vector3)
+		self.save()
+
+	def test_Matrix(self):
+		self.create("matrix")
+		m = [[1.005] * 4] * 4
+		self.dm.root["matrix"] = datamodel.make_array([datamodel.Matrix(m) for i in range(20000)],datamodel.Matrix)
+		self.save()
+
+	def test_Element(self):
+		self.create("elements")
+		e = self.dm.add_element("TEST")
+		e["str_array"] = datamodel.make_array(["a","b"],str)
+		e["float_small"] = 1e-12
+		e["float_large"] = 1e20
+		self.dm.root["elements"] = datamodel.make_array([e for i in range(20000)],datamodel.Element)
+		self.save()
+
+class Datamodel_KV2(unittest.TestCase,Datamodel):
+	format= ("keyvalues2",1)
+
+class Datamodel_Binary5(unittest.TestCase,Datamodel):
+	format= ("binary",5)
