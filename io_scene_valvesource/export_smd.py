@@ -506,6 +506,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					self.armature = con.target
 					result.envelope = con.subtarget
 		
+		solidify_fill_rim = None
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
 				if result.envelope:
