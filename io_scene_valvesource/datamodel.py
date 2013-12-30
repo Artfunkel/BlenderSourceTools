@@ -914,7 +914,7 @@ def load(path = None, in_file = None, element_path = None):
 				else:
 					raise TypeError("Cannot read attributes of type {}".format(attr_type))
 			
-			for elem in [elem for elem in dm.elements if not elem.is_placeholder]:
+			for elem in [elem for elem in dm.elements if not elem._is_placeholder]:
 				#print(elem.name,"@",in_file.tell())
 				num_attributes = get_int(in_file)
 				for i in range(num_attributes):

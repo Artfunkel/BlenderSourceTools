@@ -175,6 +175,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		try:
 			context.tool_settings.use_keyframe_insert_auto = False
 			context.tool_settings.use_keyframe_insert_keyingset = False
+			context.user_preferences.edit.use_enter_edit_mode = False
 			
 			# lots of operators only work on visible objects
 			for object in context.scene.objects:

@@ -48,6 +48,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 	def execute(self, context):		
 		pre_obs = set(bpy.context.scene.objects)
 
+		pre_eem = context.user_preferences.edit.use_enter_edit_mode
+		context.user_preferences.edit.use_enter_edit_mode = False
+
 		filepath_lc = self.properties.filepath.lower()
 		if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
 			self.countSMDs = self.readQC(self.properties.filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, outer_qc=True)
@@ -83,6 +86,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					space.clip_end = max( space.clip_end, xyz * 2 )
 		if bpy.context.area and bpy.context.area.type == 'VIEW_3D' and bpy.context.region:
 			ops.view3d.view_selected()
+		context.user_preferences.edit.use_enter_edit_mode = pre_eem
 		return {'FINISHED'}
 
 	def invoke(self, context, event):
