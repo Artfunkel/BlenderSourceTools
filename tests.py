@@ -25,7 +25,7 @@ class Tests:
 		self.loadBlender()
 		bpy.ops.wm.open_mainfile(filepath=os.path.join("Tests",blend + ".blend"))
 		blend_name = os.path.splitext(blend)[0]
-		C.scene.vs.export_path = os.path.join(results_path,self.bpy_version,blend_name)
+		C.scene.vs.export_path = os.path.realpath(os.path.join(results_path,self.bpy_version,blend_name))
 		if os.path.isdir(C.scene.vs.export_path):
 			shutil.rmtree(C.scene.vs.export_path)
 
@@ -47,7 +47,10 @@ class Tests:
 
 		qc_name = bpy.path.abspath("//" + blend_name + ".qc")
 		if os.path.exists(qc_name):
-			shutil.copy2(qc_name, bpy.path.abspath(C.scene.vs.export_path))
+			shutil.copy2(qc_name, C.scene.vs.export_path)
+			C.scene.vs.game_path = os.path.join(steam_common_path,"SourceFilmmaker","game","usermod")
+			C.scene.vs.engine_path = os.path.realpath(os.path.join(C.scene.vs.game_path,"..","bin"))
+			bpy.ops.smd.compile_qc(filepath=os.path.join(C.scene.vs.export_path, blend_name + ".qc"))
 
 	def test_Export_Armature_Mesh(self):
 		self.runExportTest("Cube_Armature")

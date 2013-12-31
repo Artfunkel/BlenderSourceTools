@@ -551,10 +551,12 @@ class DataModel:
 			if elem.type == elemtype: out.append(elem)
 		if len(out): return out
 		
-	def _write(self,value, elem = None):
+	def _write(self,value, elem = None, suppress_dict = None):
 		import uuid
 		t = type(value)
 		is_array = issubclass(t, _Array)
+		if suppress_dict == None:
+			suppress_dict = self.encoding_ver < 4
 
 		if is_array:
 			t = value.type
@@ -571,7 +573,7 @@ class DataModel:
 		elif t == uuid.UUID:
 			self.out.write(bytes.join(b'',[item.bytes for item in value]))
 		elif t == str:
-			if is_array or self.suppress_dict:
+			if is_array or suppress_dict:
 				self.out.write(bytes.join(b'',[_encode_binary_string(item) for item in value]))
 			else:
 				self._string_dict.write_string(self.out,value[0])
@@ -593,7 +595,7 @@ class DataModel:
 	
 	def _write_element_index(self,elem):
 		if elem._is_placeholder: return
-		self._write(elem.type)
+		self._write(elem.type, suppress_dict = False)
 		self._write(elem.name)
 		self._write(elem.id)
 		
@@ -615,7 +617,7 @@ class DataModel:
 			self._write(len(elem))
 			for name in elem:
 				attr = elem[name]
-				self._write(name)
+				self._write(name, suppress_dict = False)
 				self._write( struct.pack("b", _get_dmx_type_id(self.encoding, self.encoding_ver, type(attr) )) )
 				if attr == None:
 					self._write(-1)
@@ -627,7 +629,6 @@ class DataModel:
 		
 		if encoding in ["binary", "binary_proto"]:
 			self.out = io.BytesIO()
-			self.suppress_dict = encoding_ver < 4
 		else:
 			self.out = io.StringIO()
 			_kv2_indent = ""

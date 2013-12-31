@@ -76,7 +76,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.engine_path),"studiomdl.exe")
 
 		if path:
-			p_cache.qc_paths = [path]
+			p_cache.qc_paths = [os.path.realpath(bpy.path.abspath(path))]
 		else:
 			p_cache.qc_paths = SMD_OT_Compile.getQCs()
 		num_good_compiles = 0
@@ -791,7 +791,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for mat in self.materials_used:
 					print("   " + mat)
 			
-			self.smd_file.write("end\n")
+			if done_header:
+				self.smd_file.write("end\n")
 		else: # flex == True
 			self.smd_file.write("skeleton\n")
 			
