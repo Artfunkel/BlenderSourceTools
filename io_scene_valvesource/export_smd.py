@@ -520,11 +520,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':
 				self.error("Cannot export shape keys from \"{}\" because it has a '{}' Decimate modifier. Only Un-Subdivide mode is supported.".format(id.name,mod.decimate_type))
 				return result
-
-		if id.type == 'MESH' and id.vs.triangulate or not shouldExportDMX():
-			ops.object.mode_set(mode='EDIT')
-			ops.mesh.select_all(action='SELECT')
-			ops.mesh.quads_convert_to_tris()
 		
 		ops.object.mode_set(mode='OBJECT')
 		
@@ -575,6 +570,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bpy.context.scene.objects.active = result.object
 		ops.object.select_all(action='DESELECT')
 		result.object.select = True
+		
+		if id.vs.triangulate or not shouldExportDMX():
+			ops.object.mode_set(mode='EDIT')
+			ops.mesh.select_all(action='SELECT')
+			ops.mesh.quads_convert_to_tris()
+			ops.object.mode_set(mode='OBJECT')
 		
 		# handle which sides of a curve should have polys
 		if id.type == 'CURVE':
