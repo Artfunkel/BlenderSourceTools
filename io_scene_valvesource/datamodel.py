@@ -98,7 +98,7 @@ def _get_kv2_repr(var):
 	if t == bool:
 		return "1" if var else "0"
 	elif t == float:
-		if var < 1e-10:
+		if abs(var) < 1e-10:
 			return "0"
 		elif var > 1e10:
 			return "{:.10f}".format(var).rstrip("0").rstrip(".")
