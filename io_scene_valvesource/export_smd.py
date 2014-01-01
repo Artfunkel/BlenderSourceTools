@@ -468,9 +468,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			top_parent = cur_parent
 			cur_parent = cur_parent.parent
-		
-		top_parent.location = Vector() # centre the topmost parent (potentially the object itself)
-		result.matrix = id.matrix_world
+				
 		
 		if id.data.users > 1:
 			id.data = id.data.copy()
@@ -484,9 +482,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				ops.mesh.select_all(action="DESELECT")
 			ops.object.mode_set(mode='OBJECT')
 		
-		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # necessary?
-		
-		id.matrix_world = getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
+		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # avoids a few Blender bugs (as of 2.69)
+		bpy.context.scene.update()
+		result.matrix = id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
 		
 		if id.type == 'ARMATURE':
 			self.armature = result.object = id
@@ -565,6 +563,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			id.data = data
 		else:
 			result.object = bpy.data.objects.new(name=id.name,object_data=data)
+			result.object.matrix_world = id.matrix_world
 			bpy.context.scene.objects.link(result.object)
 		
 		bpy.context.scene.objects.active = result.object
