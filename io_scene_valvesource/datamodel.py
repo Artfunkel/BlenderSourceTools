@@ -95,19 +95,14 @@ def get_str(file):
 
 def _get_kv2_repr(var):
 	t = type(var)
-	if t == bool:
-		return "1" if var else "0"
-	elif t == float:
-		if abs(var) < 1e-10:
-			return "0"
-		elif var > 1e10:
-			return "{:.10f}".format(var).rstrip("0").rstrip(".")
-		else:
-			return "{:.10g}".format(var)
-	elif t == Element:
-		return str(var.id)
+	if t == float or t == int: # optimisation: very common, so first
+		return str(var)
 	elif issubclass(t, (_Array,Matrix)):
 		return var.to_kv2()
+	elif t == Element:
+		return str(var.id)
+	elif t == bool:
+		return "1" if var else "0"
 	elif t == Binary:
 		return binascii.hexlify(var).decode('ASCII')
 	elif var == None:
@@ -166,7 +161,7 @@ class _Vector(list):
 		super().__init__(l)
 		
 	def __repr__(self):
-		return " ".join([_get_kv2_repr(ord) for ord in self])
+		return " ".join([str(ord) for ord in self])
 	
 	def tobytes(self):
 		return struct.pack(self.type_str,*self)
@@ -214,7 +209,7 @@ class Matrix(list):
 		super().__init__(matrix)
 
 	def to_kv2(self):
-		return " ".join([_get_kv2_repr(f) for row in self for f in row])
+		return " ".join([str(f) for row in self for f in row])
 	def tobytes(self):
 		return struct.pack("f" * 16,*[f for row in self for f in row])
 	
