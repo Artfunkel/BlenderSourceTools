@@ -362,10 +362,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		amod_vg = ob.vertex_groups.get(amod.vertex_group)
 		amod_ob = [bake.object for bake in self.bake_results if bake.src == amod.object][0]
+		model_mat = ob.matrix_world * amod_ob.matrix_world.inverted()
 		
 		num_verts = len(ob.data.vertices)
+		weights = []
 		for v in ob.data.vertices:
-			weights = []
+			weights.clear()
 			total_weight = 0
 			if len(out) % 50 == 0: bpy.context.window_manager.progress_update(len(out) / num_verts)
 			
@@ -387,7 +389,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for pose_bone in amod_ob.pose.bones:
 					if not pose_bone.bone.use_deform:
 						continue
-					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( ob.matrix_world * amod_ob.matrix_world.inverted() * v.co )
+					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( model_mat * v.co )
 					if weight:
 						weights.append([ self.bone_ids[pose_bone.name], weight ])
 						total_weight += weight
@@ -409,7 +411,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for link in weights:
 					link[1] *= amod_vg_weight
 
-			out.append(weights)
+			out.append(weights.copy())
 		return out
 		
 	def GetMaterialName(self, ob, poly):
