@@ -317,6 +317,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						
 						bpy.ops.object.join()
 						joined.shapes[shape_name] = bpy.context.active_object.data
+						bpy.context.active_object.data.name = "{} -> {}".format(joined.object.name,shape_name)
 						
 						scene_obs.unlink(ob)
 						bpy.data.objects.remove(ob)
@@ -484,7 +485,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # avoids a few Blender bugs (as of 2.69)
 		bpy.context.scene.update()
-		result.matrix = id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
+		id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
 		
 		if id.type == 'ARMATURE':
 			self.armature = result.object = id
@@ -493,6 +494,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.transform_apply(scale=True)
 			if not shouldExportDMX(): ops.object.transform_apply(location=True,rotation=True)
 		
+		result.matrix = id.matrix_world
+
 		if id.type == 'CURVE':
 			id.data.dimensions = '3D'
 		
