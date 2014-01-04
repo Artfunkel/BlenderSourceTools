@@ -363,6 +363,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if not amod or type(amod) != bpy.types.ArmatureModifier: return out
 		
 		amod_vg = ob.vertex_groups.get(amod.vertex_group)
+		amod_ob = [bake.object for bake in self.bake_results if bake.src == amod.object][0]
 		
 		num_verts = len(ob.data.vertices)
 		for v in ob.data.vertices:
@@ -379,16 +380,16 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else:
 						continue # Vertex group might not exist on object if it's re-using a datablock				
 
-					bone = amod.object.data.bones.get(group_name)
+					bone = amod_ob.data.bones.get(group_name)
 					if bone and bone.use_deform:
 						weights.append([ self.bone_ids[bone.name], group_weight ])
 						total_weight += group_weight			
 					
 			if amod.use_bone_envelopes and total_weight == 0: # vertex groups completely override envelopes
-				for pose_bone in amod.object.pose.bones:
+				for pose_bone in amod_ob.pose.bones:
 					if not pose_bone.bone.use_deform:
 						continue
-					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( ob.matrix_world * amod.object.matrix_world.inverted() * v.co )
+					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( ob.matrix_world * amod_ob.matrix_world.inverted() * v.co )
 					if weight:
 						weights.append([ self.bone_ids[pose_bone.name], weight ])
 						total_weight += weight
@@ -910,18 +911,20 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bone_transforms = {} # cache for animation lookup
 		if armature: scale = armature.matrix_world.to_scale()
 		
-		def writeBone(bone):				
-			bone_elem = dm.add_element(bone.name,"DmeJoint",id=bone.name)
+		def writeBone(bone):
+			bone_name = bone.name if bone else "blender_implicit"
+			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if DatamodelFormatVersion() >= 11: jointList.append(bone_elem)
-			self.bone_ids[bone.name] = len(bone_transforms)
+			self.bone_ids[bone_name] = len(bone_transforms)
 			
-			if bone.parent: relMat = bone.parent.matrix.inverted() * bone.matrix
+			if not bone: relMat = Matrix()
+			elif bone.parent: relMat = bone.parent.matrix.inverted() * bone.matrix
 			else: relMat = armature.matrix_world * bone.matrix
 			
-			trfm = makeTransform(bone.name,relMat,"bone"+bone.name)
-			trfm_base = makeTransform(bone.name,relMat,"bone_base"+bone.name)
+			trfm = makeTransform(bone_name,relMat,"bone"+bone_name)
+			trfm_base = makeTransform(bone_name,relMat,"bone_base"+bone_name)
 			
-			if bone.parent:
+			if bone and bone.parent:
 				for j in range(3):
 					trfm["position"][j] *= scale[j]
 			trfm_base["position"] = trfm["position"]
@@ -932,9 +935,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			DmeModel_transforms.append(trfm_base)
 			
-			children = bone_elem["children"] = datamodel.make_array([],datamodel.Element)
-			for child in bone.children:
-				children.append( writeBone(child) )
+			if bone:
+				children = bone_elem["children"] = datamodel.make_array([],datamodel.Element)
+				for child in bone.children:
+					children.append( writeBone(child) )
 			
 			bpy.context.window_manager.progress_update(len(jointTransforms)/num_bones)
 			return bone_elem
@@ -945,6 +949,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				posebone.matrix_basis.identity()
 			bpy.context.scene.update()
 			
+			DmeModel_children.append(writeBone(None))
 			for bone in armature.pose.bones:
 				if not bone.parent:
 					DmeModel_children.append(writeBone(bone))
