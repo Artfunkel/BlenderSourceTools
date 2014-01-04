@@ -253,10 +253,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		# We don't want to bake any meshes with poses applied
 		# NOTE: this won't change the posebone values, but it will remove deformations
-		armatures = []
 		for ob in [ob for ob in context.scene.objects if ob.type == 'ARMATURE' and ob.data.pose_position == 'POSE']:
 			ob.data.pose_position = 'REST'
-			armatures.append(ob)
 			
 		# hide all metaballs that we don't want
 		for meta in [ob for ob in context.scene.objects if ob.type == 'META']:
@@ -327,8 +325,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		else:
 			bake_results.append(self.bakeObj(id))
 		
-		for object in armatures:
-			object.data.pose_position = 'POSE'
+		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
+			bake.object.data.pose_position = 'POSE'
 		
 		if self.armature and list(self.armature.scale).count(self.armature.scale[0]) != 3:
 			self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature.name))
