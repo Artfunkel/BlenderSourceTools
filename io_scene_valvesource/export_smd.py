@@ -76,18 +76,18 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.engine_path),"studiomdl.exe")
 
 		if path:
-			p_cache.qc_paths = [os.path.realpath(bpy.path.abspath(path))]
+			paths = [os.path.realpath(bpy.path.abspath(path))]
 		else:
-			p_cache.qc_paths = SMD_OT_Compile.getQCs()
+			paths = p_cache.qc_paths = SMD_OT_Compile.getQCs()
 		num_good_compiles = 0
-		if len( p_cache.qc_paths ) == 0:
+		num_qcs = len(paths)
+		if num_qcs == 0:
 			self.error("Cannot compile, no QCs provided. The Blender Source Tools do not generate QCs.")
 		elif not os.path.exists(studiomdl_path):
 			self.error( "Could not execute studiomdl from \"{}\"".format(studiomdl_path) )
 		else:
 			i = 0
-			num_qcs = len(p_cache.qc_paths)
-			for qc in p_cache.qc_paths:
+			for qc in paths:
 				bpy.context.window_manager.progress_update((i+1) / (num_qcs+1))
 				# save any version of the file currently open in Blender
 				qc_mangled = qc.lower().replace('\\','/')
