@@ -259,6 +259,7 @@ class ValveSource_GroupProps(ExportableProps,PropertyGroup):
 
 class ShapeTypeProps():
 	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
+	flex_stereo_axis = EnumProperty(name="DMX stereo split axis",description="The local axis along which stereo transitions are created",items=axes,default='X')
 
 class ValveSource_MeshProps(ShapeTypeProps,PropertyGroup):
 	pass

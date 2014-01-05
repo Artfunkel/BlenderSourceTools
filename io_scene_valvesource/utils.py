@@ -53,6 +53,7 @@ exportable_types.append('ARMATURE')
 shape_types = ['MESH' , 'SURFACE']
 
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
+axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
 
 dmx_model_versions = [1,15,18]
 

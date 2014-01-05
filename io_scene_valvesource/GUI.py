@@ -243,8 +243,12 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				
 				for ob in objects:
 					if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed:
-						if not len(datablocks_dispayed): col.separator()
-						col.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness ({})".format(ob.data.name))
+						if not len(datablocks_dispayed):
+							col.separator()
+							sharpness_col = col.column(align=True)
+						r = sharpness_col.split(0.9,align=True)
+						r.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness ({})".format(ob.data.name))
+						r.prop(ob.data.vs,"flex_stereo_axis",text="")
 						datablocks_dispayed.append(ob.data)
 			
 			num_shapes = 0

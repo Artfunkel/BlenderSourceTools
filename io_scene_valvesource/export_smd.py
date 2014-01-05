@@ -550,16 +550,17 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if hasShapes(id):
 			# calculate vert balance
 			if shouldExportDMX():
-				balance_width = baked.dimensions.x * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
+				axis = axes_lookup[id.data.vs.flex_stereo_axis]
+				balance_width = baked.dimensions[axis]  * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
 				vg = baked.vertex_groups.new("__dmx_balance__")
 				zeroes = []
 				ones = []
 				for vert in baked.data.vertices:
 					if balance_width == 0:
-						if vert.co.x > 0: ones.append(vert.index)
+						if vert.co[axis] > 0: ones.append(vert.index)
 						else: zeroes.append(vert.index)
 					else:
-						balance = min(1,max(0, (-vert.co.x / balance_width / 2) + 0.5))
+						balance = min(1,max(0, (-vert.co[axis] / balance_width / 2) + 0.5))
 						if balance == 1: ones.append(vert.index)
 						elif balance == 0: zeroes.append(vert.index)
 						else: vg.add([vert.index], balance, 'REPLACE')
