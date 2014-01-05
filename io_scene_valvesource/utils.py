@@ -264,8 +264,8 @@ def actionsForFilter(filter):
 def shouldExportGroup(group):
 	return group.vs.export and not group.vs.mute
 
-def hasFlexControllerSource(item):
-	return bpy.data.texts.get(item.vs.flex_controller_source) or os.path.exists(bpy.path.abspath(item.vs.flex_controller_source))
+def hasFlexControllerSource(source):
+	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
 
 def getValidObs():
 	validObs = []

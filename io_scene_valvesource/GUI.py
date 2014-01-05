@@ -229,7 +229,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			
 			if item.vs.flex_controller_mode == 'ADVANCED':
 				controller_source = col.row()
-				controller_source.alert = hasFlexControllerSource(item) == False
+				controller_source.alert = hasFlexControllerSource(item.vs.flex_controller_source) == False
 				controller_source.prop(item.vs,"flex_controller_source",text="Controller source",icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
 				
 				row = col.row(align=True)

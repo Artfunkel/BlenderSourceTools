@@ -321,7 +321,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 						bpy.data.objects.remove(ob)
 						
 					scene_obs.active = joined.object
-						
+			if shouldExportDMX() and hasShapes(id):
+				self.flex_controller_mode = id.vs.flex_controller_mode
+				self.flex_controller_source = id.vs.flex_controller_source
 		else:
 			bake_results.append(self.bakeObj(id))
 		
@@ -882,11 +884,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		materials = {}
 		#benchReset()
 		
-		for bake in bake_results:
-			if len(bake.shapes) and bake.object.vs.flex_controller_mode == 'ADVANCED' and not hasFlexControllerSource(bake.object):
-				self.error( "Could not find flex controllers for \"{}\"".format(name) )
-				return 0
-		
 		def makeTransform(name,matrix,object_name):
 			trfm = dm.add_element(name,"DmeTransform",id=object_name+"transform")
 			trfm["position"] = datamodel.Vector3(matrix.to_translation())
@@ -950,8 +947,38 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for bone in armature.pose.bones:
 				if not bone.parent:
 					DmeModel_children.append(writeBone(bone))
-					
-		#bench("skeleton")			
+		
+		for _ in [bake for bake in bake_results if len(bake.shapes)]:
+			if self.flex_controller_mode == 'ADVANCED':
+				if not hasFlexControllerSource(self.flex_controller_source):
+					self.error( "Could not find flex controllers for \"{}\"".format(name) )
+					return 0
+
+				text = bpy.data.texts.get(self.flex_controller_source)
+				msg = "- Loading flex controllers from "
+				element_path = [ "combinationOperator" ]
+				if text:
+					print(msg + "text block \"{}\"".format(text.name))
+					controller_dm = datamodel.parse(text.as_string(),element_path=element_path)
+				else:
+					path = os.path.realpath(bpy.path.abspath(ob.vs.flex_controller_source))
+					print(msg + path)
+					controller_dm = datamodel.load(path=path,element_path=element_path)
+			
+				DmeCombinationOperator = controller_dm.root["combinationOperator"]
+
+				for elem in [elem for elem in DmeCombinationOperator["targets"] if elem.type != "DmeFlexRules"]:
+					DmeCombinationOperator["targets"].remove(elem)
+			else:
+				DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=bpy.context.scene.name+"controllers")
+				DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
+				DmeCombinationOperator["controlValues"] = datamodel.make_array([],datamodel.Vector3)
+				DmeCombinationOperator["usesLaggedValues"] = False
+				DmeCombinationOperator["targets"] = datamodel.make_array([],datamodel.Element)
+				
+			root["combinationOperator"] = DmeCombinationOperator
+			break
+
 		for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 			root["model"] = DmeModel
 			
@@ -1127,19 +1154,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				num_shapes = len(bake.shapes)
 				num_correctives = 0
 				num_wrinkles = 0
-				
-				if ob.vs.flex_controller_mode == 'ADVANCED':
-					text = bpy.data.texts.get(ob.vs.flex_controller_source)
-					msg = "- Loading flex controllers from "
-					element_path = [ "combinationOperator" ]
-					if text:
-						print(msg + "text block \"{}\"".format(text.name))
-						controller_dm = datamodel.parse(text.as_string(),element_path=element_path)
-					else:
-						path = os.path.realpath(bpy.path.abspath(ob.vs.flex_controller_source))
-						print(msg + path)
-						controller_dm = datamodel.load(path=path,element_path=element_path)
-					
+									
 				for shape_name,shape in bake.shapes.items():
 					shape_names.append(shape_name)
 					
@@ -1242,13 +1257,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 				DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 				
-				first_pass = not root.get("combinationOperator")
-				if ob.vs.flex_controller_mode == 'ADVANCED':
-					if first_pass:
-						DmeCombinationOperator = controller_dm.root["combinationOperator"]
-						root["combinationOperator"] = DmeCombinationOperator
-					
-					# replace target meshes
+				if self.flex_controller_mode == 'ADVANCED':
 					targets = DmeCombinationOperator["targets"]
 					added = False
 					for elem in targets:
@@ -1256,27 +1265,16 @@ class SmdExporter(bpy.types.Operator, Logger):
 							if elem["deltaStates"][0].name in shape_names: # can't have the same delta name on multiple objects
 								elem["target"] = DmeMesh
 								added = True
-						elif first_pass:
-							targets.remove(elem)
 					if not added:
 						targets.append(DmeMesh)
-				else:					
-					if first_pass:
-						DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=bpy.context.scene.name+"controllers")
-						DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
-						DmeCombinationOperator["controlValues"] = datamodel.make_array([],datamodel.Vector3)
-						DmeCombinationOperator["usesLaggedValues"] = False
-						DmeCombinationOperator["targets"] = datamodel.make_array([],datamodel.Element)
-						
-						root["combinationOperator"] = DmeCombinationOperator
-						
+				else:
 					DmeCombinationOperator["controls"].extend(control_elems)
 					DmeCombinationOperator["controlValues"].extend(control_values)
 					DmeCombinationOperator["targets"].append(DmeMesh)
 				
 				#bench("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
-		
+
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
 			ad = armature.animation_data
 						

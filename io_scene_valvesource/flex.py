@@ -26,12 +26,11 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	'''Generate a simple Flex Controller DMX block'''
 	bl_idname = "export_scene.dmx_flex_controller"
 	bl_label = "Generate DMX Flex Controller block"
+	bl_options = {'UNDO','INTERNAL'}
 	
 	@classmethod
 	def poll(self, context):
-		for exportable in getExportablesForId(context.active_object):
-			if hasShapes(exportable.get_id()): return True
-		return False
+		return hasShapes(context.scene.vs.export_list[context.scene.vs.export_list_active].get_id())
 	
 	def execute(self, context):
 		dm = datamodel.DataModel("model",1)
@@ -39,20 +38,17 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		objects = []
 		shapes = []
 		
-		for exportable in getExportablesForId(context.active_object):
-			id = exportable.get_id()
-			if hasShapes(id):
-				if type(id) == bpy.types.Group:
-					objects.extend(list([ob for ob in id.objects if ob.data and ob.data.shape_keys]))
-				else:
-					objects.append(id)
-				target = id
-				break
+		exportable = context.scene.vs.export_list[context.scene.vs.export_list_active]
+		id = exportable.get_id()
+		if type(id) == bpy.types.Group:
+			objects.extend(list([ob for ob in id.objects if ob.data and ob.type in shape_types and ob.data.shape_keys]))
+		else:
+			objects.append(id)
 		
-		text = bpy.data.texts.new( "flex_{}".format(target.name) )
+		text = bpy.data.texts.new( "flex_{}".format(id.name) )
 		
 		root = dm.add_element(text.name)
-		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=target.name+"controllers")
+		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=id.name+"controllers")
 		root["combinationOperator"] = DmeCombinationOperator
 		controls = DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
 		
@@ -80,8 +76,8 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		text.use_tabs_as_spaces = False
 		text.from_string(dm.echo("keyvalues2",1))
 		
-		if not target.vs.flex_controller_source:
-			target.vs.flex_controller_source = text.name
+		if not id.vs.flex_controller_source or bpy.data.texts.get(id.vs.flex_controller_source):
+			id.vs.flex_controller_source = text.name
 		
 		self.report({'INFO'},"DMX written to text block \"{}\"".format(text.name))		
 		
@@ -91,6 +87,7 @@ class ActiveDependencyShapes(bpy.types.Operator):
 	'''Activates shapes found in the name of the current shape (underscore delimited)'''
 	bl_idname = "object.shape_key_activate_dependents"
 	bl_label = "Activate Dependency Shapes"
+	bl_options = {'UNDO'}
 
 	@classmethod
 	def poll(cls, context):
@@ -117,6 +114,7 @@ class AddCorrectiveShapeDrivers(bpy.types.Operator):
 	'''Adds Blender animation drivers to corrective Source engine shapes'''
 	bl_idname = "object.sourcetools_generate_corrective_drivers"
 	bl_label = "Generate Corrective Shape Key Drivers"
+	bl_options = {'UNDO'}
 
 	@classmethod
 	def poll(cls, context):
