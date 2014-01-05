@@ -350,7 +350,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error("Couldn't find any animation for Armature \"{}\"".format(id.name))
 		else:
 			export_name = id.name
-			
+		
+		bpy.context.scene.update()
 		self.files_exported += write_func(bake_results, export_name, path)
 		
 	def getWeightmap(self,bake_result):
@@ -487,7 +488,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bpy.context.scene.update()
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
 		
-		if id.type == 'ARMATURE':
+		if id.type == 'ARMATURE':			
+			for posebone in id.pose.bones: posebone.matrix_basis.identity()
 			self.armature = result.object = id
 			return result
 		else:
@@ -683,9 +685,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 						bpy.context.scene.render.fps_base = 1
 				else:
 					anim_len = 1
-					for posebone in self.armature.pose.bones:
-						posebone.matrix_basis.identity()
-					bpy.context.scene.update()
 
 				# Start writing out the animation
 				for i in range(anim_len):
@@ -943,10 +942,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return bone_elem
 	
 		if armature:
-			num_bones = len(armature.pose.bones)
-			for posebone in armature.pose.bones: # remove any non-keyframed positions
-				posebone.matrix_basis.identity()
-			bpy.context.scene.update()
+			num_bones = len(armature.pose.bones)			
 			
 			DmeModel_children.append(writeBone(None))
 			for bone in armature.pose.bones:
