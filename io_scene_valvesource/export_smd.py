@@ -534,14 +534,25 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.error("Object {} has no polygons, skipping".format(id.name))
 			return
 		
+		# put baked ref mesh into an object
+		if id.type == 'MESH':
+			result.object = id.copy()
+			result.object.data = data
+		else:
+			result.object = bpy.data.objects.new(name=id.name,object_data=data)
+			result.object.matrix_world = id.matrix_world
+
+		baked = result.object
+		bpy.context.scene.objects.link(baked)
+
 		if hasShapes(id):
 			# calculate vert balance
 			if shouldExportDMX():
-				balance_width = id.dimensions.x * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
-				vg = id.vertex_groups.new("__dmx_balance__")
+				balance_width = baked.dimensions.x * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
+				vg = baked.vertex_groups.new("__dmx_balance__")
 				zeroes = []
 				ones = []
-				for vert in id.data.vertices:
+				for vert in baked.data.vertices:
 					if balance_width == 0:
 						if vert.co.x > 0: ones.append(vert.index)
 						else: zeroes.append(vert.index)
@@ -562,18 +573,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 				result.shapes[shape.name] = baked_shape
 		
-		# put baked ref mesh into an object
-		if id.type == 'MESH':
-			result.object = id
-			id.data = data
-		else:
-			result.object = bpy.data.objects.new(name=id.name,object_data=data)
-			result.object.matrix_world = id.matrix_world
-			bpy.context.scene.objects.link(result.object)
-		
-		bpy.context.scene.objects.active = result.object
+		bpy.context.scene.objects.active = baked
 		ops.object.select_all(action='DESELECT')
-		result.object.select = True
+		baked.select = True
 		
 		if id.vs.triangulate or not shouldExportDMX():
 			ops.object.mode_set(mode='EDIT')
@@ -594,7 +596,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='OBJECT')
 
 		# project a UV map
-		if len(result.object.data.uv_textures) == 0:
+		if len(baked.data.uv_textures) == 0:
 			if len(result.object.data.vertices) < 2000:
 				ops.object.mode_set(mode='OBJECT')
 				ops.uv.smart_project()
