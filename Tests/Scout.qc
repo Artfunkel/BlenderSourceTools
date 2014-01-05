@@ -6,5 +6,5 @@ $bodygroup body
 	studio "scout_morphs_low.smd"
 }
 
-$sequence anim_dmx "anims/vsDmxIO Scene.dmx"
-$sequence anim_smd "anims/vsDmxIO Scene.smd"
+$sequence anim_dmx "anims/gesture_ITEM1_cheer.dmx"
+$sequence anim_smd "anims/gesture_ITEM1_cheer.smd"

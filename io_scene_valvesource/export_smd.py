@@ -328,15 +328,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
 		
-		if self.armature and list(self.armature.scale).count(self.armature.scale[0]) != 3:
-			self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature.name))
-		
-		if self.armature and self.armature != id:
+		if self.armature:
+			if list(self.armature.scale).count(self.armature.scale[0]) != 3:
+				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature.name))
 			self.armature = self.bakeObj(self.armature).object
 		
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		
-		if id == self.armature:
+		if type(id) == bpy.types.Object and id.type == 'ARMATURE':
 			ad = id.animation_data
 			if id.data.vs.action_selection == 'FILTERED':
 				for action in actionsForFilter(id.vs.action_filter):
@@ -346,7 +345,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			elif ad.action:
 				export_name = ad.action.name
 			elif len(ad.nla_tracks):
-				export_name = ad.nla_tracks[0].name
+				export_name = id.name
 			else:
 				self.error("Couldn't find any animation for Armature \"{}\"".format(id.name))
 		else:
