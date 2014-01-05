@@ -51,7 +51,7 @@ for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file_
 from . import datamodel, import_smd, export_smd, flex, GUI
 from .utils import *
 
-class VS_CT_ObjectExportProps(bpy.types.PropertyGroup):
+class ValveSource_Exportable(bpy.types.PropertyGroup):
 	ob_type = StringProperty()
 	icon = StringProperty()
 	item_name = StringProperty()
@@ -63,7 +63,7 @@ class VS_CT_ObjectExportProps(bpy.types.PropertyGroup):
 			if self.ob_type in ['ACTION', 'OBJECT']:
 				return bpy.data.objects[self.item_name]
 			else:
-				raise TypeError("Unknown object type \"{}\" in VS_CT_ObjectExportProps".format(self.ob_type))
+				raise TypeError("Unknown object type \"{}\" in ValveSource_Exportable".format(self.ob_type))
 		except KeyError:
 			p_cache.scene_updated = True
 
@@ -209,7 +209,7 @@ for enc in datamodel.list_support()['binary']: encodings.append( (str(enc), 'Bin
 formats = []
 for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '') )
 
-class SceneProps(PropertyGroup):
+class ValveSource_SceneProps(PropertyGroup):
 	export_path = StringProperty(name="Export Root",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
 	qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
 	qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
@@ -224,23 +224,26 @@ class SceneProps(PropertyGroup):
 	layer_filter = BoolProperty(name="Export visible layers only",description="Ignore objects in hidden layers",default=False)
 	material_path = StringProperty(name="DMX material path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
 	export_list_active = IntProperty(name="Active exportable",default=0,update=export_active_changed)
-	export_list = CollectionProperty(type=VS_CT_ObjectExportProps,options={'SKIP_SAVE','HIDDEN'})	
+	export_list = CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path = StringProperty(name="Game path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH")
 
-class ObjectProps(PropertyGroup):
-	export = BoolProperty(name="Scene Export",description="Export this item with the scene",default=True)
-	subdir = StringProperty(name="Subfolder",description="Optional path relative to scene output folder")
-	action_filter = StringProperty(name="Action Filter",description="Actions with names matching this filter pattern and have users will be exported")
+class ExportableProps():
 	flex_controller_modes = (
 		('SIMPLE',"Simple","Generate one flex controller per shape key"),
 		('ADVANCED',"Advanced","Insert the flex controllers of an existing DMX file")
 	)
+
+	export = BoolProperty(name="Scene Export",description="Export this item with the scene",default=True)
+	subdir = StringProperty(name="Subfolder",description="Optional path relative to scene output folder")
 	flex_controller_mode = EnumProperty(name="DMX Flex Controller generation",description="How flex controllers are defined",items=flex_controller_modes,default='SIMPLE')
 	flex_controller_source = StringProperty(name="DMX Flex Controller source",description="A DMX file (or Text datablock) containing flex controllers",subtype='FILE_PATH')
+
+class ValveSource_ObjectProps(ExportableProps,PropertyGroup):
+	action_filter = StringProperty(name="Action Filter",description="Actions with names matching this filter pattern and have users will be exported")
 	triangulate = BoolProperty(name="Triangulate",description="Avoids concave DMX faces, which are not supported by studiomdl",default=False)
 
-class ArmatureProps(PropertyGroup):
+class ValveSource_ArmatureProps(PropertyGroup):
 	implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files (SMD only)")
 	arm_modes = (
 		('CURRENT',"Current / NLA","The armature's currently assigned action or NLA tracks"),
@@ -249,19 +252,20 @@ class ArmatureProps(PropertyGroup):
 	action_selection = EnumProperty(name="Action Selection", items=arm_modes,description="How actions are selected for export",default='CURRENT')
 	legacy_rotation = BoolProperty(name="Legacy rotation",description="Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",default=False)
 
-class GroupProps(PropertyGroup):
-	export = ObjectProps.export
-	subdir = ObjectProps.subdir
-	flex_controller_mode = ObjectProps.flex_controller_mode
-	flex_controller_source = ObjectProps.flex_controller_source
+class ValveSource_GroupProps(ExportableProps,PropertyGroup):
 	mute = BoolProperty(name="Suppress",description="Export this group's objects individually",default=False)
 	selected_item = IntProperty(update=group_selected_changed)
 	automerge = BoolProperty(name="Merge mechanical parts",description="Optimises DMX export of meshes sharing the same parent bone",default=True)
 
-class MeshProps(PropertyGroup):
+class ShapeTypeProps():
 	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
 
-class CurveProps(PropertyGroup):
+class ValveSource_MeshProps(ShapeTypeProps,PropertyGroup):
+	pass
+class ValveSource_SurfaceProps(ShapeTypeProps,PropertyGroup):
+	pass
+
+class ValveSource_CurveProps(PropertyGroup):
 	faces = EnumProperty(name="Faces generation",description="Determines which sides of the mesh resulting from this curve will have polygons",default='LEFT',items=(
 	('LEFT', 'Left side', 'Generate polygons on the left side'),
 	('RIGHT', 'Right side', 'Generate polygons on the right side'),
@@ -280,12 +284,13 @@ def register():
 	def make_pointer(prop_type):
 		return PointerProperty(name="Blender Source Tools settings",type=prop_type)
 		
-	bpy.types.Scene.vs = make_pointer(SceneProps)
-	bpy.types.Object.vs = make_pointer(ObjectProps)
-	bpy.types.Armature.vs = make_pointer(ArmatureProps)
-	bpy.types.Group.vs = make_pointer(GroupProps)
-	bpy.types.Mesh.vs = make_pointer(MeshProps)
-	bpy.types.Curve.vs = make_pointer(CurveProps)
+	bpy.types.Scene.vs = make_pointer(ValveSource_SceneProps)
+	bpy.types.Object.vs = make_pointer(ValveSource_ObjectProps)
+	bpy.types.Armature.vs = make_pointer(ValveSource_ArmatureProps)
+	bpy.types.Group.vs = make_pointer(ValveSource_GroupProps)
+	bpy.types.Mesh.vs = make_pointer(ValveSource_MeshProps)
+	bpy.types.SurfaceCurve.vs = make_pointer(ValveSource_SurfaceProps)
+	bpy.types.Curve.vs = make_pointer(ValveSource_CurveProps)
 
 def unregister():
 	bpy.utils.unregister_module(__name__)
@@ -299,6 +304,7 @@ def unregister():
 	del bpy.types.Armature.vs
 	del bpy.types.Group.vs
 	del bpy.types.Mesh.vs
+	del bpy.types.SurfaceCurve.vs
 	del bpy.types.Curve.vs
 
 if __name__ == "__main__":
