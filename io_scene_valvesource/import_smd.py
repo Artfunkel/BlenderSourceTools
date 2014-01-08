@@ -852,14 +852,15 @@ class SmdImporter(bpy.types.Operator, Logger):
 			return Vector([round(co,3) for co in v])
 		co_map = {}
 		mesh_cos = [vert.co for vert in smd.m.data.vertices]
-		mesh_cos_rnd = [vec_round(co) for co in mesh_cos]
-		
+		mesh_cos_rnd = None
+
 		smd.vta_ref = None
 		vta_cos = []
 		vta_ids = []
 		
 		making_base_shape = True
-		bad_vta_verts = num_shapes = 0
+		bad_vta_verts = []
+		num_shapes = 0
 		md = smd.m.data
 		
 		for line in smd.file:
@@ -876,35 +877,50 @@ class SmdImporter(bpy.types.Operator, Logger):
 				shape_name = smd.shapeNames.get(values[1])
 				if smd.vta_ref == None:
 					smd.m.shape_key_add(shape_name if shape_name else "Basis")
-					vta_ref = smd.vta_ref = smd.m.copy()
-					vta_ref.name = "VTA vertices"
+					vd = bpy.data.meshes.new(name="VTA vertices")
+					vta_ref = smd.vta_ref = bpy.data.objects.new(name=vd.name,object_data=vd)
+					vta_ref.matrix_world = smd.m.matrix_world
 					bpy.context.scene.objects.link(vta_ref)
-					vd = vta_ref.data = bpy.data.meshes.new(vta_ref.name)
+
+					vta_err_vg = vta_ref.vertex_groups.new("Unmatched VTA")
 				elif making_base_shape:
 					vd.vertices.add(len(vta_cos)/3)
 					vd.vertices.foreach_set("co",vta_cos)
+					num_vta_verts = len(vd.vertices)
 					del vta_cos
 					
-					#mod = vta_ref.modifiers.new(name="VTA Shrinkwrap",type='SHRINKWRAP')
-					#mod.target = smd.m
-					#mod.wrap_method = 'NEAREST_VERTEX'
+					mod = vta_ref.modifiers.new(name="VTA Shrinkwrap",type='SHRINKWRAP')
+					mod.target = smd.m
+					mod.wrap_method = 'NEAREST_VERTEX'
 					
 					vd = vta_ref.to_mesh(bpy.context.scene, True, 'PREVIEW')
 					
+					vta_ref.modifiers.remove(mod)
+					del mod
+
 					for i in range(len(vd.vertices)):
+						id = vta_ids[i]
+						co =  vd.vertices[i].co
+						map_id = None
 						try:
-							co_map[vta_ids[i]] = mesh_cos.index(vd.vertices[i].co)
+							map_id = mesh_cos.index(co)
 						except ValueError:
+							if not mesh_cos_rnd:
+								mesh_cos_rnd = [vec_round(co) for co in mesh_cos]
 							try:
-								co_map[vta_ids[i]] = mesh_cos_rnd.index(vec_round(vd.vertices[i].co))
+								map_id = mesh_cos_rnd.index(vec_round(co))
 							except ValueError:
-								bad_vta_verts += 1
+								bad_vta_verts.append(i)
+								continue
+						co_map[id] = map_id
 					
 					bpy.data.meshes.remove(vd)
-					
-					if bad_vta_verts > 0:
-						err_ratio = bad_vta_verts/len(vta_ids)
-						message = "{} VTA vertices ({}%) were not matched to a mesh vertex! An object has been created to show where the VTA file's vertices are.".format(bad_vta_verts, int(err_ratio * 100))
+					del vd
+
+					if len(bad_vta_verts) > 0:
+						err_ratio = len(bad_vta_verts) / num_vta_verts
+						vta_err_vg.add(bad_vta_verts,1.0,'REPLACE')
+						message = "{} VTA vertices ({}%) were not matched to a mesh vertex! An object with a vertex group has been created to show where the VTA file's vertices are.".format(len(bad_vta_verts), int(err_ratio * 100))
 						if err_ratio == 1:
 							self.error(message)
 							return

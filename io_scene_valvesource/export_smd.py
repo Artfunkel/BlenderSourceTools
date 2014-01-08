@@ -333,7 +333,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if self.armature:
 			if list(self.armature.scale).count(self.armature.scale[0]) != 3:
 				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature.name))
-			self.armature = self.bakeObj(self.armature).object
+			armature_bake = self.bakeObj(self.armature)
+			self.armature = armature_bake.object
+			self.armature_src = armature_bake.src
 		
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		
@@ -892,8 +894,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return trfm
 		
 		dm = datamodel.DataModel("model",DatamodelFormatVersion())
-		root = dm.add_element("root",id="Scene"+bpy.context.scene.name)
-		DmeModel = dm.add_element(bpy.context.scene.name,"DmeModel",id="Object" + (armature.name if armature else name))
+		root = dm.add_element(bpy.context.scene.name,id="Scene"+bpy.context.scene.name)
+		DmeModel = dm.add_element(self.armature_src.name,"DmeModel",id="Object" + (self.armature_src.name if armature else name))
 		DmeModel_children = DmeModel["children"] = datamodel.make_array([],datamodel.Element)
 		
 		DmeModel_transforms = dm.add_element("base","DmeTransformList",id="transforms"+bpy.context.scene.name)
