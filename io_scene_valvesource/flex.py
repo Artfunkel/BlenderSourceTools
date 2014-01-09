@@ -47,7 +47,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		
 		text = bpy.data.texts.new( "flex_{}".format(id.name) )
 		
-		root = dm.add_element(text.name)
+		root = dm.add_element(text.name,id=text.name)
 		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=id.name+"controllers")
 		root["combinationOperator"] = DmeCombinationOperator
 		controls = DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)

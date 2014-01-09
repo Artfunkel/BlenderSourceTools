@@ -1,12 +1,13 @@
 # see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
 import os, shutil, unittest
 from importlib import import_module
+from os.path import join
 
 results_path = os.path.realpath("../TestResults")
 if not os.path.exists(results_path): os.makedirs(results_path)
 
 sdk_content_path = os.getenv("SOURCESDK") + "_content\\"
-steam_common_path = os.path.realpath(os.path.join(sdk_content_path,"..","..","common"))
+steam_common_path = os.path.realpath(join(sdk_content_path,"..","..","common"))
 
 def section(*args):
 	print("\n\n********\n********  {} {}".format(C.scene.name,*args),"\n********")
@@ -23,22 +24,21 @@ class Tests:
 
 	def runExportTest(self,blend):
 		self.loadBlender()
-		bpy.ops.wm.open_mainfile(filepath=os.path.join("Tests",blend + ".blend"))
+		bpy.ops.wm.open_mainfile(filepath=join("Tests",blend + ".blend"))
 		blend_name = os.path.splitext(blend)[0]
-		C.scene.vs.export_path = os.path.realpath(os.path.join(results_path,self.bpy_version,blend_name))
+		C.scene.vs.export_path = os.path.realpath(join(results_path,self.bpy_version,blend_name))
 		if os.path.isdir(C.scene.vs.export_path):
 			shutil.rmtree(C.scene.vs.export_path)
 
 		def ex(do_scene):
 			result = bpy.ops.export_scene.smd(export_scene=do_scene)
-			if result != {'FINISHED'}:
-				print('\a')
+			self.assertTrue(result == {'FINISHED'})
 
 		C.scene.vs.export_format = 'DMX'
 		section("DMX default")
 		ex(True)
 		section("DMX Dota 2")
-		C.scene.vs.engine_path = os.path.join(steam_common_path,"dota 2 beta","bin")
+		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","bin")
 		ex(True)
 
 		C.scene.vs.export_format = 'SMD'
@@ -48,9 +48,9 @@ class Tests:
 		qc_name = bpy.path.abspath("//" + blend_name + ".qc")
 		if os.path.exists(qc_name):
 			shutil.copy2(qc_name, C.scene.vs.export_path)
-			C.scene.vs.game_path = os.path.join(steam_common_path,"SourceFilmmaker","game","usermod")
-			C.scene.vs.engine_path = os.path.realpath(os.path.join(C.scene.vs.game_path,"..","bin"))
-			bpy.ops.smd.compile_qc(filepath=os.path.join(C.scene.vs.export_path, blend_name + ".qc"))
+			C.scene.vs.game_path = join(steam_common_path,"SourceFilmmaker","game","usermod")
+			C.scene.vs.engine_path = os.path.realpath(join(C.scene.vs.game_path,"..","bin"))
+			bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc"))
 
 	def test_Export_Armature_Mesh(self):
 		self.runExportTest("Cube_Armature")
@@ -68,30 +68,39 @@ class Tests:
 
 	def test_Export_TF2(self):
 		self.runExportTest("scout")
+
+	def test_Generate_FlexControllers(self):
+		self.loadBlender()
+		bpy.ops.wm.open_mainfile(filepath=join("Tests","scout.blend"))
 		C.scene.objects.active = D.objects['head=zero']
 		bpy.ops.export_scene.dmx_flex_controller()
+
+		with open(join("Tests","flex_scout_morphs_low.dmx"),encoding='ASCII') as f:
+			target_dmx = f.read()
+
+		self.maxDiff = None
+		self.assertEqual(target_dmx,D.texts[-1].as_string())
 
 	def test_import_Citizen(self):
 		def im(path):
 			result = bpy.ops.import_scene.smd(filepath=path)
-			if result != {'FINISHED'}:
-				print('/a')
+			self.assertTrue(result == {'FINISHED'})
 		
 		self.loadBlender()
-		out_dir = os.path.join(results_path,self.bpy_version,"import")
+		out_dir = join(results_path,self.bpy_version,"import")
 		if os.path.isdir(out_dir):
 			shutil.rmtree(out_dir)
 		os.makedirs(out_dir)
 
 		section("QC SMD import")
 		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_sdk.qc")
-		bpy.ops.wm.save_mainfile(filepath=os.path.join(out_dir,"Male_06_sdk.blend"),check_existing=False)
+		bpy.ops.wm.save_mainfile(filepath=join(out_dir,"Male_06_sdk.blend"),check_existing=False)
 		bpy.ops.wm.read_homefile()
 
 		section("SMD Ref + Anim import")
 		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_reference.smd")
 		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_Animations_sdk/ShootSMG1.smd")
-		bpy.ops.wm.save_mainfile(filepath=os.path.join(out_dir,"ref_then_anim.blend"),check_existing=False)
+		bpy.ops.wm.save_mainfile(filepath=join(out_dir,"ref_then_anim.blend"),check_existing=False)
 
 class bpy_266a(unittest.TestCase,Tests):
 	bpy_version = "bpy_266a"
@@ -113,8 +122,8 @@ class Datamodel():
 		self.dm.add_element("root")
 
 	def save(self):
-		out_dir = os.path.join(results_path,"datamodel")
-		out_file = os.path.join(out_dir,"{}_{}.dmx".format(self.dm.format,self.format[0]))
+		out_dir = join(results_path,"datamodel")
+		out_file = join(out_dir,"{}_{}.dmx".format(self.dm.format,self.format[0]))
 		os.makedirs(out_dir, exist_ok=True)
 		if os.path.isfile(out_file):
 			os.unlink(out_file)
