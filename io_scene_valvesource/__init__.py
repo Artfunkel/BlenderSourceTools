@@ -77,6 +77,30 @@ def menu_func_shapekeys(self,context):
 	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text="Activate dependency shapes", icon='SHAPEKEY_DATA')
 
 @bpy.app.handlers.persistent
+def upgrade_props(_):
+	def convert(id,p_g):
+		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format" }
+
+		for prop in [prop for prop in p_g.__dict__.keys() if prop[0] != '_']:
+			val = id.get("smd_" + prop_map[prop] if prop in prop_map else prop)
+			if val != None:
+				id.vs[prop] = val
+			
+		for prop in id.keys():
+			if prop.startswith("smd"):
+				del id[prop]
+				
+	for s in bpy.data.scenes: convert(s,ValveSource_SceneProps)
+	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps)
+	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
+	for g in bpy.data.groups: convert(g,ValveSource_GroupProps)
+	for g in bpy.data.curves: convert(g,ValveSource_CurveProps)
+	for g in bpy.data.meshes: convert(g,ValveSource_MeshProps)
+
+	try: bpy.app.handlers.scene_update_post.remove(upgrade_props)
+	except: pass
+
+@bpy.app.handlers.persistent
 def scene_update(scene):
 	if not (p_cache.scene_updated or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
@@ -84,30 +108,6 @@ def scene_update(scene):
 	p_cache.scene_updated = False
 
 	if not "vs" in dir(scene): return
-	
-	if bpy.context.scene.get("smd_path"):
-		def convert(id,p_g):
-			for prop in dir(p_g):
-				if prop[0] == "_" or prop in ["bl_rna", "rna_type", "prop"]: continue
-				val = id.get("smd_" + prop)
-				if val != None:
-					if prop == "path":
-						id.vs.export_path = val
-					elif prop == "studiomdl_custom_path":
-						id.vs.engine_path = val
-					else:
-						id.vs[prop] = val
-			for prop in id.keys():
-				if prop.startswith("smd"):
-					del id[prop]
-				
-		for s in bpy.data.scenes: convert(s,SceneProps)
-		for ob in bpy.data.objects: convert(ob,ObjectProps)
-		for a in bpy.data.armatures: convert(a,ArmatureProps)
-		for g in bpy.data.groups: convert(g,GroupProps)
-		for g in bpy.data.curves: convert(g,CurveProps)
-		for g in bpy.data.meshes: convert(g,MeshProps)
-				
 	
 	scene.vs.export_list.clear()
 	validObs = GUI.getValidObs()
@@ -278,6 +278,8 @@ def register():
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
 	bpy.app.handlers.scene_update_post.append(scene_update)
+	bpy.app.handlers.load_post.append(upgrade_props)
+	bpy.app.handlers.scene_update_post.append(upgrade_props) # handles enabling the add-on after the scene is loaded
 	
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
@@ -299,6 +301,7 @@ def unregister():
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
 	bpy.app.handlers.scene_update_post.remove(scene_update)
+	bpy.app.handlers.load_post.remove(upgrade_props)
 
 	del bpy.types.Scene.vs
 	del bpy.types.Object.vs

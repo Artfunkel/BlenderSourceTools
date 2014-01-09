@@ -217,7 +217,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		finally:
 			# Clean everything up
 			ops.ed.undo_push(message=self.bl_label)
-			ops.ed.undo()
+			if bpy.app.debug_value == 0: ops.ed.undo()
 			
 			if prev_mode:
 				ops.object.mode_set(mode=prev_mode)
@@ -319,6 +319,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						
 						scene_obs.unlink(ob)
 						bpy.data.objects.remove(ob)
+						del ob
 						
 					scene_obs.active = joined.object
 			if shouldExportDMX() and hasShapes(id):
@@ -884,6 +885,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		filepath = os.path.realpath(os.path.join(filepath,name + ".dmx"))
 		print("-",filepath)
 		armature = self.armature
+		armature_name = self.armature_src.name if armature else name
 		materials = {}
 		#benchReset()
 		
@@ -895,7 +897,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		dm = datamodel.DataModel("model",DatamodelFormatVersion())
 		root = dm.add_element(bpy.context.scene.name,id="Scene"+bpy.context.scene.name)
-		DmeModel = dm.add_element(self.armature_src.name,"DmeModel",id="Object" + (self.armature_src.name if armature else name))
+		DmeModel = dm.add_element(armature_name,"DmeModel",id="Object" + armature_name)
 		DmeModel_children = DmeModel["children"] = datamodel.make_array([],datamodel.Element)
 		
 		DmeModel_transforms = dm.add_element("base","DmeTransformList",id="transforms"+bpy.context.scene.name)
@@ -1018,7 +1020,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				jointCount = 1
 					
 			if badJointCounts:
-				self.warning("{} verts on \"{}\" have over 3 weight links. Studiomdl does not support this!".format(badJointCounts,ob['src_name']))
+				self.warning("{} verts on \"{}\" have over 3 weight links. Studiomdl does not support this!".format(badJointCounts,bake.src.name))
 			
 			format = [ "positions", "normals", "textureCoordinates" ]
 			if jointCount: format.extend( [ "jointWeights", "jointIndices" ] )
@@ -1038,7 +1040,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			texcoIndices = []
 			jointWeights = []
 			jointIndices = []
-			balance = []
+			balance = [0.0] * num_verts
 			
 			Indices = []
 			normsIndices = []
@@ -1057,8 +1059,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				norms[vert.index] = datamodel.Vector3(vert.normal)
 				vert.select = False
 				
-				if len(bake.shapes) and balance_vg.index < len(vert.groups):
-					balance.append(balance_vg.weight(vert.index))
+				if len(bake.shapes):
+					try: balance[vert.index] = balance_vg.weight(vert.index)
+					except: pass
 				
 				if type(bake.envelope) == bpy.types.ArmatureModifier:
 					weights = [0.0] * jointCount
@@ -1254,6 +1257,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						DmeVertexDeltaData["wrinkleIndices"] = datamodel.make_array(wrinkleIndices,int)
 					
 					bpy.data.meshes.remove(shape)
+					del shape
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
 					
 				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)

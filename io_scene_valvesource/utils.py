@@ -415,7 +415,7 @@ class Cache:
 	qc_paths = {}
 	qc_lastUpdate = 0
 	
-	scene_updated = False
+	scene_updated = True
 	action_filter = ""
 p_cache = Cache() # package cached data
 
