@@ -124,6 +124,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		return len(context.scene.vs.export_list)
 		
 	def invoke(self, context, event):
+		make_export_list()
 		ops.wm.call_menu(name="SMD_MT_ExportChoice")
 		return {'PASS_THROUGH'}
 
@@ -160,6 +161,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				prev_mode = "_".join(prev_mode)
 			ops.object.mode_set(mode='OBJECT')
 		
+		make_export_list()
 		self.validObs = getValidObs()
 		self.bake_results = []
 		self.armature = None
@@ -217,13 +219,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 		finally:
 			# Clean everything up
 			ops.ed.undo_push(message=self.bl_label)
-			if bpy.app.debug_value == 0: ops.ed.undo()
+			if bpy.app.debug_value <= 0: ops.ed.undo()
 			
 			if prev_mode:
 				ops.object.mode_set(mode=prev_mode)
 			if prev_hidden:
 				prev_hidden.hide = True
-			p_cache.scene_updated = True
+			bpy.context.scene.update_tag()
 			
 			bpy.context.window_manager.progress_end()
 
@@ -367,7 +369,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		amod_vg = ob.vertex_groups.get(amod.vertex_group)
 		amod_ob = [bake.object for bake in self.bake_results if bake.src == amod.object][0]
-		model_mat = ob.matrix_world * amod_ob.matrix_world.inverted()
+		bpy.context.scene.update()
+		model_mat = self.armature_src.matrix_world.inverted() * bake_result.src.matrix_world
 		
 		num_verts = len(ob.data.vertices)
 		weights = []
@@ -497,12 +500,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
 			self.armature = result.object = id
 			return result
-		else:
-			ops.object.transform_apply(scale=True)
-			if not shouldExportDMX(): ops.object.transform_apply(location=True,rotation=True)
 		
-		result.matrix = id.matrix_world
-
 		if id.type == 'CURVE':
 			id.data.dimensions = '3D'
 		
@@ -539,17 +537,23 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.error("Object {} has no polygons, skipping".format(id.name))
 			return
 		
-		# put baked ref mesh into an object
-		if id.type == 'MESH':
-			result.object = id.copy()
-			result.object.data = data
-		else:
-			result.object = bpy.data.objects.new(name=id.name,object_data=data)
-			result.object.matrix_world = id.matrix_world
+		def put_in_object(id,data):
+			ob = bpy.data.objects.new(name=id.name,object_data=data)
+			ob.matrix_world = id.matrix_world
 
-		baked = result.object
-		bpy.context.scene.objects.link(baked)
+			bpy.context.scene.objects.link(ob)
+		
+			bpy.context.scene.objects.active = ob
+			ops.object.select_all(action='DESELECT')
+			ob.select = True
 
+			ops.object.transform_apply(scale=True, location=not shouldExportDMX(), rotation=not shouldExportDMX())
+
+			return ob
+
+		baked = result.object = put_in_object(id,data)
+		result.matrix = baked.matrix_world
+		
 		if hasShapes(id):
 			# calculate vert balance
 			if shouldExportDMX():
@@ -577,12 +581,16 @@ class SmdExporter(bpy.types.Operator, Logger):
 				id.active_shape_key_index = i
 				baked_shape = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
-				result.shapes[shape.name] = baked_shape
+
+				shape_ob = put_in_object(id,baked_shape)
+				result.shapes[shape.name] = shape_ob.data
+
+				bpy.context.scene.objects.unlink(shape_ob)
+				bpy.data.objects.remove(shape_ob)
 		
-		bpy.context.scene.objects.active = baked
-		ops.object.select_all(action='DESELECT')
-		baked.select = True
-		
+			bpy.context.scene.objects.active = baked
+			baked.select = True
+
 		if id.vs.triangulate or not shouldExportDMX():
 			ops.object.mode_set(mode='EDIT')
 			ops.mesh.select_all(action='SELECT')
@@ -792,7 +800,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					face_index += 1
 
 				if bad_face_mats:
-					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,name,"" if bpy.context.scene.vs.use_image_names else " or material"))
+					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,bake.src.data.name,"" if bpy.context.scene.vs.use_image_names else " or material"))
 				
 				print("- Exported",face_index,"polys")
 				

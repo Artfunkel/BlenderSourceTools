@@ -65,7 +65,7 @@ class ValveSource_Exportable(bpy.types.PropertyGroup):
 			else:
 				raise TypeError("Unknown object type \"{}\" in ValveSource_Exportable".format(self.ob_type))
 		except KeyError:
-			p_cache.scene_updated = True
+			bpy.context.scene.update_tag()
 
 def menu_func_import(self, context):
 	self.layout.operator(import_smd.SmdImporter.bl_idname, text="Source Engine (.smd, .vta, .dmx, .qc)")
@@ -100,75 +100,16 @@ def upgrade_props(_):
 	try: bpy.app.handlers.scene_update_post.remove(upgrade_props)
 	except: pass
 
+just_loaded = True
 @bpy.app.handlers.persistent
 def scene_update(scene):
-	if not (p_cache.scene_updated or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
+	global just_loaded
+	if not (just_loaded or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
-	
-	p_cache.scene_updated = False
 
+	just_loaded = False
 	if not "vs" in dir(scene): return
-	
-	scene.vs.export_list.clear()
-	validObs = GUI.getValidObs()
-	
-	def makeDisplayName(item,name=None):
-		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
-	
-	if len(validObs):
-		ungrouped_objects = validObs[:]
-		
-		groups_sorted = bpy.data.groups[:]
-		groups_sorted.sort(key=lambda g: g.name.lower())
-		
-		scene_groups = []
-		for group in groups_sorted:
-			valid = False
-			for object in group.objects:
-				if object in validObs:
-					if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
-						ungrouped_objects.remove(object)
-					valid = True
-			if valid:
-				scene_groups.append(group)
-				
-		for g in scene_groups:
-			i = scene.vs.export_list.add()
-			if g.vs.mute:
-				i.name = g.name + " (suppressed)"
-			else:
-				i.name = makeDisplayName(g)
-			i.item_name = g.name
-			i.icon = i.ob_type = "GROUP"
-			
-		
-		ungrouped_objects.sort(key=lambda ob: ob.name.lower())
-		for ob in ungrouped_objects:
-			if ob.type == 'FONT':
-				ob.vs.triangulate = True # preserved if the user converts to mesh
-			
-			i_name = i_type = i_icon = None
-			if ob.type == 'ARMATURE':
-				ad = ob.animation_data
-				if ad:
-					i_icon = i_type = "ACTION"
-					if ob.data.vs.action_selection == 'FILTERED':
-						i_name = "\"{}\" actions ({})".format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
-					elif ad.action:
-						i_name = makeDisplayName(ob,ad.action.name)
-					elif len(ad.nla_tracks):
-						i_name = makeDisplayName(ob)
-						i_icon = "NLA"
-			else:
-				i_name = makeDisplayName(ob)
-				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
-				i_type = "OBJECT"
-			if i_name:
-				i = scene.vs.export_list.add()
-				i.name = i_name
-				i.ob_type = i_type
-				i.icon = i_icon
-				i.item_name = ob.name
+	make_export_list()
 
 def export_active_changed(self, context):
 	id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
@@ -255,7 +196,7 @@ class ValveSource_ArmatureProps(PropertyGroup):
 class ValveSource_GroupProps(ExportableProps,PropertyGroup):
 	mute = BoolProperty(name="Suppress",description="Export this group's objects individually",default=False)
 	selected_item = IntProperty(update=group_selected_changed)
-	automerge = BoolProperty(name="Merge mechanical parts",description="Optimises DMX export of meshes sharing the same parent bone",default=True)
+	automerge = BoolProperty(name="Merge mechanical parts",description="Optimises DMX export of meshes sharing the same parent bone",default=False)
 
 class ShapeTypeProps():
 	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
@@ -280,7 +221,7 @@ def register():
 	bpy.app.handlers.scene_update_post.append(scene_update)
 	bpy.app.handlers.load_post.append(upgrade_props)
 	bpy.app.handlers.scene_update_post.append(upgrade_props) # handles enabling the add-on after the scene is loaded
-	
+		
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
 	
