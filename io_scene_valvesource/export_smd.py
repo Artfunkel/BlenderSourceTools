@@ -1343,31 +1343,53 @@ class SmdExporter(bpy.types.Operator, Logger):
 			#bench("Animation setup")
 			prev_pos = {}
 			prev_rot = {}
+			skipped_pos = {}
+			skipped_rot = {}
 			scale = self.armature.matrix_world.to_scale()
-			
+
 			for frame in range(0,num_frames):
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
 				keyframe_time = datamodel.Time(frame / fps) if DatamodelFormatVersion() > 11 else int(frame/fps * 10000)
 				for bone in self.armature.pose.bones:
+					channel = bone_channels[bone]
+
 					if bone.parent: relMat = bone.parent.matrix.inverted() * bone.matrix
 					else: relMat = self.armature.matrix_world * bone.matrix
 					
 					pos = relMat.to_translation()
-					
 					if bone.parent:
 						for j in range(3): pos[j] *= scale[j]
 					
-					if not prev_pos.get(bone) or pos - prev_pos[bone] > epsilon:
-						bone_channels[bone][0]["times"].append(keyframe_time)
-						bone_channels[bone][0]["values"].append(datamodel.Vector3(pos))
-					prev_pos[bone] = pos
-					
 					rot = relMat.to_quaternion()
 					rot_vec = Vector(rot.to_euler())
+
+					if not prev_pos.get(bone) or pos - prev_pos[bone] > epsilon:
+						skip_time = skipped_pos.get(bone)
+						if skip_time != None:
+							channel[0]["times"].append(skip_time)
+							channel[0]["values"].append(channel[0]["values"][-1])
+							del skipped_pos[bone]
+
+						channel[0]["times"].append(keyframe_time)
+						channel[0]["values"].append(datamodel.Vector3(pos))
+					else:
+						skipped_pos[bone] = keyframe_time
+
+					
 					if not prev_rot.get(bone) or rot_vec - prev_rot[bone] > epsilon:
-						bone_channels[bone][1]["times"].append(keyframe_time)
-						bone_channels[bone][1]["values"].append(getDatamodelQuat(rot))
+						skip_time = skipped_rot.get(bone)
+						if skip_time != None:
+							channel[1]["times"].append(skip_time)
+							channel[1]["values"].append(channel[1]["values"][-1])
+							del skipped_rot[bone]
+
+						channel[1]["times"].append(keyframe_time)
+						channel[1]["values"].append(getDatamodelQuat(rot))
+					else:
+						skipped_rot[bone] = keyframe_time
+
+					prev_pos[bone] = pos
 					prev_rot[bone] = rot_vec
 					
 				#bench("frame {}".format(frame+1))
