@@ -553,6 +553,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		baked = result.object = put_in_object(id,data)
 		result.matrix = baked.matrix_world
+
+		for vgroup in id.vertex_groups:
+			baked.vertex_groups.new(name=vgroup.name)
 		
 		if hasShapes(id):
 			# calculate vert balance
