@@ -66,6 +66,9 @@ class Tests:
 	def test_Export_NoArmature_Curve(self):
 		self.runExportTest("Curve_NoArmature")
 
+	def test_Export_AllTypes(self):
+		self.runExportTest("AllTypes_Armature")
+
 	def test_Export_TF2(self):
 		self.runExportTest("scout")
 
@@ -81,26 +84,29 @@ class Tests:
 		self.maxDiff = None
 		self.assertEqual(target_dmx,D.texts[-1].as_string())
 
-	def test_import_Citizen(self):
-		def im(path):
-			result = bpy.ops.import_scene.smd(filepath=path)
-			self.assertTrue(result == {'FINISHED'})
-		
+	def runImportTest(self, test_name, *files):
 		self.loadBlender()
-		out_dir = join(results_path,self.bpy_version,"import")
+		out_dir = join(results_path,self.bpy_version,test_name)
 		if os.path.isdir(out_dir):
 			shutil.rmtree(out_dir)
 		os.makedirs(out_dir)
+		
+		for f in files:
+			self.assertEqual(bpy.ops.import_scene.smd(filepath=f), {'FINISHED'})
 
-		section("QC SMD import")
-		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_sdk.qc")
-		bpy.ops.wm.save_mainfile(filepath=join(out_dir,"Male_06_sdk.blend"),check_existing=False)
-		bpy.ops.wm.read_homefile()
+		bpy.ops.wm.save_mainfile(filepath=join(out_dir,test_name + ".blend"),check_existing=False)
 
-		section("SMD Ref + Anim import")
-		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_reference.smd")
-		im(sdk_content_path + "hl2/modelsrc/humans_sdk/Male_Animations_sdk/ShootSMG1.smd")
-		bpy.ops.wm.save_mainfile(filepath=join(out_dir,"ref_then_anim.blend"),check_existing=False)
+	def test_import_SMD(self):
+		self.runImportTest("import_smd",
+					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_reference.smd",
+					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_expressions.vta",
+					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_Animations_sdk/ShootSMG1.smd")
+
+	def test_import_DMX(self):
+		self.runImportTest("import_dmx",
+					 sdk_content_path + "tf/modelsrc/player/heavy/scripts/heavy_low.qc",
+					 sdk_content_path + "tf/modelsrc/player/heavy/animations/dmx/Die_HeadShot_Deployed.dmx")
+		
 
 class bpy_266a(unittest.TestCase,Tests):
 	bpy_version = "bpy_266a"

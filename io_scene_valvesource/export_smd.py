@@ -259,20 +259,37 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ob.data.pose_position = 'REST'
 			
 		# hide all metaballs that we don't want
-		for meta in [ob for ob in context.scene.objects if ob.type == 'META']:
-			if not meta.vs_export or (type(id) == Group and not meta.name in group.objects):
-				for element in meta.data.elements: element.hide = True
+		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (type(id) == Group and not ob.name in id.objects))]:
+			for element in meta.data.elements: element.hide = True
 		bpy.context.scene.update() # actually found a use for this!!
+
+		def find_basis_metaball(id):
+			basis_ns = id.name.rsplit(".")
+			if len(basis_ns) == 1: return id
+
+			basis = id
+			for meta in [ob for ob in bpy.data.objects if ob.type == 'META']:
+				ns = meta.name.rsplit(".")
+				if len(ns) == 1 or ns[0] != basis_ns[0]: continue
+				try:
+					if int(ns[1]) < int(basis_ns[1]):
+						basis = meta
+						basis_ns = ns
+				except ValueError:
+					pass
+			return basis
 		
 		bake_results = []
+		baked_metaballs = []
 		
 		if type(id) == Group:
 			have_baked_metaballs = False
 			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in self.validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
-					if have_baked_metaballs: continue
-					else: have_baked_metaballs = True
+					ob = find_basis_metaball(ob)
+					if ob in baked_metaballs: continue
+					else: baked_metaballs.append(ob)
 						
 				bake_results.append(self.bakeObj(ob))
 			
@@ -327,6 +344,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if shouldExportDMX() and hasShapes(id):
 				self.flex_controller_mode = id.vs.flex_controller_mode
 				self.flex_controller_source = id.vs.flex_controller_source
+		elif id.type == 'META':
+			bake_results.append(self.bakeObj(find_basis_metaball(id)))
 		else:
 			bake_results.append(self.bakeObj(id))
 		
@@ -459,8 +478,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		result.src = id
 		self.bake_results.append(result)
 		
-		id = id.copy()
-		bpy.context.scene.objects.link(id)
+		if id.type != 'META': # eek, what about lib data?
+			id = id.copy()
+			bpy.context.scene.objects.link(id)
 		id.data = id.data.copy()
 		
 		bpy.context.scene.objects.active = id
@@ -478,10 +498,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			top_parent = cur_parent
 			cur_parent = cur_parent.parent
-				
-		
-		if id.data.users > 1:
-			id.data = id.data.copy()
 			
 		if id.type == 'MESH':
 			ops.object.mode_set(mode='EDIT')
