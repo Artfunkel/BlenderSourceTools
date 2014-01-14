@@ -238,7 +238,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				return
 
 		# Got this far? Then this is a fresh import which needs a new armature.
-		smd.a = self.createArmature(self.qc.jobName if self.qc else smd.jobName)
+		smd.a = self.createArmature((self.qc.jobName if self.qc else smd.jobName) + "_skeleton")
 		if self.qc: self.qc.a = smd.a
 		smd.a.data.vs.implicit_zero_bone = False # Too easy to break compatibility, plus the skeleton is probably set up already
 		
