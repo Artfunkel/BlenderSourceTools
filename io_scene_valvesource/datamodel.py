@@ -162,6 +162,9 @@ class _Vector(list):
 		
 	def __repr__(self):
 		return " ".join([str(ord) for ord in self])
+
+	def __hash__(self):
+		return hash(tuple(self))
 	
 	def tobytes(self):
 		return struct.pack(self.type_str,*self)
@@ -207,6 +210,9 @@ class Matrix(list):
 		else:
 			matrix = [[0.0] * 4] * 4
 		super().__init__(matrix)
+	
+	def __hash__(self):
+		return hash(tuple(self))
 
 	def to_kv2(self):
 		return " ".join([str(f) for row in self for f in row])

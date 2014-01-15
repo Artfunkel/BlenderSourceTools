@@ -33,6 +33,7 @@
     <Compile Include="flex.py" />
     <Compile Include="GUI.py" />
     <Compile Include="import_smd.py" />
+    <Compile Include="ordered_set.py" />
     <Compile Include="update.py" />
     <Compile Include="utils.py" />
     <Compile Include="__init__.py" />

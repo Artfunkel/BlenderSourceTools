@@ -25,7 +25,7 @@ from math import *
 from bpy.types import Group
 
 from .utils import *
-from . import datamodel
+from . import datamodel, ordered_set
 
 wm = bpy.types.WindowManager
 if not 'progress_begin' in dir(wm): # instead of requiring 2.67
@@ -1064,7 +1064,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			pos = [None] * num_verts
 			norms = [None] * num_verts
-			texco = []
+			texco = ordered_set.OrderedSet()
 			texcoIndices = []
 			jointWeights = []
 			jointIndices = []
@@ -1109,8 +1109,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.context.window_manager.progress_update(len(pos) / num_verts)
 
 			for loop in [ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]:
-				texco.append(datamodel.Vector2(uv_layer[loop.index].uv))
-				texcoIndices.append(loop.index)
+				texcoIndices.append(texco.add(datamodel.Vector2(uv_layer[loop.index].uv)))
 				Indices.append(loop.vertex_index)
 			
 			#bench("verts")
