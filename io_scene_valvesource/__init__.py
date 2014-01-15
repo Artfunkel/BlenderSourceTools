@@ -78,24 +78,25 @@ def menu_func_shapekeys(self,context):
 
 @bpy.app.handlers.persistent
 def upgrade_props(_):
-	def convert(id,p_g):
+	def convert(id,*prop_groups):
 		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format" }
 
-		for prop in [prop for prop in p_g.__dict__.keys() if prop[0] != '_']:
-			val = id.get("smd_" + prop_map[prop] if prop in prop_map else prop)
-			if val != None:
-				id.vs[prop] = val
+		for p_g in prop_groups:
+			for prop in [prop for prop in p_g.__dict__.keys() if prop[0] != '_']:
+				val = id.get("smd_" + (prop_map[prop] if prop in prop_map else prop))
+				if val != None:
+					id.vs[prop] = val
 			
 		for prop in id.keys():
-			if prop.startswith("smd"):
+			if prop.startswith("smd_"):
 				del id[prop]
 				
 	for s in bpy.data.scenes: convert(s,ValveSource_SceneProps)
-	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps)
+	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps, ExportableProps)
 	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
-	for g in bpy.data.groups: convert(g,ValveSource_GroupProps)
-	for g in bpy.data.curves: convert(g,ValveSource_CurveProps)
-	for g in bpy.data.meshes: convert(g,ValveSource_MeshProps)
+	for g in bpy.data.groups: convert(g,ValveSource_GroupProps, ExportableProps)
+	for g in bpy.data.curves: convert(g,ValveSource_CurveProps, ShapeTypeProps)
+	for g in bpy.data.meshes: convert(g,ValveSource_MeshProps, ShapeTypeProps)
 
 	try: bpy.app.handlers.scene_update_post.remove(upgrade_props)
 	except: pass

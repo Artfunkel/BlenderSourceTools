@@ -341,13 +341,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 						del ob
 						
 					scene_obs.active = joined.object
-			if shouldExportDMX() and hasShapes(id):
-				self.flex_controller_mode = id.vs.flex_controller_mode
-				self.flex_controller_source = id.vs.flex_controller_source
 		elif id.type == 'META':
 			bake_results.append(self.bakeObj(find_basis_metaball(id)))
 		else:
 			bake_results.append(self.bakeObj(id))
+
+		if shouldExportDMX() and hasShapes(id):
+			self.flex_controller_mode = id.vs.flex_controller_mode
+			self.flex_controller_source = id.vs.flex_controller_source
 		
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
@@ -993,7 +994,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					print(msg + "text block \"{}\"".format(text.name))
 					controller_dm = datamodel.parse(text.as_string(),element_path=element_path)
 				else:
-					path = os.path.realpath(bpy.path.abspath(ob.vs.flex_controller_source))
+					path = os.path.realpath(bpy.path.abspath(self.flex_controller_source))
 					print(msg + path)
 					controller_dm = datamodel.load(path=path,element_path=element_path)
 			
@@ -1195,7 +1196,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if "_" in shape_name:
 						num_correctives += 1
 					else:
-						if ob.vs.flex_controller_mode == 'SIMPLE':
+						if self.flex_controller_mode == 'SIMPLE':
 							DmeCombinationInputControl = dm.add_element(shape_name,"DmeCombinationInputControl",id=name+shape_name+"controller")
 							control_elems.append(DmeCombinationInputControl)
 						
