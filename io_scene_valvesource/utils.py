@@ -77,23 +77,35 @@ dmx_versions = { # [encoding, format]
 'Source SDK Base 2013 Multiplayer':[2,1]
 }
 
-def SPAM(*args):
-	print(*args)
+def d_print(*args,end="\n"):
+	if bpy.app.debug_value > 0: print(*args,end=end)
 
-def benchReset():
-	global benchLast
-	global benchStart
-	benchStart = benchLast = time.time()
-benchReset()
-def bench(label):
-	global benchLast
-	now = time.time()
-	print("{}: {:.4f}".format(label,now-benchLast))
-	benchLast = now
-def benchTotal():
-	global benchStart
-	return time.time() - benchStart
-	
+class BenchMarker:
+	def __init__(self,indent = 0, prefix = None):
+		self._indent = indent * 4
+		self._prefix = "{}{}".format(" " * self._indent,prefix if prefix else "")
+		self.quiet = bpy.app.debug_value <= 0
+		self.reset()
+
+	def reset(self):
+		self._last = self._start = time.time()
+		
+	def report(self,label = None, threshold = 0.0):
+		now = time.time()
+		elapsed = now - self._last
+		if threshold and elapsed < threshold: return
+
+		if not self.quiet:
+			prefix = "{} {}:".format(self._prefix, label if label else "")
+			pad = max(0, 10 - len(prefix) + self._indent)
+			print("{}{}{:.4f}".format(prefix," " * pad, now - self._last))
+		self._last = now
+
+	def current(self):
+		return time.time() - self._last
+	def total(self):
+		return time.time() - self._start
+
 def smdBreak(line):
 	line = line.rstrip('\n')
 	return line == "end" or line == ""
@@ -359,6 +371,27 @@ def make_export_list():
 				i.ob_type = i_type
 				i.icon = i_icon
 				i.item_name = ob.name
+
+from bpy.app.handlers import scene_update_post, persistent
+just_loaded = True
+
+@persistent
+def scene_update(scene):
+	global just_loaded
+	if not (just_loaded or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
+		return
+	
+	just_loaded = False
+	if not "vs" in dir(scene): return
+	make_export_list()
+
+def hook_scene_update():
+	if not scene_update in scene_update_post:
+		scene_update_post.append(scene_update)
+
+def unhook_scene_update():
+	if scene_update in scene_update_post:
+		scene_update_post.remove(scene_update)
 
 class Logger:
 	def __init__(self):

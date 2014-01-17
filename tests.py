@@ -20,6 +20,7 @@ class Tests:
 		C = bpy.context
 		D = bpy.data
 		bpy.ops.wm.read_homefile()
+		bpy.app.debug_value = 1
 		print("Blender version",bpy.app.version)
 
 	def runExportTest(self,blend):

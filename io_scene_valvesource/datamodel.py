@@ -300,13 +300,13 @@ class Element(collections.OrderedDict):
 		super().__init__()
 		
 	def __eq__(self,other):
-		return other and self.id == other.id
+		return other and hash(self) == hash(other)
 
 	def __repr__(self):
 		return "<Datamodel element \"{}\" ({})>".format(self.name,self.type)
 		
 	def __hash__(self):
-		return int(self.id)
+		return hash(self.id)
 		
 	def __getitem__(self,item):
 		if type(item) != str: raise TypeError("Attribute name must be a string, not {}".format(type(item)))
@@ -400,7 +400,7 @@ class Element(collections.OrderedDict):
 			else:
 				return bytes.join(b'',b'-2',bytes.decode(self.id,encoding='ASCII'))
 		else:
-			return struct.pack("i",dm.elem_chain.index(self))
+			return struct.pack("i",self._index)
 
 class _ElementArray(_Array):
 	type = Element
@@ -477,10 +477,10 @@ class _StringDictionary(list):
 				self.append(get_str(in_file))
 		
 		elif out_datamodel:
-			checked = []
+			checked = set()
 			string_set = set()
 			def process_element(elem):
-				checked.append(elem)
+				checked.add(elem)
 				string_set.add(elem.name)
 				string_set.add(elem.type)
 				for name in elem:
@@ -595,22 +595,22 @@ class DataModel:
 			raise TypeError("Cannot write attributes of type {}".format(t))
 	
 	def _write_element_index(self,elem):
-		if elem._is_placeholder: return
+		if elem._is_placeholder or hasattr(elem,"_index"): return
 		self._write(elem.type, suppress_dict = False)
 		self._write(elem.name)
 		self._write(elem.id)
 		
+		elem._index = len(self.elem_chain)
 		self.elem_chain.append(elem)
 		
 		for name in elem:
 			attr = elem[name]
 			t = type(attr)
-			if t == Element and attr not in self.elem_chain:
+			if t == Element:
 				self._write_element_index(attr)
-			if t == _ElementArray:
+			elif t == _ElementArray:
 				for i in attr:
-					if i not in self.elem_chain:
-						self._write_element_index(i)
+					self._write_element_index(i)
 		
 	def _write_element_props(self):	
 		for elem in self.elem_chain:
@@ -651,11 +651,13 @@ class DataModel:
 			self._string_dict.write_dictionary(self.out)
 			
 		# count elements
-		out_elems = []
+		out_elems = set()
 		for elem in self.elements:
 			elem._users = 0
 		def _count_child_elems(elem):
-			out_elems.append(elem)
+			if elem in out_elems: return
+
+			out_elems.add(elem)
 			for name in elem:
 				attr = elem[name]
 				t = type(attr)
@@ -675,6 +677,8 @@ class DataModel:
 			self.elem_chain = []
 			self._write_element_index(self.root)
 			self._write_element_props()
+
+			for elem in self.elem_chain: del elem._index
 		elif self.encoding == 'keyvalues2':
 			self.out.write(self.root.get_kv2() + "\n\n")
 			for elem in out_elems:

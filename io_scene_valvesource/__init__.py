@@ -48,6 +48,12 @@ for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file_
 	mod = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
 	if mod: imp.reload(mod)
 
+# clear out any scene update funcs hanging around, e.g. after a script reload
+from bpy.app.handlers import scene_update_post
+for func in scene_update_post:
+	if func.__module__.startswith(__name__):
+		scene_update_post.remove(func)
+
 from . import datamodel, import_smd, export_smd, flex, GUI
 from .utils import *
 
@@ -98,19 +104,8 @@ def upgrade_props(_):
 	for g in bpy.data.curves: convert(g,ValveSource_CurveProps, ShapeTypeProps)
 	for g in bpy.data.meshes: convert(g,ValveSource_MeshProps, ShapeTypeProps)
 
-	try: bpy.app.handlers.scene_update_post.remove(upgrade_props)
-	except: pass
-
-just_loaded = True
-@bpy.app.handlers.persistent
-def scene_update(scene):
-	global just_loaded
-	if not (just_loaded or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
-		return
-
-	just_loaded = False
-	if not "vs" in dir(scene): return
-	make_export_list()
+	if upgrade_props in scene_update_post:
+		scene_update_post.remove(upgrade_props)
 
 def export_active_changed(self, context):
 	id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
@@ -219,9 +214,9 @@ def register():
 	bpy.types.INFO_MT_file_import.append(menu_func_import)
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
-	bpy.app.handlers.scene_update_post.append(scene_update)
+	hook_scene_update()
 	bpy.app.handlers.load_post.append(upgrade_props)
-	bpy.app.handlers.scene_update_post.append(upgrade_props) # handles enabling the add-on after the scene is loaded
+	scene_update_post.append(upgrade_props) # handles enabling the add-on after the scene is loaded
 		
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
@@ -242,7 +237,7 @@ def unregister():
 	bpy.types.INFO_MT_file_import.remove(menu_func_import)
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
-	bpy.app.handlers.scene_update_post.remove(scene_update)
+	unhook_scene_update()
 	bpy.app.handlers.load_post.remove(upgrade_props)
 
 	del bpy.types.Scene.vs

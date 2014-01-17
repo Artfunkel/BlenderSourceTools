@@ -1266,11 +1266,14 @@ class SmdImporter(bpy.types.Operator, Logger):
 	def readDMX(self, filepath, upAxis, rotMode,newscene = False, smd_type = None, append = True, target_layer = 0):
 		smd = self.initSMD(filepath,smd_type,append,upAxis,rotMode,target_layer)
 		smd.isDMX = 1
+
+		bench = BenchMarker(1,"DMX")
+		
 		target_arm = self.findArmature() if append else None
 		if target_arm:
 			smd.a = target_arm
 			arm_hide = target_arm.hide
-		benchReset()
+		
 		ob = bone = restData = smd.atch = None
 		smd.layer = target_layer
 		starting_objects = set(bpy.context.scene.objects)
@@ -1279,11 +1282,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		print( "\nDMX IMPORTER: now working on",os.path.basename(filepath) )	
 		
 		from . import datamodel
-		benchReset()
 		error = None
 		try:
+			print("- Loading DMX...")
 			dm = datamodel.load(filepath)
-			bench("Load DMX")
+			bench.report("Load DMX")
 			
 			if bpy.context.scene.name.startswith("Scene"):
 				bpy.context.scene.name = smd.jobName
@@ -1583,5 +1586,5 @@ class SmdImporter(bpy.types.Operator, Logger):
 					group.objects.link(ob)
 					
 		
-		bench("DMX imported in")
+		bench.report("DMX imported in")
 		return 1

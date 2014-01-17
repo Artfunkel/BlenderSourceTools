@@ -146,7 +146,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
 			self.report({'ERROR'},"Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
 			return {'CANCELLED'}
-		
+
 		# Don't create an undo level from edit mode
 		prev_mode = prev_hidden = None
 		if context.active_object:
@@ -167,10 +167,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.armature = None
 		self.bone_ids = {}
 		self.materials_used = set()
-		
-		for ob in self.validObs:
-			if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0:
-				ob.vs.subdir = "anims"
+
+		for ob in [ob for ob in self.validObs if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
+			ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
 		
@@ -178,6 +177,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			context.tool_settings.use_keyframe_insert_auto = False
 			context.tool_settings.use_keyframe_insert_keyingset = False
 			context.user_preferences.edit.use_enter_edit_mode = False
+			unhook_scene_update()
 			
 			# lots of operators only work on visible objects
 			for object in context.scene.objects:
@@ -188,8 +188,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if self.export_scene:
 				for id in [exportable.get_id() for exportable in context.scene.vs.export_list]:
-					if type(id) == Group and shouldExportGroup(id):
-						self.exportId(context, id)
+					if type(id) == Group:
+						if shouldExportGroup(id):
+							self.exportId(context, id)
 					elif id.vs.export:
 						self.exportId(context, id)
 			else:
@@ -219,7 +220,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		finally:
 			# Clean everything up
 			ops.ed.undo_push(message=self.bl_label)
-			if bpy.app.debug_value <= 0: ops.ed.undo()
+			if bpy.app.debug_value <= 1: ops.ed.undo()
 			
 			if prev_mode:
 				ops.object.mode_set(mode=prev_mode)
@@ -228,13 +229,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.scene.update_tag()
 			
 			bpy.context.window_manager.progress_end()
+			hook_scene_update()
 
 		self.group = ""
+		self.export_scene = False
 		return {'FINISHED'}
 	
 	def exportId(self,context,id):
 		self.attemptedExports += 1
-		self.startTime = time.time()
+		bench = BenchMarker()
 		
 		subdir = id.vs.subdir
 		
@@ -282,6 +285,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bake_results = []
 		baked_metaballs = []
 		
+		bench.report("setup")
+		
+		if bench.quiet: print("Baking...")
+
 		if type(id) == Group:
 			have_baked_metaballs = False
 			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in self.validObs]):
@@ -292,7 +299,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else: baked_metaballs.append(ob)
 						
 				bake_results.append(self.bakeObj(ob))
-			
+			bench.report("Group bake")
+
 			if shouldExportDMX() and id.vs.automerge:
 				bone_parents = collections.defaultdict(list)
 				scene_obs = bpy.context.scene.objects
@@ -325,8 +333,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 						ops.object.select_all(action='DESELECT')
 						
 						for part in parts:
-							mesh = part.shapes.get(shape_name)
-							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh if mesh else part.object.data.copy())
+							mesh = part.shapes[shape_name] if shape_name in part.shapes else part.object.data
+							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh.copy())
 							scene_obs.link(ob)
 							ob.matrix_local = part.matrix
 							ob.select = True
@@ -341,10 +349,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 						del ob
 						
 					scene_obs.active = joined.object
+				bench.report("Mech merge")
 		elif id.type == 'META':
 			bake_results.append(self.bakeObj(find_basis_metaball(id)))
+			bench.report("Metaball bake")
 		else:
 			bake_results.append(self.bakeObj(id))
+			bench.report("Standard bake")
 
 		if shouldExportDMX() and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
@@ -361,7 +372,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.armature_src = armature_bake.src
 		
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
-		
+		bench.report("Post Bake")
+
 		if type(id) == bpy.types.Object and id.type == 'ARMATURE':
 			ad = id.animation_data
 			if id.data.vs.action_selection == 'FILTERED':
@@ -375,11 +387,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 				export_name = id.name
 			else:
 				self.error("Couldn't find any animation for Armature \"{}\"".format(id.name))
+			bench.report("Animation export")
 		else:
 			export_name = id.name
 		
 		bpy.context.scene.update()
 		self.files_exported += write_func(bake_results, export_name, path)
+		bench.report(write_func.__name__)
 		
 	def getWeightmap(self,bake_result):
 		out = []
@@ -447,7 +461,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if not bpy.context.scene.vs.use_image_names and len(ob.material_slots) > poly.material_index:
 			mat = ob.material_slots[poly.material_index].material
 			if mat:
-				mat_name = getObExportName(mat)
+				mat_name = mat.name
 		if not mat_name and ob.data.uv_textures.active.data:
 			image = ob.data.uv_textures.active.data[poly.index].image
 			if image:
@@ -607,6 +621,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 				bpy.context.scene.objects.unlink(shape_ob)
 				bpy.data.objects.remove(shape_ob)
+				del shape_ob
 		
 			bpy.context.scene.objects.active = baked
 			baked.select = True
@@ -909,13 +924,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		return 1
 
 	def writeDMX(self, bake_results, name, filepath):
-		start = time.time()
+		bench = BenchMarker(1,"DMX")
 		filepath = os.path.realpath(os.path.join(filepath,name + ".dmx"))
 		print("-",filepath)
 		armature = self.armature
 		armature_name = self.armature_src.name if armature else name
 		materials = {}
-		#benchReset()
 		
 		def makeTransform(name,matrix,object_name):
 			trfm = dm.add_element(name,"DmeTransform",id=object_name+"transform")
@@ -980,7 +994,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for bone in armature.pose.bones:
 				if not bone.parent:
 					DmeModel_children.append(writeBone(bone))
-		
+
+			bench.report("Bones")
+
 		for _ in [bake for bake in bake_results if len(bake.shapes)]:
 			if self.flex_controller_mode == 'ADVANCED':
 				if not hasFlexControllerSource(self.flex_controller_source):
@@ -1011,6 +1027,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 			root["combinationOperator"] = DmeCombinationOperator
 			break
+
+		if root.get("combinationOperator"):
+			bench.report("Flex setup")
 
 		for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 			root["model"] = DmeModel
@@ -1075,7 +1094,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			uv_layer = ob.data.uv_layers.active.data
 			
-			#bench("setup")
+			bench.report("object setup")
 			
 			if type(bake.envelope) == str:
 				jointWeights = [ 1.0 ] * len(ob.data.vertices)
@@ -1112,7 +1131,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				texcoIndices.append(texco.add(datamodel.Vector2(uv_layer[loop.index].uv)))
 				Indices.append(loop.vertex_index)
 			
-			#bench("verts")
+			bench.report("verts")
 			
 			vertex_data["positions"] = datamodel.make_array(pos,datamodel.Vector3)
 			vertex_data["positionsIndices"] = datamodel.make_array(Indices,int)
@@ -1128,7 +1147,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				vertex_data["balance"] = datamodel.make_array(balance,float)
 				vertex_data["balanceIndices"] = datamodel.make_array(Indices,int)
 			
-			#bench("insert")
+			bench.report("insert")
 			face_sets = {}
 			bad_face_mats = 0
 			v = 0
@@ -1136,6 +1155,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			num_polys = len(ob.data.polygons)
 			flat_polys = {}
 			
+			two_percent = int(num_polys / 50)
+			d_print("Polygons: ",end="")
 			for poly in ob.data.polygons:
 				mat_name, mat_success = self.GetMaterialName(ob, poly)
 				if not mat_success:
@@ -1165,9 +1186,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 					normsIndices.extend([len(norms) -1 ] * poly.loop_total)
 				
 				p+=1
-				if p % 20 == 0:
+				if two_percent and p % two_percent == 0:
+					d_print(".",end="")
 					bpy.context.window_manager.progress_update(len(face_list) / num_polys)
 			
+			d_print()
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
 			vertex_data["normals"] = datamodel.make_array(norms,datamodel.Vector3)
@@ -1175,7 +1198,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if bad_face_mats:
 				self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,bake.name,"" if bpy.context.scene.vs.use_image_names else " or material"))
-			#bench("faces")
+			bench.report("polys")
 			
 			# shapes
 			if len(bake.shapes):
@@ -1234,23 +1257,25 @@ class SmdExporter(bpy.types.Operator, Logger):
 					shape_norms = []
 					shape_normIndices = []
 					if wrinkle_scale: delta_lengths = [None] * len(ob.data.vertices)
-										
+					
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
 						
-						delta = shape_vert.co - ob_vert.co
-						delta_length = delta.length
+						if ob_vert.co != shape_vert.co:
+							delta = shape_vert.co - ob_vert.co
+							delta_length = delta.length
 						
-						if wrinkle_scale: delta_lengths[ob_vert.index] = delta_length
-						
-						if delta_length:
-							shape_pos.append(datamodel.Vector3(delta))
-							shape_posIndices.append(ob_vert.index)
+							if abs(delta_length) > 1e-5:
+								if wrinkle_scale: delta_lengths[ob_vert.index] = delta_length
+								shape_pos.append(datamodel.Vector3(delta))
+								shape_posIndices.append(ob_vert.index)
 						
 						if ob_vert.normal != shape_vert.normal:
 							shape_norms.append(datamodel.Vector3(shape_vert.normal))
 							shape_normIndices.append(ob_vert.index)
 					
+					del shape_vert
+
 					if wrinkle_scale or len(flat_polys):
 						max_delta = 0
 						for poly in ob.data.polygons:
@@ -1306,7 +1331,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					DmeCombinationOperator["controlValues"].extend(control_values)
 					DmeCombinationOperator["targets"].append(DmeMesh)
 				
-				#bench("shapes")
+				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
@@ -1359,13 +1384,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for bone in self.armature.pose.bones:
 				makeChannel(bone)
 			num_frames = int(anim_len + 1)
-			#bench("Animation setup")
+			bench.report("Animation setup")
 			prev_pos = {}
 			prev_rot = {}
 			skipped_pos = {}
 			skipped_rot = {}
 			scale = self.armature.matrix_world.to_scale()
 
+			two_percent = num_frames / 50
+			d_print("Frames: ",end="")
 			for frame in range(0,num_frames):
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
@@ -1411,10 +1438,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 					prev_pos[bone] = pos
 					prev_rot[bone] = rot_vec
 					
-				#bench("frame {}".format(frame+1))
+				if two_percent and frame % two_percent:
+					d_print(".",end="")
+			d_print()
 		
-		benchReset()
 		bpy.context.window_manager.progress_update(0.99)
+		print("- Writing DMX...")
 		try:
 			if bpy.context.scene.vs.use_kv2:
 				dm.write(filepath,"keyvalues2",1)
@@ -1422,7 +1451,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
 		except (PermissionError, FileNotFoundError) as err:
 			self.error("Could not create DMX. Python reports: {}.".format(err))
-		#bench("Writing")
-		print("DMX export took",time.time() - start,"\n")
+
+		bench.report("write")
+		if bench.quiet:
+			print("DMX export took",bench.total(),"\n")
 		
 		return 1
