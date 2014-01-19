@@ -295,6 +295,7 @@ def getValidObs():
 	return validObs
 
 def getExportablesForId(id):
+	if not id: raise ValueError("id is null")
 	out = set()
 	for exportable in bpy.context.scene.vs.export_list:
 		if exportable.get_id() == id: return [exportable]
@@ -308,7 +309,7 @@ def getSelectedExportables():
 	exportables = set()
 	for ob in bpy.context.selected_objects:
 		exportables.update(getExportablesForId(ob))
-	if len(exportables) == 0:
+	if len(exportables) == 0 and bpy.context.active_object:
 		a_e = getExportablesForId(bpy.context.active_object)
 		if a_e: exportables.update(a_e)
 	return exportables

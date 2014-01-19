@@ -481,7 +481,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		def __init__(self,name):
 			self.name = name
-			self.shapes = {}
+			self.shapes = collections.OrderedDict()
 			self.matrix = Matrix()
 			
 	# Creates a mesh with object transformations and modifiers applied
@@ -1148,7 +1148,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				vertex_data["balanceIndices"] = datamodel.make_array(Indices,int)
 			
 			bench.report("insert")
-			face_sets = {}
+			face_sets = collections.OrderedDict()
 			bad_face_mats = 0
 			v = 0
 			p = 0

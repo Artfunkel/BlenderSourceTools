@@ -320,7 +320,7 @@ class Element(collections.OrderedDict):
 		
 		def import_element(elem):
 			for dm in [dm for dm in self._datamodels if not dm in elem._datamodels]:
-				for dm_e in [dm_e for dm_e in dm.elements if dm_e.id == elem.id]:
+				if elem in dm.elements:
 					raise IDCollisionError("Could not add {} to {}: element ID collision with {}.".format(elem, dm, dm_e))
 				dm.elements.append(elem)
 				elem._datamodels.add(dm)
