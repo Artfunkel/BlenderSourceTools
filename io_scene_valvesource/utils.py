@@ -280,18 +280,18 @@ def shouldExportGroup(group):
 def hasFlexControllerSource(source):
 	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
 
+r_layers = range(20)
 def getValidObs():
 	validObs = []
 	s = bpy.context.scene
-	for o in s.objects:
-		if o.type in exportable_types:
-			if s.vs.layer_filter:
-				for i in range( len(o.layers) ):
-					if o.layers[i] and s.layers[i]:
-						validObs.append(o)
-						break
-			else:
+	
+	for o in [o for o in s.objects if o.type in exportable_types]:
+		if s.vs.layer_filter:
+			for _ in [i for i in r_layers if o.layers[i] and s.layers[i]]:
 				validObs.append(o)
+				break
+		else:
+			validObs.append(o)
 	return validObs
 
 def getExportablesForId(id):
