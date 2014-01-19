@@ -308,6 +308,9 @@ def getSelectedExportables():
 	exportables = set()
 	for ob in bpy.context.selected_objects:
 		exportables.update(getExportablesForId(ob))
+	if len(exportables) == 0:
+		a_e = getExportablesForId(bpy.context.active_object)
+		if a_e: exportables.update(a_e)
 	return exportables
 
 def make_export_list():

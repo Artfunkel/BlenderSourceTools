@@ -29,32 +29,30 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 
 	def draw(self, context):
 		l = self.layout
-				
-		if len(context.selected_objects):
-			exportables = getSelectedExportables()
-			
-			if not len(exportables):
-				row = l.row()
-				row.operator(SmdExporter.bl_idname, text="Cannot export selection",icon='BLANK1')
-				row.enabled = False
-			else:
-				single_obs = list([ex for ex in exportables if ex.ob_type != 'GROUP'])
-				groups = list([ex for ex in exportables if ex.ob_type == 'GROUP'])
-				groups.sort(key=lambda g: g.name.lower())
-				
-				group_layout = l
-				for i,group in enumerate(groups):
-					if type(self) == SMD_PT_Scene:
-						if i == 0: group_col = l.column(align=True)
-						if i % 2 == 0: group_layout = group_col.row(align=True)
-					group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').group = group.get_id().name
-				
-				num_obs = len(single_obs)
-				if num_obs > 1:
-					l.operator(SmdExporter.bl_idname, text="Selected objects ({} files)".format(num_obs), icon='OBJECT_DATA')
-				elif num_obs:
-					l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
 		
+		exportables = getSelectedExportables()	
+		if len(exportables):
+			single_obs = list([ex for ex in exportables if ex.ob_type != 'GROUP'])
+			groups = list([ex for ex in exportables if ex.ob_type == 'GROUP'])
+			groups.sort(key=lambda g: g.name.lower())
+				
+			group_layout = l
+			for i,group in enumerate(groups):
+				if type(self) == SMD_PT_Scene:
+					if i == 0: group_col = l.column(align=True)
+					if i % 2 == 0: group_layout = group_col.row(align=True)
+				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').group = group.get_id().name
+				
+			num_obs = len(single_obs)
+			if num_obs > 1:
+				l.operator(SmdExporter.bl_idname, text="Selected objects ({} files)".format(num_obs), icon='OBJECT_DATA')
+			elif num_obs:
+				l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
+		elif len(bpy.context.selected_objects):
+			row = l.row()
+			row.operator(SmdExporter.bl_idname, text="Cannot export selection",icon='BLANK1')
+			row.enabled = False
+
 		row = l.row()
 		num_scene_exports = count_exports(context)
 		row.operator(SmdExporter.bl_idname, text="Scene export ({} files)".format(num_scene_exports), icon='SCENE_DATA').export_scene = True
