@@ -318,7 +318,7 @@ def make_export_list():
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
 	
 	if len(validObs):
-		ungrouped_objects = validObs[:]
+		ungrouped_objects = set(validObs)
 		
 		groups_sorted = bpy.data.groups[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -326,11 +326,10 @@ def make_export_list():
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
-			for object in group.objects:
-				if object in validObs:
-					if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
-						ungrouped_objects.remove(object)
-					valid = True
+			for object in [ob for ob in group.objects if ob in validObs]:
+				if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
+					ungrouped_objects.remove(object)
+				valid = True
 			if valid:
 				scene_groups.append(group)
 				
@@ -344,6 +343,7 @@ def make_export_list():
 			i.icon = i.ob_type = "GROUP"
 			
 		
+		ungrouped_objects = list(ungrouped_objects)
 		ungrouped_objects.sort(key=lambda ob: ob.name.lower())
 		for ob in ungrouped_objects:
 			if ob.type == 'FONT':
@@ -373,17 +373,25 @@ def make_export_list():
 				i.item_name = ob.name
 
 from bpy.app.handlers import scene_update_post, persistent
-just_loaded = True
+need_export_refresh = True
+last_export_refresh = 0
 
 @persistent
 def scene_update(scene):
-	global just_loaded
-	if not (just_loaded or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
-		return
+	global need_export_refresh
+	global last_export_refresh
 	
-	just_loaded = False
-	if not "vs" in dir(scene): return
-	make_export_list()
+	if not (need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
+		return
+	if not "vs" in dir(scene):
+		return
+
+	need_export_refresh = True
+	now = time.time()
+	if now - last_export_refresh > 0.25:
+		make_export_list()
+		need_export_refresh = False
+		last_export_refresh = now
 
 def hook_scene_update():
 	if not scene_update in scene_update_post:
