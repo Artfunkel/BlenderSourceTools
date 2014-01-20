@@ -124,13 +124,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 		return len(context.scene.vs.export_list)
 		
 	def invoke(self, context, event):
-		make_export_list()
+		scene_update(context.scene, immediate=True)
 		ops.wm.call_menu(name="SMD_MT_ExportChoice")
 		return {'PASS_THROUGH'}
 
 	def execute(self, context):
 		#bpy.context.window_manager.progress_begin(0,1)
-
+		
 		# Misconfiguration?
 		if allowDMX() and context.scene.vs.export_format == 'DMX':
 			datamodel.check_support("binary",DatamodelEncodingVersion())
@@ -146,7 +146,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
 			self.report({'ERROR'},"Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
 			return {'CANCELLED'}
-
+		
 		# Don't create an undo level from edit mode
 		prev_mode = prev_hidden = None
 		if context.active_object:
@@ -161,13 +161,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 				prev_mode = "_".join(prev_mode)
 			ops.object.mode_set(mode='OBJECT')
 		
-		make_export_list()
+		scene_update(context.scene, immediate=True)
 		self.bake_results = []
 		self.armature = None
 		self.bone_ids = {}
 		self.materials_used = set()
 		
-		for ob in [ob for ob in validObs if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
+		for ob in [ob for ob in p_cache.validObs if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
 			ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
@@ -290,7 +290,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Group:
 			have_baked_metaballs = False
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in validObs]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)
@@ -1217,7 +1217,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						num_correctives += 1
 					else:
 						if self.flex_controller_mode == 'SIMPLE':
-							DmeCombinationInputControl = dm.add_element(shape_name,"DmeCombinationInputControl",id=name+shape_name+"controller")
+							DmeCombinationInputControl = dm.add_element(shape_name,"DmeCombinationInputControl",id=bake.object.name+shape_name+"controller")
 							control_elems.append(DmeCombinationInputControl)
 						
 							DmeCombinationInputControl["rawControlNames"] = datamodel.make_array([shape_name],str)

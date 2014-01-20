@@ -30,9 +30,11 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	
 	@classmethod
 	def poll(self, context):
-		return hasShapes(context.scene.vs.export_list[context.scene.vs.export_list_active].get_id())
+		return hasShapes(context.scene.vs.export_list[context.scene.vs.export_list_active].get_id(), valid_only=False)
 	
 	def execute(self, context):
+		scene_update(context.scene, immediate=True)
+
 		dm = datamodel.DataModel("model",1)
 		
 		objects = []

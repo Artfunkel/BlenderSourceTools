@@ -1315,8 +1315,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 			# Skeleton
 			if target_arm:
 				missing_bones = []
-				def validateSkeleton(elem,parent_elem):
-					if elem.type == "DmeJoint" or (elem.type == "DmeDag" and elem["shape"] == None):
+
+				def validateSkeleton(elem_array, parent_elem):
+					for elem in [item for item in elem_array if (item.type == "DmeJoint" and item.name != "blender_implicit") or (item.type == "DmeDag" and item.get("shape") == None)]:
 						bone = smd.a.data.bones.get(elem.name)
 						if not bone:
 							if smd.jobType == REF: missing_bones.append(elem.name)
@@ -1330,11 +1331,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 							smd.boneTransformIDs[elem["transform"].id] = bone.name
 						
 						if elem.get("children"):
-							for child in elem["children"]:
-								validateSkeleton(child,elem)
+							validateSkeleton(elem["children"], elem)
 				
-				for child in DmeModel["children"]:
-					validateSkeleton(child,None)
+				validateSkeleton(DmeModel["children"], None)
+
 				if len(missing_bones):
 					self.warning("{} contains {} bones not present in {}:\n{}".format(smd.jobName,len(missing_bones),smd.a.name,", ".join(missing_bones)))
 			else:
@@ -1349,32 +1349,31 @@ class SmdImporter(bpy.types.Operator, Logger):
 				smd.a.matrix_world = getUpAxisMat(smd.upAxis)
 				
 				bone_matrices = {}
-				def parseSkeleton(elem,parent_bone):
-					if elem.type =="DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
-						atch = smd.atch = bpy.data.objects.new(name=elem["shape"].name, object_data=None)
-						bpy.context.scene.objects.link(atch)
-						atch.show_x_ray = True
-						atch.empty_draw_type = 'ARROWS'
+				def parseSkeleton(elem_array, parent_bone):
+					for elem in elem_array:
+						if elem.type =="DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
+							atch = smd.atch = bpy.data.objects.new(name=elem["shape"].name, object_data=None)
+							bpy.context.scene.objects.link(atch)
+							atch.show_x_ray = True
+							atch.empty_draw_type = 'ARROWS'
 
-						atch.parent = smd.a
-						if parent_bone:
-							atch.parent_type = 'BONE'
-							atch.parent_bone = parent_bone.name
+							atch.parent = smd.a
+							if parent_bone:
+								atch.parent_type = 'BONE'
+								atch.parent_bone = parent_bone.name
 						
-						atch.matrix_local = get_transform_matrix(elem)
-					elif elem.type == "DmeJoint" or elem.get("shape") == None: # don't import Dags which simply wrap meshes
-						bone = smd.a.data.edit_bones.new(elem.name)
-						bone.parent = parent_bone
-						bone.tail = (0,5,0)
-						bone_matrices[bone.name] = get_transform_matrix(elem)
-						smd.boneIDs[elem.id] = bone.name
-						smd.boneTransformIDs[elem["transform"].id] = bone.name
-						if elem.get("children"):
-							for child in elem["children"]:
-								parseSkeleton(child,bone)
+							atch.matrix_local = get_transform_matrix(elem)
+						elif (elem.type == "DmeJoint" and elem.name != "blender_implicit") or not elem.get("shape"): # don't import Dags which simply wrap meshes
+							bone = smd.a.data.edit_bones.new(elem.name)
+							bone.parent = parent_bone
+							bone.tail = (0,5,0)
+							bone_matrices[bone.name] = get_transform_matrix(elem)
+							smd.boneIDs[elem.id] = bone.name
+							smd.boneTransformIDs[elem["transform"].id] = bone.name
+							if elem.get("children"):
+								parseSkeleton(elem["children"], bone)
 				
-				for child in DmeModel["children"]:
-					parseSkeleton(child,None)
+				parseSkeleton(DmeModel["children"], None)
 					
 				ops.object.mode_set(mode='POSE')
 				for bone in smd.a.pose.bones:

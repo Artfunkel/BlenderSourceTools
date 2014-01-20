@@ -141,7 +141,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		name = self.filter_name.lower()
 		
 		for i,ob in enumerate(data.objects):
-			if ob.type not in mesh_compatible or (use_name and ob.name.lower().find(name) == -1) or not ob in validObs:
+			if ob.type not in mesh_compatible or (use_name and ob.name.lower().find(name) == -1) or not ob in p_cache.validObs:
 				filter[i] &= ~self.bitflag_filter_item
 				
 		return filter, bpy.types.UI_UL_list.sort_items_by_name(data.objects) if self.use_filter_sort_alpha else []
@@ -210,7 +210,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				if armature.animation_data and not 'ActLib' in dir(bpy.types):
 					col.template_ID(armature.animation_data, "action", new="action.new")
 		
-		objects = validObs.intersection(item.objects) if is_group else [item]
+		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
 
 		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
 			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')
