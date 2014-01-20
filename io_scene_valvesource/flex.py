@@ -32,30 +32,26 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	def poll(self, context):
 		return hasShapes(context.scene.vs.export_list[context.scene.vs.export_list_active].get_id(), valid_only=False)
 	
-	def execute(self, context):
-		scene_update(context.scene, immediate=True)
-
+	@classmethod
+	def make_controllers(self,id):
 		dm = datamodel.DataModel("model",1)
 		
 		objects = []
-		shapes = []
+		shapes = set()
 		
-		exportable = context.scene.vs.export_list[context.scene.vs.export_list_active]
-		id = exportable.get_id()
 		if type(id) == bpy.types.Group:
 			objects.extend(list([ob for ob in id.objects if ob.data and ob.type in shape_types and ob.data.shape_keys]))
 		else:
 			objects.append(id)
 		
-		text = bpy.data.texts.new( "flex_{}".format(id.name) )
-		
-		root = dm.add_element(text.name,id=text.name)
+		name = "flex_{}".format(id.name)
+		root = dm.add_element(name,id=name)
 		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=id.name+"controllers")
 		root["combinationOperator"] = DmeCombinationOperator
 		controls = DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
 		
 		for ob in objects:
-			for shape in [shape for shape in ob.data.shape_keys.key_blocks[1:] if not "_" in shape.name]:
+			for shape in [shape for shape in ob.data.shape_keys.key_blocks[1:] if not "_" in shape.name and shape.name not in shapes]:
 				DmeCombinationInputControl = dm.add_element(shape.name,"DmeCombinationInputControl",id=ob.name+shape.name+"inputcontrol")
 				controls.append(DmeCombinationInputControl)
 				
@@ -67,6 +63,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 				DmeCombinationInputControl["flexMin"] = 0.0
 				
 				DmeCombinationInputControl["wrinkleScales"] = datamodel.make_array([0.0],float)
+				shapes.add(shape.name)
 				
 		controlValues = DmeCombinationOperator["controlValues"] = datamodel.make_array( [ [0.0,0.0,0.5] ] * len(controls), datamodel.Vector3)
 		DmeCombinationOperator["controlValuesLagged"] = datamodel.make_array( controlValues, datamodel.Vector3)
@@ -74,7 +71,16 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		
 		DmeCombinationOperator["dominators"] = datamodel.make_array([],datamodel.Element)
 		targets = DmeCombinationOperator["targets"] = datamodel.make_array([],datamodel.Element)
+
+		return dm
+
+	def execute(self, context):
+		scene_update(context.scene, immediate=True)
+
+		id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
+		dm = self.make_controllers()
 		
+		text = bpy.data.texts.new(dm.root.name)
 		text.use_tabs_as_spaces = False
 		text.from_string(dm.echo("keyvalues2",1))
 		

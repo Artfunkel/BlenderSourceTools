@@ -25,7 +25,7 @@ from math import *
 from bpy.types import Group
 
 from .utils import *
-from . import datamodel, ordered_set
+from . import datamodel, ordered_set, flex
 
 wm = bpy.types.WindowManager
 if not 'progress_begin' in dir(wm): # instead of requiring 2.67
@@ -378,7 +378,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if id.data.vs.action_selection == 'FILTERED':
 				for action in actionsForFilter(id.vs.action_filter):
 					id.animation_data.action = action
-					self.files_exported += write_func(bake_results, action.name, path)
+					self.files_exported += write_func(id, bake_results, action.name, path)
 				return
 			elif ad.action:
 				export_name = ad.action.name
@@ -391,7 +391,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			export_name = id.name
 		
 		bpy.context.scene.update()
-		self.files_exported += write_func(bake_results, export_name, path)
+		self.files_exported += write_func(id, bake_results, export_name, path)
 		bench.report(write_func.__name__)
 		
 	def getWeightmap(self,bake_result):
@@ -402,9 +402,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		amod_vg = ob.vertex_groups.get(amod.vertex_group)
 		amod_ob = [bake.object for bake in self.bake_results if bake.src == amod.object][0]
-		bpy.context.scene.update()
-		model_mat = self.armature_src.matrix_world.inverted() * bake_result.src.matrix_world
 		
+		model_mat = amod_ob.matrix_world.inverted() * ob.matrix_world
+
 		num_verts = len(ob.data.vertices)
 		weights = []
 		for v in ob.data.vertices:
@@ -658,7 +658,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		return result
 
-	def writeSMD(self, bake_results, name, filepath, flex=False):
+	def writeSMD(self, id, bake_results, name, filepath, flex=False):
 		startTime = time.time()
 		
 		full_path = os.path.realpath(os.path.join(filepath,name + (".vta" if flex else ".smd")))
@@ -917,11 +917,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if not flex:
 			for bake in [bake for bake in bake_results if len(bake.shapes)]:
-				self.writeSMD(bake_results,name,filepath,flex=True)
+				self.writeSMD(id,bake_results,name,filepath,flex=True)
 				return 2
 		return 1
 
-	def writeDMX(self, bake_results, name, filepath):
+	def writeDMX(self, id, bake_results, name, filepath):
 		bench = BenchMarker(1,"DMX")
 		filepath = os.path.realpath(os.path.join(filepath,name + ".dmx"))
 		print("-",filepath)
@@ -1017,11 +1017,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for elem in [elem for elem in DmeCombinationOperator["targets"] if elem.type != "DmeFlexRules"]:
 					DmeCombinationOperator["targets"].remove(elem)
 			else:
-				DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=bpy.context.scene.name+"controllers")
-				DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
-				DmeCombinationOperator["controlValues"] = datamodel.make_array([],datamodel.Vector3)
-				DmeCombinationOperator["usesLaggedValues"] = False
-				DmeCombinationOperator["targets"] = datamodel.make_array([],datamodel.Element)
+				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
 				
 			root["combinationOperator"] = DmeCombinationOperator
 			break
@@ -1202,8 +1198,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if len(bake.shapes):
 				shape_elems = []
 				shape_names = []
-				control_elems = []
-				control_values = []
 				delta_state_weights = []
 				num_shapes = len(bake.shapes)
 				num_correctives = 0
@@ -1216,13 +1210,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if "_" in shape_name:
 						num_correctives += 1
 					else:
-						if self.flex_controller_mode == 'SIMPLE':
-							DmeCombinationInputControl = dm.add_element(shape_name,"DmeCombinationInputControl",id=bake.object.name+shape_name+"controller")
-							control_elems.append(DmeCombinationInputControl)
-						
-							DmeCombinationInputControl["rawControlNames"] = datamodel.make_array([shape_name],str)
-							control_values.append(datamodel.Vector3([0.5,0.5,0.5])) # ??
-						else:
+						if self.flex_controller_mode == 'ADVANCED':
 							def _FindScale():
 								for control in controller_dm.root["combinationOperator"]["controls"]:
 									for i in range(len(control["rawControlNames"])):
@@ -1314,20 +1302,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 				DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 				
-				if self.flex_controller_mode == 'ADVANCED':
-					targets = DmeCombinationOperator["targets"]
-					added = False
-					for elem in targets:
-						if elem.type == "DmeFlexRules":
-							if elem["deltaStates"][0].name in shape_names: # can't have the same delta name on multiple objects
-								elem["target"] = DmeMesh
-								added = True
-					if not added:
-						targets.append(DmeMesh)
-				else:
-					DmeCombinationOperator["controls"].extend(control_elems)
-					DmeCombinationOperator["controlValues"].extend(control_values)
-					DmeCombinationOperator["targets"].append(DmeMesh)
+				targets = DmeCombinationOperator["targets"]
+				added = False
+				for elem in targets:
+					if elem.type == "DmeFlexRules":
+						if elem["deltaStates"][0].name in shape_names: # can't have the same delta name on multiple objects
+							elem["target"] = DmeMesh
+							added = True
+				if not added:
+					targets.append(DmeMesh)
 				
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
