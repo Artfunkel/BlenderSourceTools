@@ -47,10 +47,12 @@ ANIM = 0x4 # $sequence, $animation
 ANIM_SOLO = 0x5 # for importing animations to scenes without an existing armature
 FLEX = 0x6 # $model VTA
 
-mesh_compatible = [ 'MESH', 'TEXT', 'FONT', 'SURFACE', 'META', 'CURVE' ]
-exportable_types = mesh_compatible[:]
+mesh_compatible = ('MESH', 'TEXT', 'FONT', 'SURFACE', 'META', 'CURVE')
+shape_types = ('MESH' , 'SURFACE', 'CURVE')
+
+exportable_types = list(mesh_compatible)
 exportable_types.append('ARMATURE')
-shape_types = ['MESH' , 'SURFACE']
+exportable_types = tuple(exportable_types)
 
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
@@ -266,8 +268,18 @@ def hasShapes(id):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
 	if type(id) == bpy.types.Group:
-		for g_ob in id.objects:
-			if _test(g_ob): return True
+		for _ in [ob for ob in id.objects if ob.vs.export and ob in validObs and _test(ob)]:
+			return True
+	else:
+		return _test(id)
+
+def hasCurves(id):
+	def _test(id_):
+		return id_.type in ['CURVE','SURFACE','FONT']
+
+	if type(id) == bpy.types.Group:
+		for _ in [ob for ob in id.objects if ob.vs.export and ob in validObs and _test(ob)]:
+			return True
 	else:
 		return _test(id)
 
@@ -279,20 +291,6 @@ def shouldExportGroup(group):
 
 def hasFlexControllerSource(source):
 	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
-
-r_layers = range(20)
-def getValidObs():
-	validObs = []
-	s = bpy.context.scene
-	
-	for o in [o for o in s.objects if o.type in exportable_types]:
-		if s.vs.layer_filter:
-			for _ in [i for i in r_layers if o.layers[i] and s.layers[i]]:
-				validObs.append(o)
-				break
-		else:
-			validObs.append(o)
-	return validObs
 
 def getExportablesForId(id):
 	if not id: raise ValueError("id is null")
@@ -314,15 +312,28 @@ def getSelectedExportables():
 		if a_e: exportables.update(a_e)
 	return exportables
 
+validObs = set()
 def make_export_list():
-	bpy.context.scene.vs.export_list.clear()
-	validObs = getValidObs()
+	s = bpy.context.scene
+	s.vs.export_list.clear()
+
+	validObs.clear()
+	
+	for o in [o for o in s.objects if o.type in exportable_types]:
+		if o.type == 'CURVE' and o.data.bevel_depth == 0 and o.data.extrude == 0:
+			continue
+		if s.vs.layer_filter:
+			for _ in [i for i in range(20) if o.layers[i] and s.layers[i]]:
+				validObs.add(o)
+				break
+		else:
+			validObs.add(o)
 	
 	def makeDisplayName(item,name=None):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
 	
 	if len(validObs):
-		ungrouped_objects = set(validObs)
+		ungrouped_objects = validObs.copy()
 		
 		groups_sorted = bpy.data.groups[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -338,7 +349,7 @@ def make_export_list():
 				scene_groups.append(group)
 				
 		for g in scene_groups:
-			i = bpy.context.scene.vs.export_list.add()
+			i = s.vs.export_list.add()
 			if g.vs.mute:
 				i.name = g.name + " (suppressed)"
 			else:
@@ -370,7 +381,7 @@ def make_export_list():
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
 				i_type = "OBJECT"
 			if i_name:
-				i = bpy.context.scene.vs.export_list.add()
+				i = s.vs.export_list.add()
 				i.name = i_name
 				i.ob_type = i_type
 				i.icon = i_icon
@@ -389,7 +400,7 @@ def scene_update(scene):
 		return
 	if not "vs" in dir(scene):
 		return
-
+	
 	need_export_refresh = True
 	now = time.time()
 	if now - last_export_refresh > 0.25:

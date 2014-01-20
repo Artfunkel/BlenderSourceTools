@@ -25,7 +25,7 @@ from .update import SmdToolsUpdate # comment this line if you make third-party c
 from .flex import *
 
 class SMD_MT_ExportChoice(bpy.types.Menu):
-	bl_label = "Source Tools export"
+	bl_label = "Source Tools Export"
 
 	def draw(self, context):
 		l = self.layout
@@ -139,7 +139,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		filter = [self.bitflag_filter_item] * len(data.objects)
 		use_name = len(self.filter_name) != 0
 		name = self.filter_name.lower()
-		validObs = getValidObs()
+		
 		for i,ob in enumerate(data.objects):
 			if ob.type not in mesh_compatible or (use_name and ob.name.lower().find(name) == -1) or not ob in validObs:
 				filter[i] &= ~self.bitflag_filter_item
@@ -173,8 +173,6 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		
 		active_item = scene.vs.export_list[min(scene.vs.export_list_active,len(scene.vs.export_list)-1)]
 		item = (bpy.data.groups if active_item.ob_type == 'GROUP' else bpy.data.objects)[active_item.item_name]
-				
-		want_shapes = False
 		is_group = type(item) == bpy.types.Group
 		
 		col = l.column()
@@ -195,8 +193,6 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			elif shouldExportDMX():
 				r.prop(item.vs,"automerge")
 			
-			want_shapes = hasShapes(item)
-			
 		elif item:
 			armature = item.find_armature()
 			if item.type == 'ARMATURE': armature = item
@@ -213,18 +209,11 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					
 				if armature.animation_data and not 'ActLib' in dir(bpy.types):
 					col.template_ID(armature.animation_data, "action", new="action.new")
-			if item.type == 'CURVE':
-				col = self.makeSettingsBox(text="Curve properties",icon='OUTLINER_OB_CURVE')
-				col.label(text="Generate polygons on:")
-				row = col.row()
-				row.prop(item.data.vs,"faces",expand=True)
 		
-			if hasShapes(item): want_shapes = item
-		
-		if want_shapes and bpy.context.scene.vs.export_format == 'DMX':
+		objects = validObs.intersection(item.objects) if is_group else [item]
+
+		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
 			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')
-			
-			objects = item.objects if is_group else [item]
 			
 			col.row().prop(item.vs,"flex_controller_mode",expand=True)
 			
@@ -234,7 +223,6 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				controller_source.prop(item.vs,"flex_controller_source",text="Controller source",icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
 				
 				row = col.row(align=True)
-				row.context_pointer_set("active_object",objects[0])
 				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text="Generate controllers")
 				row.operator("wm.url_open",text="Flex controller help",icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
 				
@@ -242,20 +230,20 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				
 				datablocks_dispayed = []
 				
-				for ob in objects:
-					if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed:
-						if not len(datablocks_dispayed):
-							col.separator()
-							sharpness_col = col.column(align=True)
-						r = sharpness_col.split(0.9,align=True)
-						r.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness ({})".format(ob.data.name))
-						r.prop(ob.data.vs,"flex_stereo_axis",text="")
-						datablocks_dispayed.append(ob.data)
+				for ob in [ob for ob in objects if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed]:
+					if not len(datablocks_dispayed):
+						col.separator()
+						sharpness_col = col.column(align=True)
+					r = sharpness_col.split(0.88,align=True)
+					r2 = r.split(0.33,align=True)
+					r2.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+					r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness")
+					r.prop(ob.data.vs,"flex_stereo_axis",text="")
+					datablocks_dispayed.append(ob.data)
 			
 			num_shapes = 0
 			num_correctives = 0
-			for ob in objects:
-				if hasShapes(ob):
+			for ob in [ob for ob in objects if ob.vs.export and hasShapes(ob)]:
 					for shape in ob.data.shape_keys.key_blocks[1:]:
 						if "_" in shape.name: num_correctives += 1
 						else: num_shapes += 1
@@ -264,6 +252,16 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			row = col.row()
 			row.alignment = 'CENTER'
 			row.label(icon='SHAPEKEY_DATA',text = "{} shape{}, {} corrective{}".format(num_shapes,"s" if num_shapes != 1 else "", num_correctives,"s" if num_correctives != 1 else ""))
+		
+		if item.vs.export and hasCurves(item):
+			col = self.makeSettingsBox(text="Curve properties",icon='OUTLINER_OB_CURVE')
+			col.label(text="Generate polygons on:")
+			done = set()
+			for ob in [ob for ob in objects if ob.vs.export and hasCurves(ob) and not ob.data in done]:
+				row = col.split(0.33)
+				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+				row.prop(ob.data.vs,"faces",text="")
+				done.add(ob.data)
 			
 class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 	bl_label = "Source Engine QC Complies"

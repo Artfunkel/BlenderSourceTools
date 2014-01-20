@@ -162,13 +162,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='OBJECT')
 		
 		make_export_list()
-		self.validObs = getValidObs()
 		self.bake_results = []
 		self.armature = None
 		self.bone_ids = {}
 		self.materials_used = set()
-
-		for ob in [ob for ob in self.validObs if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
+		
+		for ob in [ob for ob in validObs if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
 			ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
@@ -287,11 +286,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		bench.report("setup")
 		
-		if bench.quiet: print("Baking...")
+		if bench.quiet: print("- Baking...")
 
 		if type(id) == Group:
 			have_baked_metaballs = False
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in self.validObs]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)
@@ -568,7 +567,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.error("Object {} has no polygons, skipping".format(id.name))
 			return
 		
-		def put_in_object(id,data):
+		def put_in_object(id,data, quiet=False):
 			ob = bpy.data.objects.new(name=id.name,object_data=data)
 			ob.matrix_world = id.matrix_world
 
@@ -579,6 +578,17 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ob.select = True
 
 			ops.object.transform_apply(scale=True, location=not shouldExportDMX(), rotation=not shouldExportDMX())
+
+			if hasCurves(id):
+				ops.object.mode_set(mode='EDIT')
+				ops.mesh.select_all(action='SELECT')
+				if id.data.vs.faces == 'BOTH':
+					ops.mesh.duplicate()
+					if solidify_fill_rim and not quiet:
+						self.warning("Curve {} has the Solidify modifier with rim fill, but is still exporting polys on both sides.".format(id.name))
+				if id.data.vs.faces != 'FORWARD':
+					ops.mesh.flip_normals()
+				ops.object.mode_set(mode='OBJECT')
 
 			return ob
 
@@ -616,7 +626,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				baked_shape = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 
-				shape_ob = put_in_object(id,baked_shape)
+				shape_ob = put_in_object(id,baked_shape, quiet = True)
 				result.shapes[shape.name] = shape_ob.data
 
 				bpy.context.scene.objects.unlink(shape_ob)
@@ -630,18 +640,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='EDIT')
 			ops.mesh.select_all(action='SELECT')
 			ops.mesh.quads_convert_to_tris()
-			ops.object.mode_set(mode='OBJECT')
-		
-		# handle which sides of a curve should have polys
-		if id.type == 'CURVE':
-			ops.object.mode_set(mode='EDIT')
-			ops.mesh.select_all(action='SELECT')
-			if id.data.vs.faces == 'BOTH':
-				ops.mesh.duplicate()
-			if id.data.vs.faces != 'LEFT':
-				ops.mesh.flip_normals()
-			elif solidify_fill_rim:
-				self.warning("Curve {} has the Solidify modifier with rim fill, but is still exporting polys on both sides.".format(id.name))
 			ops.object.mode_set(mode='OBJECT')
 
 		# project a UV map
@@ -1454,6 +1452,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		bench.report("write")
 		if bench.quiet:
-			print("DMX export took",bench.total(),"\n")
+			print("- DMX export took",bench.total(),"\n")
 		
 		return 1

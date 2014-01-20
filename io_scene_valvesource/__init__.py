@@ -198,16 +198,20 @@ class ShapeTypeProps():
 	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
 	flex_stereo_axis = EnumProperty(name="DMX stereo split axis",description="The local axis along which stereo transitions are created",items=axes,default='X')
 
+class CurveTypeProps():
+	faces = EnumProperty(name="Polygon Generation",description="Determines which side(s) of this curve will generate polygons when exported",default='FORWARD',items=(
+	('FORWARD', 'Forward (outer) side', ''),
+	('BACKWARD', 'Backward (inner) side', ''),
+	('BOTH', 'Both sides', '')) )
+
 class ValveSource_MeshProps(ShapeTypeProps,PropertyGroup):
 	pass
-class ValveSource_SurfaceProps(ShapeTypeProps,PropertyGroup):
+class ValveSource_SurfaceProps(ShapeTypeProps,CurveTypeProps,PropertyGroup):
 	pass
-
-class ValveSource_CurveProps(PropertyGroup):
-	faces = EnumProperty(name="Faces generation",description="Determines which sides of the mesh resulting from this curve will have polygons",default='LEFT',items=(
-	('LEFT', 'Left side', 'Generate polygons on the left side'),
-	('RIGHT', 'Right side', 'Generate polygons on the right side'),
-	('BOTH', 'Both  sides', 'Generate polygons on both sides')) )
+class ValveSource_CurveProps(ShapeTypeProps,CurveTypeProps,PropertyGroup):
+	pass
+class ValveSource_TextProps(CurveTypeProps,PropertyGroup):
+	pass
 
 def register():
 	bpy.utils.register_module(__name__)
@@ -231,6 +235,7 @@ def register():
 	bpy.types.Mesh.vs = make_pointer(ValveSource_MeshProps)
 	bpy.types.SurfaceCurve.vs = make_pointer(ValveSource_SurfaceProps)
 	bpy.types.Curve.vs = make_pointer(ValveSource_CurveProps)
+	bpy.types.Text.vs = make_pointer(ValveSource_TextProps)
 
 def unregister():
 	bpy.utils.unregister_module(__name__)
@@ -247,6 +252,7 @@ def unregister():
 	del bpy.types.Mesh.vs
 	del bpy.types.SurfaceCurve.vs
 	del bpy.types.Curve.vs
+	del bpy.types.Text.vs
 
 if __name__ == "__main__":
 	register()
