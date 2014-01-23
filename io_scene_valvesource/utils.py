@@ -39,6 +39,8 @@ mat_BlenderToSMD = ry90 * rz90 # for legacy support only
 
 epsilon = Vector([0.0001] * 3)
 
+implicit_bone_name = "blender_implicit"
+
 # SMD types
 REF = 0x1 # $body, $model, $bodygroup->studio (if before a $body or $model)
 REF_ADD = 0x2 # $bodygroup, $lod->replacemodel
@@ -268,7 +270,7 @@ def hasShapes(id, valid_only = True):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
 	if type(id) == bpy.types.Group:
-		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in p_cache.validObs) and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or is_valid(ob)) and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -278,7 +280,7 @@ def hasCurves(id):
 		return id_.type in ['CURVE','SURFACE','FONT']
 
 	if type(id) == bpy.types.Group:
-		for _ in [ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and is_valid(ob) and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -312,27 +314,33 @@ def getSelectedExportables():
 		if a_e: exportables.update(a_e)
 	return exportables
 
+def is_valid(ob):
+	s = bpy.context.scene
+	if not s in ob.users_scene:
+		return False
+	if not ob.type in exportable_types:
+		return False
+	if ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0:
+		return False
+	if not s.vs.layer_filter:
+		return True
+	else:
+		for _ in [i for i in range(20) if ob.layers[i] and s.layers[i]]: return True
+		return False
+
+def get_valid_obs():
+	return set([ob for ob in bpy.context.scene.objects if is_valid(ob)])
+
 def make_export_list():
 	s = bpy.context.scene
 	s.vs.export_list.clear()
-
-	p_cache.validObs.clear()
-	
-	for o in [o for o in s.objects if o.type in exportable_types]:
-		if o.type == 'CURVE' and o.data.bevel_depth == 0 and o.data.extrude == 0:
-			continue
-		if s.vs.layer_filter:
-			for _ in [i for i in range(20) if o.layers[i] and s.layers[i]]:
-				p_cache.validObs.add(o)
-				break
-		else:
-			p_cache.validObs.add(o)
+	validObs = get_valid_obs()
 	
 	def makeDisplayName(item,name=None):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
 	
-	if len(p_cache.validObs):
-		ungrouped_objects = p_cache.validObs.copy()
+	if len(validObs):
+		ungrouped_objects = validObs.copy()
 		
 		groups_sorted = bpy.data.groups[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -340,7 +348,7 @@ def make_export_list():
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
-			for object in [ob for ob in group.objects if ob in p_cache.validObs]:
+			for object in [ob for ob in group.objects if ob in validObs]:
 				if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
 					ungrouped_objects.remove(object)
 				valid = True
@@ -531,11 +539,7 @@ class Cache:
 	qc_paths = {}
 	qc_lastUpdate = 0
 	
-	validObs = set()
 	action_filter = ""
-
-	def __del__(self):
-		self.validObs.clear() # avoids memory warning from bpy.pyd
 
 p_cache = Cache() # package cached data
 

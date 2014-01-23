@@ -78,7 +78,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		scene_update(context.scene, immediate=True)
 
 		id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
-		dm = self.make_controllers()
+		dm = self.make_controllers(id)
 		
 		text = bpy.data.texts.new(dm.root.name)
 		text.use_tabs_as_spaces = False

@@ -518,6 +518,7 @@ class DataModel:
 	'''Container for Element objects. Has a format name (str) and format version (int). Can write itself to a string object or a file.'''
 	elements = None
 	root = None
+	allow_random_ids = True
 	
 	def __init__(self,format,format_ver):
 		if (format and type(format) != str) or (format_ver and type(format_ver) != int):
@@ -532,6 +533,8 @@ class DataModel:
 		return "<Datamodel 0x{}{}>".format(id(self)," (root is \"{}\")".format(self.root.name) if self.root else "")
 		
 	def add_element(self,name,elemtype="DmElement",id=None,_is_placeholder=False):
+		if id == None and not self.allow_random_id:
+			raise ValueError("{} does not allow random IDs.".format(self))
 		elem = Element(self,name,elemtype,id,_is_placeholder)
 		try:
 			dupe_elem = self.elements.index(elem)
@@ -572,7 +575,7 @@ class DataModel:
 				self.out.write(item)
 		
 		elif t == uuid.UUID:
-			self.out.write(bytes.join(b'',[item.bytes for item in value]))
+			self.out.write(b''.join([id.bytes_le for id in value]))
 		elif t == str:
 			if is_array or suppress_dict:
 				self.out.write(bytes.join(b'',[_encode_binary_string(item) for item in value]))

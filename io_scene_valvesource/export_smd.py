@@ -167,7 +167,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.bone_ids = {}
 		self.materials_used = set()
 		
-		for ob in [ob for ob in p_cache.validObs if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
+		for ob in [ob for ob in bpy.context.scene.objects if ob.type == 'ARMATURE' and len(ob.vs.subdir) == 0]:
 			ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
@@ -290,7 +290,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Group:
 			have_baked_metaballs = False
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and is_valid(ob)]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)
@@ -680,7 +680,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		else:
 			curID = 0
 			if self.armature.data.vs.implicit_zero_bone:
-				self.smd_file.write("0 \"blender_implicit\" -1\n")
+				self.smd_file.write("0 \"{}\" -1\n".format(implicit_bone_name))
 				curID += 1
 			
 			# Write to file
@@ -936,6 +936,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return trfm
 		
 		dm = datamodel.DataModel("model",DatamodelFormatVersion())
+		dm.allow_random_ids = False
+
 		root = dm.add_element(bpy.context.scene.name,id="Scene"+bpy.context.scene.name)
 		DmeModel = dm.add_element(armature_name,"DmeModel",id="Object" + armature_name)
 		DmeModel_children = DmeModel["children"] = datamodel.make_array([],datamodel.Element)
@@ -954,7 +956,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if armature: scale = armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
-			bone_name = bone.name if bone else "blender_implicit"
+			bone_name = bone.name if bone else implicit_bone_name
 			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if DatamodelFormatVersion() >= 11: jointList.append(bone_elem)
 			self.bone_ids[bone_name] = len(bone_transforms)
@@ -989,9 +991,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			num_bones = len(armature.pose.bones)			
 			
 			DmeModel_children.append(writeBone(None))
-			for bone in armature.pose.bones:
-				if not bone.parent:
-					DmeModel_children.append(writeBone(bone))
+			for bone in [bone for bone in armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
+				DmeModel_children.append(writeBone(bone))
 
 			bench.report("Bones")
 
@@ -1004,18 +1005,22 @@ class SmdExporter(bpy.types.Operator, Logger):
 				text = bpy.data.texts.get(self.flex_controller_source)
 				msg = "- Loading flex controllers from "
 				element_path = [ "combinationOperator" ]
-				if text:
-					print(msg + "text block \"{}\"".format(text.name))
-					controller_dm = datamodel.parse(text.as_string(),element_path=element_path)
-				else:
-					path = os.path.realpath(bpy.path.abspath(self.flex_controller_source))
-					print(msg + path)
-					controller_dm = datamodel.load(path=path,element_path=element_path)
+				try:
+					if text:
+						print(msg + "text block \"{}\"".format(text.name))
+						controller_dm = datamodel.parse(text.as_string(),element_path=element_path)
+					else:
+						path = os.path.realpath(bpy.path.abspath(self.flex_controller_source))
+						print(msg + path)
+						controller_dm = datamodel.load(path=path,element_path=element_path)
 			
-				DmeCombinationOperator = controller_dm.root["combinationOperator"]
+					DmeCombinationOperator = controller_dm.root["combinationOperator"]
 
-				for elem in [elem for elem in DmeCombinationOperator["targets"] if elem.type != "DmeFlexRules"]:
-					DmeCombinationOperator["targets"].remove(elem)
+					for elem in [elem for elem in DmeCombinationOperator["targets"] if elem.type != "DmeFlexRules"]:
+						DmeCombinationOperator["targets"].remove(elem)
+				except Exception as err:
+					self.error("Could not load flex controllers. Python reports: {}".format(err))
+					return 0
 			else:
 				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
 				
@@ -1266,12 +1271,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 						max_delta = 0
 						for poly in ob.data.polygons:
 							if wrinkle_scale:
-								for l_i in poly.loop_indices:
-									loop = ob.data.loops[l_i]
-									if loop.vertex_index in shape_posIndices:
-										max_delta = max(max_delta,delta_lengths[loop.vertex_index])
-										wrinkle.append(delta_lengths[loop.vertex_index])
-										wrinkleIndices.append(l_i)
+								for loop in [ob.data.loops[l_i] for l_i in poly.loop_indices]:
+									delta_len = delta_lengths[loop.vertex_index];
+									if delta_len:
+										max_delta = max(max_delta,delta_len)
+										wrinkle.append(delta_len)
+										wrinkleIndices.append(texcoIndices[loop.index])
 							if not poly.use_smooth:
 								shape_norm = shape.polygons[poly.index].normal
 								if poly.normal != shape_norm:
@@ -1297,6 +1302,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.data.meshes.remove(shape)
 					del shape
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
+					bench.report(shape_name)
 					
 				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)
 				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
