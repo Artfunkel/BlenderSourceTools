@@ -533,7 +533,7 @@ class DataModel:
 		return "<Datamodel 0x{}{}>".format(id(self)," (root is \"{}\")".format(self.root.name) if self.root else "")
 		
 	def add_element(self,name,elemtype="DmElement",id=None,_is_placeholder=False):
-		if id == None and not self.allow_random_id:
+		if id == None and not self.allow_random_ids:
 			raise ValueError("{} does not allow random IDs.".format(self))
 		elem = Element(self,name,elemtype,id,_is_placeholder)
 		try:
