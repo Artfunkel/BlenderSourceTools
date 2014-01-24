@@ -139,7 +139,6 @@ class FilterCache:
 gui_cache = {}
 
 class SMD_UL_GroupItems(bpy.types.UIList):
-
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		r = layout.row(align=True)
 		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
@@ -149,7 +148,8 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		fname = self.filter_name.lower()
 		cache = gui_cache.get(data)
 
-		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version):
+		# the length check below avoids Blender 2.6x crash bug: https://developer.blender.org/T38356
+		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version and len(cache.filter) == len(data.objects)):
 			cache = FilterCache(p_cache.validObs_version)
 			cache.filter = [self.bitflag_filter_item if ob in p_cache.validObs and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
