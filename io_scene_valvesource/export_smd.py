@@ -290,7 +290,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Group:
 			have_baked_metaballs = False
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and is_valid(ob)]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)
@@ -1199,6 +1199,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,bake.name,"" if bpy.context.scene.vs.use_image_names else " or material"))
 			bench.report("polys")
 			
+			
+			two_percent = int(len(bake.shapes) / 50)
+			d_print("Shapes: ",end="")
 			# shapes
 			if len(bake.shapes):
 				shape_elems = []
@@ -1302,8 +1305,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.data.meshes.remove(shape)
 					del shape
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
-					bench.report(shape_name)
-					
+					if two_percent and len(shape_names) % two_percent == 0:
+						d_print(".",end="")
+
 				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)
 				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
 				DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
@@ -1318,6 +1322,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if not added:
 					targets.append(DmeMesh)
 				
+				d_print()
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 

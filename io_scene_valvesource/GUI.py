@@ -129,22 +129,34 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and row.enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
 		row.label(item.name,icon=item.icon)
 
+class FilterCache:
+	def __init__(self,validObs_version):
+		self.validObs_version = validObs_version
+
+	fname = None
+	filter = None
+	order = None
+gui_cache = {}
+
 class SMD_UL_GroupItems(bpy.types.UIList):
+
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		r = layout.row(align=True)
 		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
 		r.label(text=item.name,icon=MakeObjectIcon(item,suffix="_DATA"))
-		
+	
 	def filter_items(self, context, data, propname):
-		filter = [self.bitflag_filter_item] * len(data.objects)
-		use_name = len(self.filter_name) != 0
-		name = self.filter_name.lower()
-		
-		for i,ob in enumerate(data.objects):
-			if ob.type not in mesh_compatible or (use_name and ob.name.lower().find(name) == -1) or not is_valid(ob):
-				filter[i] &= ~self.bitflag_filter_item
-				
-		return filter, bpy.types.UI_UL_list.sort_items_by_name(data.objects) if self.use_filter_sort_alpha else []
+		fname = self.filter_name.lower()
+		cache = gui_cache.get(data)
+
+		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version):
+			cache = FilterCache(p_cache.validObs_version)
+			cache.filter = [self.bitflag_filter_item if ob in p_cache.validObs and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
+			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
+			cache.fname = fname
+			gui_cache[data] = cache
+			
+		return cache.filter, cache.order if self.use_filter_sort_alpha else []
 		
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = "Source Engine Exportables"
@@ -174,7 +186,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		active_item = scene.vs.export_list[min(scene.vs.export_list_active,len(scene.vs.export_list)-1)]
 		item = (bpy.data.groups if active_item.ob_type == 'GROUP' else bpy.data.objects)[active_item.item_name]
 		is_group = type(item) == bpy.types.Group
-		
+
 		col = l.column()
 		
 		if not (is_group and item.vs.mute):
@@ -210,7 +222,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				if armature.animation_data and not 'ActLib' in dir(bpy.types):
 					col.template_ID(armature.animation_data, "action", new="action.new")
 		
-		objects = [ob for ob in item.objects if is_valid(ob)] if is_group else [item]
+		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
 
 		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
 			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')

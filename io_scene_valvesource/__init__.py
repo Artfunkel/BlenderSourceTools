@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (Artfunkel)",
-	"version": (1, 11, 0),
+	"version": (2, 0, 0),
 	"blender": (2, 66, 0),
 	"api": 54697,
 	"category": "Import-Export",
@@ -238,12 +238,14 @@ def register():
 	bpy.types.Text.vs = make_pointer(ValveSource_TextProps)
 
 def unregister():
-	bpy.utils.unregister_module(__name__)
+	unhook_scene_update()
+	bpy.app.handlers.load_post.remove(upgrade_props)
+
 	bpy.types.INFO_MT_file_import.remove(menu_func_import)
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
-	unhook_scene_update()
-	bpy.app.handlers.load_post.remove(upgrade_props)
+
+	bpy.utils.unregister_module(__name__)
 
 	del bpy.types.Scene.vs
 	del bpy.types.Object.vs

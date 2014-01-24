@@ -82,7 +82,8 @@ dmx_versions = { # [encoding, format]
 }
 
 def d_print(*args,end="\n"):
-	if bpy.app.debug_value > 0: print(*args,end=end)
+	if bpy.app.debug_value > 0:
+		print(*args,end=end,flush=True)
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
@@ -270,7 +271,7 @@ def hasShapes(id, valid_only = True):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
 	if type(id) == bpy.types.Group:
-		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or is_valid(ob)) and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in p_cache.validObs) and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -280,7 +281,7 @@ def hasCurves(id):
 		return id_.type in ['CURVE','SURFACE','FONT']
 
 	if type(id) == bpy.types.Group:
-		for _ in [ob for ob in id.objects if ob.vs.export and is_valid(ob) and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -314,33 +315,15 @@ def getSelectedExportables():
 		if a_e: exportables.update(a_e)
 	return exportables
 
-def is_valid(ob):
-	s = bpy.context.scene
-	if not s in ob.users_scene:
-		return False
-	if not ob.type in exportable_types:
-		return False
-	if ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0:
-		return False
-	if not s.vs.layer_filter:
-		return True
-	else:
-		for _ in [i for i in range(20) if ob.layers[i] and s.layers[i]]: return True
-		return False
-
-def get_valid_obs():
-	return set([ob for ob in bpy.context.scene.objects if is_valid(ob)])
-
 def make_export_list():
 	s = bpy.context.scene
 	s.vs.export_list.clear()
-	validObs = get_valid_obs()
 	
 	def makeDisplayName(item,name=None):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
 	
-	if len(validObs):
-		ungrouped_objects = validObs.copy()
+	if len(p_cache.validObs):
+		ungrouped_objects = p_cache.validObs.copy()
 		
 		groups_sorted = bpy.data.groups[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -348,7 +331,7 @@ def make_export_list():
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
-			for object in [ob for ob in group.objects if ob in validObs]:
+			for object in [ob for ob in group.objects if ob in p_cache.validObs]:
 				if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
 					ungrouped_objects.remove(object)
 				valid = True
@@ -405,11 +388,15 @@ def scene_update(scene, immediate=False):
 	
 	if not (need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
-	if not "vs" in dir(scene):
-		return
-	
+
+	p_cache.validObs = set([ob for ob in scene.objects if ob.type in exportable_types
+						 and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)
+						 and not (scene.vs.layer_filter and len([i for i in range(20) if ob.layers[i] and scene.layers[i]]) == 0)])
+	p_cache.validObs_version += 1
+
 	need_export_refresh = True
 	now = time.time()
+
 	if immediate or now - last_export_refresh > 0.25:
 		make_export_list()
 		need_export_refresh = False
@@ -541,6 +528,13 @@ class Cache:
 	
 	action_filter = ""
 
+	validObs = set()
+	validObs_version = 0
+
+	def __del__(self):
+		self.validObs.clear()
+
+global p_cache
 p_cache = Cache() # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
