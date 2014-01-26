@@ -22,6 +22,13 @@
 
 import struct, array, io, binascii, collections
 from struct import unpack,calcsize
+try:
+	from . import uuid_fixed as uuid
+except:
+	try:
+		import uuid_fixed as uuid
+	except:
+		import uuid
 
 header_format = "<!-- dmx encoding {:s} {:d} format {:s} {:d} -->"
 header_format_regex = header_format.replace("{:d}","([0-9]+)").replace("{:s}","(\S+)")
@@ -270,10 +277,6 @@ class Element(collections.OrderedDict):
 	_users = 0
 	
 	def __init__(self,datamodel,name,elemtype="DmElement",id=None,_is_placeholder=False):
-		# Blender bug: importing uuid causes a runtime exception. The return value is not affected, thankfully.
-		# http://projects.blender.org/tracker/index.php?func=detail&aid=28732&group_id=9&atid=498
-		import uuid
-		
 		if type(name) != str:
 			raise TypeError("name must be a string")
 		
@@ -547,7 +550,6 @@ class DataModel:
 		
 	def find_elements(self,name=None,id=None,elemtype=None):
 		out = []
-		import uuid
 		if type(id) == str: id = uuid.UUID(id)
 		for elem in self.elements:
 			if elem.id == id: return elem
@@ -556,7 +558,6 @@ class DataModel:
 		if len(out): return out
 		
 	def _write(self,value, elem = None, suppress_dict = None):
-		import uuid
 		t = type(value)
 		is_array = issubclass(t, _Array)
 		if suppress_dict == None:
@@ -707,7 +708,7 @@ def load(path = None, in_file = None, element_path = None):
 		in_file = open(path,'rb')
 	
 	try:
-		import re, uuid
+		import re
 		
 		try:
 			header = ""
