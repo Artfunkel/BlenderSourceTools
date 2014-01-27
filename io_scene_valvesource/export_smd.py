@@ -1155,7 +1155,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			flat_polys = {}
 			
 			two_percent = int(num_polys / 50)
-			d_print("Polygons: ",end="")
+			print("Polygons: ",debug_only=True,newline=False)
 			for poly in ob.data.polygons:
 				mat_name, mat_success = self.GetMaterialName(ob, poly)
 				if not mat_success:
@@ -1186,10 +1186,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				p+=1
 				if two_percent and p % two_percent == 0:
-					d_print(".",end="")
+					print(".", debug_only=True, newline=False)
 					bpy.context.window_manager.progress_update(len(face_list) / num_polys)
 			
-			d_print()
+			print(debug_only=True)
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
 			vertex_data["normals"] = datamodel.make_array(norms,datamodel.Vector3)
@@ -1201,7 +1201,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			
 			two_percent = int(len(bake.shapes) / 50)
-			d_print("Shapes: ",end="")
+			print("Shapes: ",debug_only=True,newline=False)
 			# shapes
 			if len(bake.shapes):
 				shape_elems = []
@@ -1306,7 +1306,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					del shape
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
 					if two_percent and len(shape_names) % two_percent == 0:
-						d_print(".",end="")
+						print(".",debug_only=True,newline=False)
 
 				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)
 				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
@@ -1322,7 +1322,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if not added:
 					targets.append(DmeMesh)
 				
-				d_print()
+				print(debug_only=True)
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 
@@ -1384,7 +1384,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			scale = self.armature.matrix_world.to_scale()
 
 			two_percent = num_frames / 50
-			d_print("Frames: ",end="")
+			print("Frames: ",debug_only=True,newline=False)
 			for frame in range(0,num_frames):
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
@@ -1431,8 +1431,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 					prev_rot[bone] = rot_vec
 					
 				if two_percent and frame % two_percent:
-					d_print(".",end="")
-			d_print()
+					print(".",debug_only=True,newline=False)
+			print(debug_only=True)
 		
 		bpy.context.window_manager.progress_update(0.99)
 		print("- Writing DMX...")

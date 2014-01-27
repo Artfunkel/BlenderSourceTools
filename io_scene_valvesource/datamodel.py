@@ -51,7 +51,7 @@ def check_support(encoding,encoding_ver):
 		raise ValueError("Version {} of {} DMX is not supported".format(encoding_ver,encoding))
 
 def _encode_binary_string(string):
-	return bytes(string,'ASCII') + bytes(1)
+	return bytes(string,'utf-8') + bytes(1)
 
 
 global _kv2_indent
@@ -94,11 +94,12 @@ def get_color(file):
 	return Color(list(unpack("4B",file.read(4))))
 	
 def get_str(file):
-	out = ""
+	out = b''
 	while True:
-		cur = file.read(1)
-		if cur == b'\x00': return out
-		out += cur.decode('ASCII')
+		b = file.read(1)
+		if b == b'\x00': break
+		out += b
+	return out.decode()
 
 def _get_kv2_repr(var):
 	t = type(var)
@@ -693,8 +694,10 @@ class DataModel:
 		return self.out.getvalue()
 		
 	def write(self,path,encoding,encoding_ver):
-		with open(path,'wb' if encoding in ["binary","binary_proto"] else 'w') as file:
-			file.write(self.echo(encoding,encoding_ver))
+		with open(path,'wb') as file:
+			dm = self.echo(encoding,encoding_ver)
+			if encoding == 'keyvalues2': dm = dm.encode('utf-8')
+			file.write(dm)
 
 def parse(parse_string, element_path=None):
 	return load(in_file=io.StringIO(parse_string),element_path=element_path)

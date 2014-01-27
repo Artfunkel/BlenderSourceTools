@@ -36,7 +36,6 @@
     <Compile Include="ordered_set.py" />
     <Compile Include="update.py" />
     <Compile Include="utils.py" />
-    <Compile Include="uuid_fixed.py" />
     <Compile Include="__init__.py" />
     <Compile Include="..\interactive_startup.py">
       <Link>external\interactive_startup.py</Link>

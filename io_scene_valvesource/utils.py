@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, struct, time, collections, os, subprocess
+import bpy, struct, time, collections, os, subprocess, sys, builtins
 from mathutils import *
 from math import *
 from . import datamodel
@@ -81,9 +81,9 @@ dmx_versions = { # [encoding, format]
 'Source SDK Base 2013 Multiplayer':[2,1]
 }
 
-def d_print(*args,end="\n"):
-	if bpy.app.debug_value > 0:
-		print(*args,end=end,flush=True)
+def print(*args, newline=True, debug_only=False):
+	if not debug_only or bpy.app.debug_value > 0:
+		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
