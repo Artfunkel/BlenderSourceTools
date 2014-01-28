@@ -249,8 +249,12 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					r = sharpness_col.split(0.88,align=True)
 					r2 = r.split(0.33,align=True)
 					r2.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
-					r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness")
-					r.prop(ob.data.vs,"flex_stereo_axis",text="")
+					if ob.data.vs.flex_stereo_mode == 'VGROUP':
+						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) == None
+						r2.prop_search(ob.data.vs,"flex_stereo_vg",ob,"vertex_groups",text="")
+					else:
+						r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness")
+					r.prop(ob.data.vs,"flex_stereo_mode",text="")
 					datablocks_dispayed.append(ob.data)
 			
 			num_shapes = 0

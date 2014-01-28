@@ -1479,6 +1479,24 @@ class SmdImporter(bpy.types.Operator, Logger):
 						for vg,verts in iter(full_weights.items()):
 							vg.add(verts,1,'REPLACE')
 					
+					# Stereo balance
+					if "balance" in DmeVertexData["vertexFormat"]:
+						vg = ob.vertex_groups.new("DMX Stereo Balance")
+						balanceIndices = DmeVertexData["balanceIndices"]
+						balance = DmeVertexData["balance"]
+						ones = []
+						for i in balanceIndices:
+							val = balance[i]
+							if val == 0:
+								continue
+							elif val == 1:
+								ones.append(i)
+							else:
+								vg.add([i],val,'REPLACE')
+						vg.add(ones,1,'REPLACE')
+
+						ob.data.vs.flex_stereo_mode = 'VGROUP'
+						ob.data.vs.flex_stereo_vg = vg.name
 					# UV
 					if "textureCoordinates" in DmeVertexData["vertexFormat"]:
 						ob.data.uv_textures.new()

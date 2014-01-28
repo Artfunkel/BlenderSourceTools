@@ -146,3 +146,27 @@ class AddCorrectiveShapeDrivers(bpy.types.Operator):
 							var.targets[0].id = keys
 							var.targets[0].data_path = "key_blocks[\"{}\"].value".format(subkey)
 		return {'FINISHED'}
+
+class InsertUUID(bpy.types.Operator):
+	'''Inserts a random UUID at the current location'''
+	bl_idname = "text.insert_uuid"
+	bl_label = "Insert UUID"
+	@classmethod
+	def poll(self,context):
+		return context.space_data.type == 'TEXT_EDITOR' and context.space_data.text
+
+	def execute(self,context):
+		text = context.space_data.text
+		line = text.current_line
+		if 0 and len(line.body) >= 36: # 2.69 https://developer.blender.org/T38386
+			sel_range = [max(0,text.current_character - 36),min(len(line.body),text.current_character + 36)]
+			sel_range.sort()
+
+			import re
+			m = re.search("[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}",line.body[sel_range[0]:sel_range[1]],re.I)
+			if m:
+				line.body = line.body[:m.start()] + str(datamodel.uuid.uuid4()) + line.body[m.end():]
+				return {'FINISHED'}
+		
+		text.write(str(datamodel.uuid.uuid4()))
+		return {'FINISHED'}

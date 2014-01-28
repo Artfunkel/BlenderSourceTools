@@ -477,6 +477,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		matrix = Matrix()
 		envelope = None
 		src = None
+		balance_vg = None
 		
 		def __init__(self,name):
 			self.name = name
@@ -601,22 +602,30 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if hasShapes(id):
 			# calculate vert balance
 			if shouldExportDMX():
-				axis = axes_lookup[id.data.vs.flex_stereo_axis]
-				balance_width = baked.dimensions[axis]  * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
-				vg = baked.vertex_groups.new("__dmx_balance__")
-				zeroes = []
-				ones = []
-				for vert in baked.data.vertices:
-					if balance_width == 0:
-						if vert.co[axis] > 0: ones.append(vert.index)
-						else: zeroes.append(vert.index)
+				if id.data.vs.flex_stereo_mode == 'VGROUP':
+					if id.data.vs.flex_stereo_vg == "":
+						self.warning("Object \"{}\" uses Vertex Group stereo split, but does not define a Vertex Group to use.".format(id.name))
 					else:
-						balance = min(1,max(0, (-vert.co[axis] / balance_width / 2) + 0.5))
-						if balance == 1: ones.append(vert.index)
-						elif balance == 0: zeroes.append(vert.index)
-						else: vg.add([vert.index], balance, 'REPLACE')
-				vg.add(ones, 1, 'REPLACE')
-				vg.add(zeroes, 0, 'REPLACE')
+						result.balance_vg = baked.vertex_groups.get(id.data.vs.flex_stereo_vg)
+						if not result.balance_vg:
+							self.warning("Could not find stereo split Vertex Group \"{}\" on object \"{}\"".format(id.data.vs.flex_stereo_vg,id.name))
+				else:
+					axis = axes_lookup[id.data.vs.flex_stereo_mode]
+					balance_width = baked.dimensions[axis]  * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
+					result.balance_vg = baked.vertex_groups.new("__dmx_balance__")
+					zeroes = []
+					ones = []
+					for vert in baked.data.vertices:
+						if balance_width == 0:
+							if vert.co[axis] > 0: ones.append(vert.index)
+							else: zeroes.append(vert.index)
+						else:
+							balance = min(1,max(0, (-vert.co[axis] / balance_width / 2) + 0.5))
+							if balance == 1: ones.append(vert.index)
+							elif balance == 0: zeroes.append(vert.index)
+							else: result.balance_vg.add([vert.index], balance, 'REPLACE')
+					result.balance_vg.add(ones, 1, 'REPLACE')
+					result.balance_vg.add(zeroes, 0, 'REPLACE')
 			
 			# bake shapes
 			id.show_only_shape_key = True
@@ -1070,9 +1079,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			format = [ "positions", "normals", "textureCoordinates" ]
 			if jointCount: format.extend( [ "jointWeights", "jointIndices" ] )
-			if len(bake.shapes):
+			if len(bake.shapes) and bake.balance_vg:
 				format.append("balance")
-				balance_vg = ob.vertex_groups["__dmx_balance__"]
 			vertex_data["vertexFormat"] = datamodel.make_array( format, str)
 			
 			vertex_data["flipVCoordinates"] = True
@@ -1105,8 +1113,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				norms[vert.index] = datamodel.Vector3(vert.normal)
 				vert.select = False
 				
-				if len(bake.shapes):
-					try: balance[vert.index] = balance_vg.weight(vert.index)
+				if len(bake.shapes) and bake.balance_vg:
+					try: balance[vert.index] = bake.balance_vg.weight(vert.index)
 					except: pass
 				
 				if type(bake.envelope) == bpy.types.ArmatureModifier:

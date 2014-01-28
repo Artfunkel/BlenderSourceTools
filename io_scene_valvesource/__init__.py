@@ -82,6 +82,9 @@ def menu_func_export(self, context):
 def menu_func_shapekeys(self,context):
 	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text="Activate dependency shapes", icon='SHAPEKEY_DATA')
 
+def menu_func_textedit(self,context):
+	self.layout.operator(flex.InsertUUID.bl_idname)
+
 @bpy.app.handlers.persistent
 def upgrade_props(_):
 	def convert(id,*prop_groups):
@@ -196,7 +199,9 @@ class ValveSource_GroupProps(ExportableProps,PropertyGroup):
 
 class ShapeTypeProps():
 	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
-	flex_stereo_axis = EnumProperty(name="DMX stereo split axis",description="The local axis along which stereo transitions are created",items=axes,default='X')
+	flex_stereo_mode = EnumProperty(name="DMX stereo split mode",description="How stereo split balance should be defined",
+								 items=tuple(list(axes) + [('VGROUP','Vertex Group','Use a vertex group to define stereo balance')]), default='X')
+	flex_stereo_vg = StringProperty(name="DMX stereo split vertex group",description="The vertex group that defines stereo balance (0=Left, 1=Right)")
 
 class CurveTypeProps():
 	faces = EnumProperty(name="Polygon Generation",description="Determines which side(s) of this curve will generate polygons when exported",default='FORWARD',items=(
@@ -218,6 +223,7 @@ def register():
 	bpy.types.INFO_MT_file_import.append(menu_func_import)
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
+	bpy.types.TEXT_MT_edit.append(menu_func_textedit)
 	hook_scene_update()
 	bpy.app.handlers.load_post.append(upgrade_props)
 	scene_update_post.append(upgrade_props) # handles enabling the add-on after the scene is loaded
@@ -244,6 +250,7 @@ def unregister():
 	bpy.types.INFO_MT_file_import.remove(menu_func_import)
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
+	bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
 
 	bpy.utils.unregister_module(__name__)
 
