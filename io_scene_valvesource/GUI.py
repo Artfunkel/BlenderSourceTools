@@ -94,7 +94,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 			l.separator()
 		
 		row = l.row()
-		row.alert = len(scene.vs.engine_path) > 0 and not studiomdlPathValid()
+		row.alert = len(scene.vs.engine_path) > 0 and not p_cache.enginepath_valid
 		row.prop(scene.vs,"engine_path")
 		
 		if scene.vs.export_format == 'DMX':
@@ -104,7 +104,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 				row = row.row(align=True)
 				row.prop(scene.vs,"dmx_encoding",text="")
 				row.prop(scene.vs,"dmx_format",text="")
-				row.enabled = len(scene.vs.engine_path) == 0 or studiomdlPathValid()
+				row.enabled = not row.alert
 			if canExportDMX():
 				row = l.row()
 				row.prop(scene.vs,"material_path",text="Material Path")
@@ -209,17 +209,23 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			armature = item.find_armature()
 			if item.type == 'ARMATURE': armature = item
 			if armature:
-				col = self.makeSettingsBox(text="Armature properties ({})".format(armature.name),icon='OUTLINER_OB_ARMATURE')
+				def _makebox():
+					return self.makeSettingsBox(text="Armature properties ({})".format(armature.name),icon='OUTLINER_OB_ARMATURE')
+				col = None
+
 				if armature == item: # only display action stuff if the user has actually selected the armature
+					if not col: col = _makebox()
 					col.row().prop(armature.data.vs,"action_selection",expand=True)
 					if armature.data.vs.action_selection == 'FILTERED':
 						col.prop(armature.vs,"action_filter")
 
 				if not shouldExportDMX():
+					if not col: col = _makebox()
 					col.prop(armature.data.vs,"implicit_zero_bone")
 					col.prop(armature.data.vs,"legacy_rotation")
 					
 				if armature.animation_data and not 'ActLib' in dir(bpy.types):
+					if not col: col = _makebox()
 					col.template_ID(armature.animation_data, "action", new="action.new")
 		
 		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
@@ -290,17 +296,17 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		l = self.layout
 		scene = context.scene
 		
-		if not studiomdlPathValid():
+		if not p_cache.enginepath_valid:
 			l.label(icon='ERROR',text="Invalid SDK Path")
 			l.alignment = 'CENTER'
 			l.enabled = False
 			return
 			
 		row = l.row()
-		row.alert = len(scene.vs.game_path) > 0 and not gamePathValid()
+		row.alert = len(scene.vs.game_path) > 0 and not p_cache.gamepath_valid
 		row.prop(scene.vs,"game_path",text="Game Path")
 		
-		if len(scene.vs.game_path) == 0 and not gamePathValid():
+		if len(scene.vs.game_path) == 0 and not p_cache.gamepath_valid:
 			row = l.row()
 			row.label(icon='ERROR',text="No Game Path and invalid VPROJECT")
 			row.enabled = False

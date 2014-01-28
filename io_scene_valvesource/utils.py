@@ -121,13 +121,8 @@ def smdContinue(line):
 def getDatamodelQuat(blender_quat):
 	return datamodel.Quaternion([blender_quat[1], blender_quat[2], blender_quat[3], blender_quat[0]])
 
-def studiomdlPathValid():
-	return os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
-
 def getGamePath():
 	return os.path.abspath(os.path.join(bpy.path.abspath(bpy.context.scene.vs.game_path),'')) if len(bpy.context.scene.vs.game_path) else os.getenv('vproject')
-def gamePathValid():
-	return os.path.exists(os.path.join(getGamePath(),"gameinfo.txt"))
 
 def DatamodelEncodingVersion():
 	ver = getDmxVersionsForSDK()
@@ -139,7 +134,7 @@ def DatamodelFormatVersion():
 def allowDMX():
 	return getDmxVersionsForSDK() != [0,0]
 def canExportDMX():
-	return (len(bpy.context.scene.vs.engine_path) == 0 or studiomdlPathValid()) and allowDMX()
+	return (len(bpy.context.scene.vs.engine_path) == 0 or p_cache.enginepath_valid) and allowDMX()
 def shouldExportDMX():
 	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
 
@@ -527,6 +522,8 @@ class Cache:
 	qc_lastUpdate = 0
 	
 	action_filter = ""
+	enginepath_valid = True
+	gamepath_valid = True
 
 	validObs = set()
 	validObs_version = 0
@@ -535,7 +532,8 @@ class Cache:
 		self.validObs.clear()
 
 global p_cache
-p_cache = Cache() # package cached data
+if not "p_cache" in globals():
+	p_cache = Cache() # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	'''Launches Half-Life Model Viewer'''

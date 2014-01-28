@@ -40,7 +40,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	
 	@classmethod
 	def poll(self,context):
-		return (len(p_cache.qc_paths) or len(self.getQCs())) and gamePathValid() and studiomdlPathValid()
+		return (len(p_cache.qc_paths) or len(self.getQCs())) and p_cache.gamepath_valid and p_cache.enginepath_valid
 
 	def execute(self,context):
 		num = self.compileQCs(self.properties.filepath)

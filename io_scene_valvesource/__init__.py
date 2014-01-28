@@ -86,7 +86,7 @@ def menu_func_textedit(self,context):
 	self.layout.operator(flex.InsertUUID.bl_idname)
 
 @bpy.app.handlers.persistent
-def upgrade_props(_):
+def scene_load_post(_):
 	def convert(id,*prop_groups):
 		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format" }
 
@@ -100,15 +100,18 @@ def upgrade_props(_):
 			if prop.startswith("smd_"):
 				del id[prop]
 				
-	for s in bpy.data.scenes: convert(s,ValveSource_SceneProps)
+	for s in bpy.data.scenes:
+		convert(s,ValveSource_SceneProps)
+		game_path_changed(s,bpy.context)
+		engine_path_changed(s,bpy.context)
 	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps, ExportableProps)
 	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
 	for g in bpy.data.groups: convert(g,ValveSource_GroupProps, ExportableProps)
 	for g in bpy.data.curves: convert(g,ValveSource_CurveProps, ShapeTypeProps)
 	for g in bpy.data.meshes: convert(g,ValveSource_MeshProps, ShapeTypeProps)
 
-	if upgrade_props in scene_update_post:
-		scene_update_post.remove(upgrade_props)
+	if scene_load_post in scene_update_post:
+		scene_update_post.remove(scene_load_post)
 
 def export_active_changed(self, context):
 	id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
@@ -129,16 +132,11 @@ def group_selected_changed(self,context):
 	id.select = True
 	context.scene.objects.active = id
 
-def studiomdl_path_changed(self, context):
-	version = getDmxVersionsForSDK()
-	prefix = "Source engine branch changed..."
-	if version == None:
-		print(prefix + "unrecognised branch. Specify DMX versions manually.")
-	elif version == [0,0]:
-		print(prefix + "no DMX support in this branch. Forcing SMD export.")
-	else:
-		print(prefix + "now exporting DMX binary {} / model {}".format(version[0],version[1]))
+def engine_path_changed(self, context):
+	p_cache.enginepath_valid = os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
 
+def game_path_changed(self,context):
+	p_cache.gamepath_valid = os.path.exists(os.path.join(getGamePath(),"gameinfo.txt"))
 #
 # Property Groups
 #
@@ -153,7 +151,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	export_path = StringProperty(name="Export Root",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
 	qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
 	qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
-	engine_path = StringProperty(name="Engine Path",description="Directory containing studiomdl", subtype="DIR_PATH",update=studiomdl_path_changed)
+	engine_path = StringProperty(name="Engine Path",description="Directory containing studiomdl", subtype="DIR_PATH",update=engine_path_changed)
 	
 	dmx_encoding = EnumProperty(name="DMX encoding",description="Manual override for binary DMX encoding version",items=tuple(encodings),default='2')
 	dmx_format = EnumProperty(name="DMX format",description="Manual override for DMX model format version",items=tuple(formats),default='1')
@@ -166,7 +164,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	export_list_active = IntProperty(name="Active exportable",default=0,update=export_active_changed)
 	export_list = CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
-	game_path = StringProperty(name="Game path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH")
+	game_path = StringProperty(name="Game path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH",update=game_path_changed)
 
 class ExportableProps():
 	flex_controller_modes = (
@@ -225,8 +223,8 @@ def register():
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.append(menu_func_textedit)
 	hook_scene_update()
-	bpy.app.handlers.load_post.append(upgrade_props)
-	scene_update_post.append(upgrade_props) # handles enabling the add-on after the scene is loaded
+	bpy.app.handlers.load_post.append(scene_load_post)
+	scene_update_post.append(scene_load_post) # handles enabling the add-on after the scene is loaded
 		
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
@@ -245,7 +243,7 @@ def register():
 
 def unregister():
 	unhook_scene_update()
-	bpy.app.handlers.load_post.remove(upgrade_props)
+	bpy.app.handlers.load_post.remove(scene_load_post)
 
 	bpy.types.INFO_MT_file_import.remove(menu_func_import)
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
