@@ -244,17 +244,17 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				
 				for ob in [ob for ob in objects if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed]:
 					if not len(datablocks_dispayed):
-						col.separator()
+						col.label(text="Stereo flex balance:")
 						sharpness_col = col.column(align=True)
-					r = sharpness_col.split(0.88,align=True)
-					r2 = r.split(0.33,align=True)
-					r2.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+					r = sharpness_col.split(0.33,align=True)
+					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+					r2 = r.split(0.7,align=True)
 					if ob.data.vs.flex_stereo_mode == 'VGROUP':
 						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) == None
 						r2.prop_search(ob.data.vs,"flex_stereo_vg",ob,"vertex_groups",text="")
 					else:
-						r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Stereo sharpness")
-					r.prop(ob.data.vs,"flex_stereo_mode",text="")
+						r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Sharpness")
+					r2.prop(ob.data.vs,"flex_stereo_mode",text="")
 					datablocks_dispayed.append(ob.data)
 			
 			num_shapes = 0
