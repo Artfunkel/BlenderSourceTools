@@ -18,7 +18,7 @@
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
     <IsWindowsApplication>True</IsWindowsApplication>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>"F:\Users\Tom\Documents\Mods\blender-smd\data\quadbot\quadbot_take2.blend"</CommandLineArguments>
+    <CommandLineArguments>"F:\Users\Tom\Documents\Mods\blender-smd\data\quadbot\quadbot_take2_glsl.blend"</CommandLineArguments>
     <InterpreterPath>
     </InterpreterPath>
     <InterpreterArguments>

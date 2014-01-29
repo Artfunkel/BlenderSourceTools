@@ -965,14 +965,25 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if armature: scale = armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
+			if bone and not bone in exportable_bones:
+				children = []
+				for child_elems in [writeBone(child) for child in bone.children]:
+					if child_elems: children.extend(child_elems)
+				return children
+
 			bone_name = bone.name if bone else implicit_bone_name
 			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if DatamodelFormatVersion() >= 11: jointList.append(bone_elem)
 			self.bone_ids[bone_name] = len(bone_transforms)
 			
 			if not bone: relMat = Matrix()
-			elif bone.parent: relMat = bone.parent.matrix.inverted() * bone.matrix
-			else: relMat = armature.matrix_world * bone.matrix
+			else:
+				cur_p = bone.parent
+				while cur_p and not cur_p in exportable_bones: cur_p = cur_p.parent
+				if cur_p:
+					relMat = cur_p.matrix.inverted() * bone.matrix
+				else:
+					relMat = armature.matrix_world * bone.matrix
 			
 			trfm = makeTransform(bone_name,relMat,"bone"+bone_name)
 			trfm_base = makeTransform(bone_name,relMat,"bone_base"+bone_name)
@@ -990,18 +1001,22 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if bone:
 				children = bone_elem["children"] = datamodel.make_array([],datamodel.Element)
-				for child in bone.children:
-					children.append( writeBone(child) )
+				for child_elems in [writeBone(child) for child in bone.children]:
+					if child_elems: children.extend(child_elems)
 			
 			bpy.context.window_manager.progress_update(len(jointTransforms)/num_bones)
-			return bone_elem
+			return [bone_elem]
 	
 		if armature:
-			num_bones = len(armature.pose.bones)			
+			exportable_bones = list([pbone for pbone in self.armature.pose.bones if pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
+			num_bones = len(exportable_bones)
+			skipped_bones = len(self.armature.pose.bones) - num_bones
+			if skipped_bones:
+				print("- Skipping {} non-deforming bones".format(skipped_bones))
 			
-			DmeModel_children.append(writeBone(None))
-			for bone in [bone for bone in armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
-				DmeModel_children.append(writeBone(bone))
+			DmeModel_children.extend(writeBone(None))
+			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
+				if root_elems: DmeModel_children.extend(root_elems)
 
 			bench.report("Bones")
 
@@ -1105,7 +1120,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if type(bake.envelope) == str:
 				jointWeights = [ 1.0 ] * len(ob.data.vertices)
-				bone_id = self.bone_ids[bake.envelope]
+				bone = armature.pose.bones[bake.envelope]
+				while bone and not bone in exportable_bones: bone = bone.parent
+				bone_id = self.bone_ids[bone.name] if bone else 0
 				jointIndices = [ bone_id ] * len(ob.data.vertices)
 			
 			for vert in ob.data.vertices:
@@ -1381,7 +1398,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if bone: bone_channels[bone].append(val_arr)
 					channels.append(cur)
 			
-			for bone in self.armature.pose.bones:
+			for bone in exportable_bones:
 				makeChannel(bone)
 			num_frames = int(anim_len + 1)
 			bench.report("Animation setup")
@@ -1397,11 +1414,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
 				keyframe_time = datamodel.Time(frame / fps) if DatamodelFormatVersion() > 11 else int(frame/fps * 10000)
-				for bone in self.armature.pose.bones:
+				for bone in exportable_bones:
 					channel = bone_channels[bone]
 
-					if bone.parent: relMat = bone.parent.matrix.inverted() * bone.matrix
-					else: relMat = self.armature.matrix_world * bone.matrix
+					cur_p = bone.parent
+					while cur_p and not cur_p in exportable_bones: cur_p = cur_p.parent
+					if cur_p:
+						relMat = cur_p.matrix.inverted() * bone.matrix
+					else:
+						relMat = self.armature.matrix_world * bone.matrix
 					
 					pos = relMat.to_translation()
 					if bone.parent:

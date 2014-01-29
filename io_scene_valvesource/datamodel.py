@@ -137,7 +137,7 @@ class _Array(list):
 			_add_kv2_indent()
 			out += _kv2_indent
 
-			out += ",\n{}".format(_kv2_indent).join([item.get_kv2() if item._users == 1 else "\"element\" {}".format(_quote(item.id)) for item in self])
+			out += ",\n{}".format(_kv2_indent).join([item.get_kv2() if item and item._users == 1 else "\"element\" {}".format(_quote(item.id if item else "")) for item in self])
 
 			_sub_kv2_indent()
 			return "{}\n{}]".format(out,_kv2_indent)
@@ -494,8 +494,8 @@ class _StringDictionary(list):
 					elif type(attr) == Element:
 						if attr not in checked: process_element(attr)
 					elif type(attr) == _ElementArray:
-						for i in attr:
-							if i not in checked: process_element(i)
+						for item in [item for item in attr if item and item not in checked]:
+							process_element(item)
 			process_element(out_datamodel.root)
 			self.extend(string_set)
 		
@@ -585,7 +585,7 @@ class DataModel:
 				self._string_dict.write_string(self.out,value[0])
 
 		elif t == Element:
-			self.out.write(bytes.join(b'',[item.tobytes(self) for item in value]))
+			self.out.write(bytes.join(b'',[item.tobytes(self) if item else struct.pack("i",-1) for item in value]))
 		elif issubclass(t,(_Vector,Matrix, Time)):
 			self.out.write(bytes.join(b'',[item.tobytes() for item in value]))
 		
@@ -614,8 +614,8 @@ class DataModel:
 			if t == Element:
 				self._write_element_index(attr)
 			elif t == _ElementArray:
-				for i in attr:
-					self._write_element_index(i)
+				for item in [item for item in attr if item]:
+					self._write_element_index(item)
 		
 	def _write_element_props(self):	
 		for elem in self.elem_chain:
@@ -671,10 +671,10 @@ class DataModel:
 						_count_child_elems(attr)
 					attr._users += 1
 				elif t == _ElementArray:
-					for i in attr:
-						if i not in out_elems:
-							_count_child_elems(i)
-						i._users += 1
+					for item in [item for item in attr if item]:
+						if item not in out_elems:
+							_count_child_elems(item)
+						item._users += 1
 		_count_child_elems(self.root)
 		
 		if self.encoding in ["binary", "binary_proto"]:
