@@ -1540,7 +1540,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				
 				animation = dm.root["animationList"]["animations"][0]
 				
-				frameRate = animation["frameRate"] if dm.format_ver > 1 else 30 # very, very old DMXs don't have this
+				frameRate = animation.get("frameRate",30) # very, very old DMXs don't have this
 				timeFrame = animation["timeFrame"]
 				scale = timeFrame.get("scale",1.0)
 				duration = timeFrame["duration" if dm.format_ver >= 11 else "durationTime"]
@@ -1573,7 +1573,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 						frame_time = times[i]
 						if type(frame_time) == int: frame_time = datamodel.Time.from_int(frame_time)
 						frame_value = values[i]
-						frame = ceil(frame_time * frameRate)
+						frame = int(round(frame_time * frameRate,0))
 						keyframe = keyframes[bone][frame]
 						
 						if not (bone.parent or keyframe.pos or keyframe.rot):

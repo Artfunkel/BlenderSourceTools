@@ -370,6 +370,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			armature_bake = self.bakeObj(self.armature)
 			self.armature = armature_bake.object
 			self.armature_src = armature_bake.src
+			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if id.type == 'ARMATURE' or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
+			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
+			if skipped_bones:
+				print("- Skipping {} non-deforming bones".format(skipped_bones))
 		
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		bench.report("Post Bake")
@@ -423,14 +427,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 						continue # Vertex group might not exist on object if it's re-using a datablock				
 
 					bone = amod_ob.data.bones.get(group_name)
-					if bone and bone.use_deform:
+					if bone and bone in self.exportable_bones:
 						weights.append([ self.bone_ids[bone.name], group_weight ])
 						total_weight += group_weight			
 					
 			if amod.use_bone_envelopes and total_weight == 0: # vertex groups completely override envelopes
-				for pose_bone in amod_ob.pose.bones:
-					if not pose_bone.bone.use_deform:
-						continue
+				for pose_bone in [pb for pb in amod_ob.pose.bones if pb in self.exportable_bones]:
 					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( model_mat * v.co )
 					if weight:
 						weights.append([ self.bone_ids[pose_bone.name], weight ])
@@ -695,15 +697,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				curID += 1
 			
 			# Write to file
-			for bone in self.armature.data.bones:		
-				if not bone.use_deform:
-					print("- Skipping non-deforming bone \"{}\"".format(bone.name))
-					continue
-
+			for bone in self.exportable_bones:
 				parent = bone.parent
-				while parent:
-					if parent.use_deform:
-						break
+				while parent and not parent in self.exportable_bones:
 					parent = parent.parent
 
 				line = "{} ".format(curID)
@@ -757,14 +753,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if is_anim:
 						bpy.context.scene.frame_set(i)
 
-					for posebone in self.armature.pose.bones:
-						if not posebone.bone.use_deform: continue
-				
-						parent = posebone.parent	
-						# Skip over any non-deforming parents
-						while parent:
-							if parent.bone.use_deform:
-								break
+					for posebone in self.exportable_bones:
+						parent = posebone.parent
+						while parent and not parent in self.exportable_bones:
 							parent = parent.parent
 				
 						# Get the bone's Matrix from the current pose
@@ -967,7 +958,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if armature: scale = armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
-			if bone and not bone in exportable_bones:
+			if bone and not bone in self.exportable_bones:
 				children = []
 				for child_elems in [writeBone(child) for child in bone.children]:
 					if child_elems: children.extend(child_elems)
@@ -981,7 +972,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if not bone: relMat = Matrix()
 			else:
 				cur_p = bone.parent
-				while cur_p and not cur_p in exportable_bones: cur_p = cur_p.parent
+				while cur_p and not cur_p in self.exportable_bones: cur_p = cur_p.parent
 				if cur_p:
 					relMat = cur_p.matrix.inverted() * bone.matrix
 				else:
@@ -1010,11 +1001,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return [bone_elem]
 	
 		if armature:
-			exportable_bones = list([pbone for pbone in self.armature.pose.bones if pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
-			num_bones = len(exportable_bones)
-			skipped_bones = len(self.armature.pose.bones) - num_bones
-			if skipped_bones:
-				print("- Skipping {} non-deforming bones".format(skipped_bones))
+			
+			num_bones = len(self.exportable_bones)
 			
 			DmeModel_children.extend(writeBone(None))
 			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
@@ -1123,7 +1111,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if type(bake.envelope) == str:
 				jointWeights = [ 1.0 ] * len(ob.data.vertices)
 				bone = armature.pose.bones[bake.envelope]
-				while bone and not bone in exportable_bones: bone = bone.parent
+				while bone and not bone in self.exportable_bones: bone = bone.parent
 				bone_id = self.bone_ids[bone.name] if bone else 0
 				jointIndices = [ bone_id ] * len(ob.data.vertices)
 			
@@ -1400,7 +1388,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if bone: bone_channels[bone].append(val_arr)
 					channels.append(cur)
 			
-			for bone in exportable_bones:
+			for bone in self.exportable_bones:
 				makeChannel(bone)
 			num_frames = int(anim_len + 1)
 			bench.report("Animation setup")
@@ -1416,11 +1404,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
 				keyframe_time = datamodel.Time(frame / fps) if DatamodelFormatVersion() > 11 else int(frame/fps * 10000)
-				for bone in exportable_bones:
+				for bone in self.exportable_bones:
 					channel = bone_channels[bone]
 
 					cur_p = bone.parent
-					while cur_p and not cur_p in exportable_bones: cur_p = cur_p.parent
+					while cur_p and not cur_p in self.exportable_bones: cur_p = cur_p.parent
 					if cur_p:
 						relMat = cur_p.matrix.inverted() * bone.matrix
 					else:
