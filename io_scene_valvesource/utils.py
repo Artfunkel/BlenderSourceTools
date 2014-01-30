@@ -381,7 +381,7 @@ def scene_update(scene, immediate=False):
 	global need_export_refresh
 	global last_export_refresh
 	
-	if not (need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
+	if not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
 
 	p_cache.validObs = set([ob for ob in scene.objects if ob.type in exportable_types

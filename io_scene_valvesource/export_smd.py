@@ -298,7 +298,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else: baked_metaballs.append(ob)
 						
 				bake_results.append(self.bakeObj(ob))
-			bench.report("Group bake")
+			bench.report("Group bake", len(bake_results))
 
 			if shouldExportDMX() and id.vs.automerge:
 				bone_parents = collections.defaultdict(list)
@@ -316,6 +316,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					for part in parts:
 						ob = part.object.copy()
 						ob.data = ob.data.copy()
+						ob.data.uv_layers.active.name = "__dmx_uv__"
 						scene_obs.link(ob)
 						ob.select = True
 						scene_obs.active = ob
@@ -503,7 +504,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		ops.object.select_all(action='DESELECT')
 		id.select = True
 		
-		id.active_shape_key_index = 0
+		if hasShapes(id):
+			id.active_shape_key_index = 0
 		
 		cur_parent = id
 		while cur_parent:
