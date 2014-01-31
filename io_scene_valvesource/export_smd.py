@@ -370,7 +370,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			armature_bake = self.bakeObj(self.armature)
 			self.armature = armature_bake.object
 			self.armature_src = armature_bake.src
-			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if id.type == 'ARMATURE' or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
+			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (type(id) == bpy.types.Object and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
@@ -426,7 +426,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else:
 						continue # Vertex group might not exist on object if it's re-using a datablock				
 
-					bone = amod_ob.data.bones.get(group_name)
+					bone = amod_ob.pose.bones.get(group_name)
 					if bone and bone in self.exportable_bones:
 						weights.append([ self.bone_ids[bone.name], group_weight ])
 						total_weight += group_weight			

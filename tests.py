@@ -23,6 +23,7 @@ class Tests:
 		bpy.app.debug_value = 1
 		print("Blender version",bpy.app.version)
 
+	compare_results = False
 	def runExportTest(self,blend):
 		self.loadBlender()
 		bpy.ops.wm.open_mainfile(filepath=join("Tests",blend + ".blend"))
@@ -45,6 +46,17 @@ class Tests:
 		C.scene.vs.export_format = 'SMD'
 		section("SMD scene")
 		ex(True)
+
+		if self.compare_results:
+			expectedresults_path = join("Tests","ExpectedResults",blend)
+			if os.path.exists(expectedresults_path):
+				self.maxDiff = None
+				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
+					for f in filenames:
+						with open(join(dirpath,f),'rb') as out_file:
+							with open(join(expectedresults_path,f),'rb') as expected_file:
+								self.assertEqual(out_file.read(),expected_file.read())
+			print("Output matches expected results")
 
 		qc_name = bpy.path.abspath("//" + blend_name + ".qc")
 		if os.path.exists(qc_name):
@@ -114,6 +126,7 @@ class bpy_266a(unittest.TestCase,Tests):
 
 class bpy_git(unittest.TestCase,Tests):
 	bpy_version = "bpy_git"
+	compare_results = True
 
 
 class Datamodel():

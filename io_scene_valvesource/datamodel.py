@@ -498,6 +498,7 @@ class _StringDictionary(list):
 							process_element(item)
 			process_element(out_datamodel.root)
 			self.extend(string_set)
+			self.sort()
 		
 	def read_string(self,in_file):
 		if self.dummy:
