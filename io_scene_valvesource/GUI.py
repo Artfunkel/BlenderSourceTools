@@ -23,6 +23,7 @@ from .utils import *
 from .export_smd import SmdExporter, SMD_OT_Compile
 from .update import SmdToolsUpdate # comment this line if you make third-party changes
 from .flex import *
+global p_cache
 
 class SMD_MT_ExportChoice(bpy.types.Menu):
 	bl_label = "Source Tools Export"
@@ -297,9 +298,10 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		scene = context.scene
 		
 		if not p_cache.enginepath_valid:
-			l.label(icon='ERROR',text="Invalid SDK Path")
-			l.alignment = 'CENTER'
-			l.enabled = False
+			if len(scene.vs.engine_path):
+				l.label(icon='ERROR',text="Invalid Engine Path")
+			else:
+				l.label(icon='INFO',text="No Engine Path provided")
 			return
 			
 		row = l.row()

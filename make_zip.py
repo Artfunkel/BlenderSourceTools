@@ -5,7 +5,7 @@ m = None
 with open(os.path.join(script_dir,"__init__.py")) as vs_init:
 	m = re.search("\"version\": \((.*)?\)\,",vs_init.read(),re.MULTILINE)
 
-zip = zipfile.ZipFile(os.path.join("..","blender_source_tools_{}.zip".format(m.group(1).replace(", ","."))),'w',zipfile.ZIP_LZMA)
+zip = zipfile.ZipFile(os.path.join("..","blender_source_tools_{}.zip".format(m.group(1).replace(", ","."))),'w',zipfile.ZIP_BZIP2)
 
 for path, dirnames, filenames in os.walk(script_dir):
 	if path.endswith("__pycache__"): continue
