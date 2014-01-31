@@ -1363,7 +1363,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 								atch.parent_bone = parent_bone.name
 						
 							atch.matrix_local = get_transform_matrix(elem)
-						elif (elem.type == "DmeJoint" and elem.name != "blender_implicit") or not elem.get("shape"): # don't import Dags which simply wrap meshes
+						elif (elem.type == "DmeJoint" and elem.name != "blender_implicit") and not elem.get("shape"): # don't import Dags which simply wrap meshes
 							bone = smd.a.data.edit_bones.new(elem.name)
 							bone.parent = parent_bone
 							bone.tail = (0,5,0)
