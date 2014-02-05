@@ -539,6 +539,7 @@ class Cache:
 	action_filter = ""
 	enginepath_valid = True
 	gamepath_valid = True
+	nodes_registered = False
 
 	validObs = set()
 	validObs_version = 0

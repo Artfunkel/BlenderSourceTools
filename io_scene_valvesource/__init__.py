@@ -54,12 +54,6 @@ for func in scene_update_post:
 from . import datamodel, import_smd, export_smd, flex, GUI
 from .utils import *
 
-try:
-	from . import qc_nodes
-	have_nodes = True
-except:
-	have_nodes = False
-
 class ValveSource_Exportable(bpy.types.PropertyGroup):
 	ob_type = StringProperty()
 	icon = StringProperty()
@@ -229,7 +223,12 @@ def register():
 	bpy.app.handlers.load_post.append(scene_load_post)
 	scene_update_post.append(scene_load_post) # handles enabling the add-on after the scene is loaded
 	
-	if have_nodes: qc_nodes.register()
+	try:
+		from . import qc_nodes
+		qc_nodes.register()
+		p_cache.nodes_registered = True
+	except Exception as err:
+		print("Could not register QC Nodes: {}".format(err))
 		
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
@@ -255,7 +254,7 @@ def unregister():
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
 	
-	if have_nodes: qc_nodes.unregister()
+	if p_cache.nodes_registered: qc_nodes.unregister()
 
 	bpy.utils.unregister_module(__name__)
 
