@@ -5,22 +5,23 @@ from bpy.props import *
 import io_scene_valvesource
 
 def id_icon(id):
+	if type(id) == bpy.types.Group: return 'GROUP'
 	return io_scene_valvesource.MakeObjectIcon(id,prefix='OUTLINER_OB_') if id else 'BLANK1'
 def exportable_is_mesh(self,exportable):
 	return type(exportable.get_id()) == bpy.types.Group or exportable.get_id().type in io_scene_valvesource.utils.mesh_compatible
 def exportable_to_id(self,exportable):
-	if isinstance(exportable,io_scene_valvesource.SMD_CT_ObjectExportProps): return exportable.get_id()
+	if isinstance(exportable,io_scene_valvesource.VS_CT_ObjectExportProps): return exportable.get_id()
 	else: return exportable
 def id_is_empty(self,id):
 		return id.type == 'EMPTY' and bpy.context.scene in id.users_scene
 
 class QcMesh(PropertyGroup):
-	exportable = PointerProperty(type=bpy.types.ID, name="Replacement mesh", description="The Source Tools exportable to use at this Level of Detail", cast=exportable_to_id, poll=exportable_is_mesh)
+	exportable = PointerProperty(type=bpy.types.ID, name="Replacement mesh", description="The Source Tools exportable to use at this Level of Detail", set=exportable_to_id, poll=exportable_is_mesh)
 class QcMesh_ListItem(bpy.types.UIList):
 	def draw_item(self, c, l, data, item, icon, active_data, active_propname, index):
 		r = l.row()
 		r.alert = index == 0 and not item.exportable # no effect?!
-		r.prop_search(item,"exportable",c.scene,"smd_export_list", icon=id_icon(item.exportable),text="LOD {}".format(index) if index > 0 else "Reference")
+		r.prop_search(item,"exportable",c.scene.vs, "export_list", icon=id_icon(item.exportable),text="LOD {}".format(index) if index > 0 else "Reference")
 
 ###########################################
 ################## EYES ###################
@@ -137,7 +138,7 @@ class QcRefMesh(Node):
 		if self.tab == 'BASIC':
 			c = l.column(align=True)
 			for i in range(bpy.context.space_data.node_tree.num_lods + 1):
-				c.prop_search(self.lods[i],"exportable",context.scene,"smd_export_list", icon=id_icon(self.lods[i].exportable),text="LOD {}".format(i) if i > 0 else "Default Mesh")
+				c.prop_search(self.lods[i],"exportable",context.scene.vs, "export_list", icon=id_icon(self.lods[i].exportable),text="LOD {}".format(i) if i > 0 else "Default Mesh")
 				if i == 0: c.separator()
 		
 		if self.tab == 'EYE':

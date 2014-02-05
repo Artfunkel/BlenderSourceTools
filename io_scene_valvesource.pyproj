@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{5e446a8f-55cc-4931-9e47-9a392d07b69a}</ProjectGuid>
+    <ProjectHome>io_scene_valvesource\</ProjectHome>
+    <StartupFile>..\interactive_startup.py</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <InterpreterId>
+    </InterpreterId>
+    <InterpreterVersion>
+    </InterpreterVersion>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <IsWindowsApplication>True</IsWindowsApplication>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <CommandLineArguments>"F:\Users\Tom\Documents\Mods\blender-smd\data\quadbot\quadbot_take2_glsl.blend"</CommandLineArguments>
+    <InterpreterPath>
+    </InterpreterPath>
+    <InterpreterArguments>
+    </InterpreterArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <ItemGroup>
+    <Compile Include="datamodel.py" />
+    <Compile Include="export_smd.py" />
+    <Compile Include="flex.py" />
+    <Compile Include="GUI.py" />
+    <Compile Include="import_smd.py" />
+    <Compile Include="ordered_set.py" />
+    <Compile Include="qc_nodes\nodes_lod.py" />
+    <Compile Include="qc_nodes\nodes_mesh.py" />
+    <Compile Include="qc_nodes\nodes_sequence.py" />
+    <Compile Include="qc_nodes\__init__.py" />
+    <Compile Include="update.py" />
+    <Compile Include="utils.py" />
+    <Compile Include="__init__.py" />
+    <Compile Include="..\interactive_startup.py">
+      <Link>external\interactive_startup.py</Link>
+    </Compile>
+    <Compile Include="..\tests.py">
+      <Link>external\tests.py</Link>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="external\" />
+    <Folder Include="qc_nodes\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
+</Project>
