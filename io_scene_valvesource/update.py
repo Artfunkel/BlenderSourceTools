@@ -22,7 +22,7 @@ import bpy, io
 from .utils import *
 
 class SMD_MT_Updated(bpy.types.Menu):
-	bl_label = "Source Tools update"
+	bl_label = "Source Tools Update"
 	def draw(self,context):
 		self.layout.operator("wm.url_open",text="View changelog?",icon='TEXT').url = "http://steamcommunity.com/groups/BlenderSourceTools#announcements"
 
@@ -78,11 +78,11 @@ class SmdToolsUpdate(bpy.types.Operator):
 			return {'FINISHED'}
 			
 		except urllib.error.URLError as err:
-			self.report({'ERROR'},"Could not complete download: " + str(err))
+			self.report({'ERROR'}," ".join(["Could not complete download:" + str(err)]))
 			return {'CANCELLED'}
 		except zipfile.BadZipfile:
-			self.report({'ERROR'},"Update was downloaded, but was not a valid package")
+			self.report({'ERROR'},"Update was downloaded, but file was not valid")
 			return {'CANCELLED'}
 		except IOError as err:
-			self.report({'ERROR'},"Could not install update: " + str(err))
+			self.report({'ERROR'}," ".join(["Could not install update:", str(err)]))
 			return {'CANCELLED'}

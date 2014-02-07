@@ -75,19 +75,19 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		row = l.row()
 		row.alignment = 'CENTER'
-		row.prop(scene.vs,"layer_filter",text="Visible layers only")
-		row.prop(scene.vs,"use_image_names",text="Ignore Blender materials")
+		row.prop(scene.vs,"layer_filter")
+		row.prop(scene.vs,"use_image_names")
 
 		row = l.row()
 		row.alert = len(scene.vs.export_path) == 0
-		row.prop(scene.vs,"export_path",text="Export Path")
+		row.prop(scene.vs,"export_path")
 		
 		if allowDMX():
 			row = l.row().split(0.33)
-			row.label(text="Export Format:")
+			row.label(text=GetCustomPropName(scene.vs,"export_format",":"))
 			row.row().prop(scene.vs,"export_format",expand=True)
 		row = l.row().split(0.33)
-		row.label(text="Export Up Axis:")
+		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
 		if shouldExportDMX():
@@ -108,7 +108,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 				row.enabled = not row.alert
 			if canExportDMX():
 				row = l.row()
-				row.prop(scene.vs,"material_path",text="Material Path")
+				row.prop(scene.vs,"material_path")
 				row.enabled = shouldExportDMX()
 		
 		col = l.column(align=True)
@@ -191,16 +191,16 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		col = l.column()
 		
 		if not (is_group and item.vs.mute):
-			col.prop(item.vs,"subdir",text="Subfolder",icon='FILE_FOLDER')
+			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
 		
 		if is_group:
-			col = self.makeSettingsBox(text="Group properties",icon='GROUP')
+			col = self.makeSettingsBox(text="Group Properties",icon='GROUP')
 			if not item.vs.mute:				
 				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2,rows=2,maxrows=10)
 			
 			r = col.row()
 			r.alignment = 'CENTER'
-			r.prop(item.vs,"mute",text="Suppress")
+			r.prop(item.vs,"mute")
 			if item.vs.mute:
 				return
 			elif shouldExportDMX():
@@ -211,7 +211,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			if item.type == 'ARMATURE': armature = item
 			if armature:
 				def _makebox():
-					return self.makeSettingsBox(text="Armature properties ({})".format(armature.name),icon='OUTLINER_OB_ARMATURE')
+					return self.makeSettingsBox(text="Armature Properties ({})".format(armature.name),icon='OUTLINER_OB_ARMATURE')
 				col = None
 
 				if armature == item: # only display action stuff if the user has actually selected the armature
@@ -232,18 +232,18 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
 
 		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
-			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')
+			col = self.makeSettingsBox(text="Flex Properties",icon='SHAPEKEY_DATA')
 			
 			col.row().prop(item.vs,"flex_controller_mode",expand=True)
 			
 			if item.vs.flex_controller_mode == 'ADVANCED':
 				controller_source = col.row()
 				controller_source.alert = hasFlexControllerSource(item.vs.flex_controller_source) == False
-				controller_source.prop(item.vs,"flex_controller_source",text="Controller source",icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
+				controller_source.prop(item.vs,"flex_controller_source",text="Controller Source",icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
 				
 				row = col.row(align=True)
-				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text="Generate controllers")
-				row.operator("wm.url_open",text="Flex controller help",icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
+				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text="Generate Controllers")
+				row.operator("wm.url_open",text="Flex Controller Help",icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
 				
 				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER')
 				
@@ -251,7 +251,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				
 				for ob in [ob for ob in objects if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed]:
 					if not len(datablocks_dispayed):
-						col.label(text="Stereo flex balance:")
+						col.label(text="Stereo Flex Balance:")
 						sharpness_col = col.column(align=True)
 					r = sharpness_col.split(0.33,align=True)
 					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
@@ -274,11 +274,12 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			col.separator()
 			row = col.row()
 			row.alignment = 'CENTER'
-			row.label(icon='SHAPEKEY_DATA',text = "{} shape{}, {} corrective{}".format(num_shapes,"s" if num_shapes != 1 else "", num_correctives,"s" if num_correctives != 1 else ""))
+			row.label(icon='SHAPEKEY_DATA',text = "Shapes: {}".format(num_shapes))
+			row.label(icon='SHAPEKEY_DATA',text = "Corrective Shapes: {}".format(num_correctives))
 		
 		if item.vs.export and hasCurves(item):
-			col = self.makeSettingsBox(text="Curve properties",icon='OUTLINER_OB_CURVE')
-			col.label(text="Generate polygons on:")
+			col = self.makeSettingsBox(text="Curve Properties",icon='OUTLINER_OB_CURVE')
+			col.label(text="Polygon Generation:")
 			done = set()
 			for ob in [ob for ob in objects if ob.vs.export and hasCurves(ob) and not ob.data in done]:
 				row = col.split(0.33)
@@ -306,7 +307,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			
 		row = l.row()
 		row.alert = len(scene.vs.game_path) > 0 and not p_cache.gamepath_valid
-		row.prop(scene.vs,"game_path",text="Game Path")
+		row.prop(scene.vs,"game_path")
 		
 		if len(scene.vs.game_path) == 0 and not p_cache.gamepath_valid:
 			row = l.row()
@@ -330,12 +331,12 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
-		compile_row.operator(SMD_OT_Compile.bl_idname,text="Compile all now",icon='SCRIPT')
+		compile_row.operator(SMD_OT_Compile.bl_idname,text="Compile All Now",icon='SCRIPT')
 		
 		if not have_qcs:
 			if scene.vs.qc_path:
 				p_cache.qc_lastPath_row.alert = True
 			compile_row.enabled = False
-		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path",text="QC Path") # can't add this until the above test completes!
+		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path") # can't add this until the above test completes!
 		
 		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN')

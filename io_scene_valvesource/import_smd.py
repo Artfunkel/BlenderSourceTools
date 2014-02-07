@@ -20,6 +20,7 @@
 
 import bpy, bmesh, random, collections
 from bpy import ops
+from bpy.app.translations import pgettext
 from bpy.props import *
 from .utils import *
 
@@ -33,17 +34,17 @@ class SmdImporter(bpy.types.Operator, Logger):
 	smd = None
 
 	# Properties used by the file browser
-	filepath = StringProperty(name="File path", description="File filepath used for importing the SMD/VTA/DMX/QC file", maxlen=1024, default="")
-	filter_folder = BoolProperty(name="Filter folders", description="", default=True, options={'HIDDEN'})
+	filepath = StringProperty(name="File Path", description="File filepath used for importing the SMD/VTA/DMX/QC file", maxlen=1024, default="")
+	filter_folder = BoolProperty(name="Filter Folders", description="", default=True, options={'HIDDEN'})
 	filter_glob = StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
 
 	# Custom properties
-	append = BoolProperty(name="Extend any existing model", description="Whether imports will latch onto an existing armature or create their own", default=True)
-	doAnim = BoolProperty(name="Import animations (slow/bulky)", default=True)
-	upAxis = EnumProperty(name="Up axis",items=axes,default='Z',description="Which axis represents 'up' (ignored for QCs)")
-	makeCamera = BoolProperty(name="Make camera at $origin",description="For use in viewmodel editing; if not set, an empty will be created instead",default=False)
-	rotModes = ( ('XYZ', "Euler XYZ", ''), ('QUATERNION', "Quaternion", "") )
-	rotMode = EnumProperty(name="Rotation mode",items=rotModes,default='XYZ',description="Keyframes will be inserted in this rotation mode")
+	append = BoolProperty(name="Append To Existing Model", description="Whether imports will latch onto an existing armature or create their own", default=True)
+	doAnim = BoolProperty(name="Import Animations", default=True)
+	upAxis = EnumProperty(name="Up Axis",items=axes,default='Z',description="Which axis represents 'up' (ignored for QCs)")
+	makeCamera = BoolProperty(name="Make Camera At $origin",description="For use in viewmodel editing; if not set, an Empty will be created instead",default=False)
+	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
+	rotMode = EnumProperty(name="Rotation mode",items=rotModes,default='XYZ',description="Determines the type of rotation Keyframes created when importing bones or animation")
 	
 	def execute(self, context):		
 		pre_obs = set(bpy.context.scene.objects)
@@ -565,7 +566,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				for bone in smd.a.data.bones:
 					bone.select = False
 			else: # Blender is probably in background mode
-				self.warning("Unable to clean FCurve handles, animations might be jittery.")
+				self.warning("Unable to clean keyframe handles, animations might be jittery.")
 
 		# clear any unkeyed poses
 		for bone in smd.a.pose.bones:
@@ -705,7 +706,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			smd.m.vertex_groups.new(bone.name)
 
 		# Apply armature modifier
-		modifier = smd.m.modifiers.new(type="ARMATURE",name="Armature")
+		modifier = smd.m.modifiers.new(type="ARMATURE",name=pgettext("Armature"))
 		modifier.object = smd.a
 
 		# Initialisation
@@ -735,7 +736,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if smdContinue(line):
 				continue
 
-			mat, mat_ind = self.getMeshMaterial(line if line else "UndefinedMaterial")
+			mat, mat_ind = self.getMeshMaterial(line if line else pgettext("UndefinedMaterial"))
 			mats.append(mat_ind)
 
 			# ***************************************************************
@@ -1033,7 +1034,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 						if loadSMD(word_index,"dmx",type,append,layer,True):
 							return True
 						else:
-							self.error("Could not open file",path)
 							return False
 				if not path in qc.imported_smds: # FIXME: an SMD loaded once relatively and once absolutely will still pass this test
 					qc.imported_smds.append(path)
@@ -1179,8 +1179,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				try:
 					self.readQC(path,False, doAnim, makeCamera, rotMode)
 				except IOError:
-					message = 'Could not open QC $include file "%s"' % path
-					self.warning(message + " - skipping!")
+					self.warning("Could not open QC $include file \"{}\" - skipping!".format(path))
 
 		file.close()
 
@@ -1224,13 +1223,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 		try:
 			smd.file = file = open(filepath, 'r')
 		except IOError as err: # TODO: work out why errors are swallowed if I don't do this!
-			message = "Could not open SMD file \"{}\": {}".format(smd.jobName,err)
-			self.error(message)
+			self.error("Could not open SMD file \"{}\": {}".format(smd.jobName,err))
 			return 0
 
 		if newscene:
 			bpy.context.screen.scene = bpy.data.scenes.new(smd.jobName) # BLENDER BUG: this currently doesn't update bpy.context.scene
-		elif bpy.context.scene.name == "Scene":
+		elif bpy.context.scene.name == pgettext("Scene"):
 			bpy.context.scene.name = smd.jobName
 
 		print("\nSMD IMPORTER: now working on",smd.jobName)

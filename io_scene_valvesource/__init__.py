@@ -148,7 +148,7 @@ formats = []
 for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '') )
 
 class ValveSource_SceneProps(PropertyGroup):
-	export_path = StringProperty(name="Export Root",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
+	export_path = StringProperty(name="Export Path",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
 	qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
 	qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
 	engine_path = StringProperty(name="Engine Path",description="Directory containing studiomdl", subtype="DIR_PATH",update=engine_path_changed)
@@ -158,13 +158,13 @@ class ValveSource_SceneProps(PropertyGroup):
 	
 	export_format = EnumProperty(name="Export Format",items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
 	up_axis = EnumProperty(name="Target Up Axis",items=axes,default='Z',description="Use for compatibility with data from other 3D tools")
-	use_image_names = BoolProperty(name="Ignore Materials",description="Only export face-assigned image filenames",default=False)
-	layer_filter = BoolProperty(name="Export visible layers only",description="Ignore objects in hidden layers",default=False)
-	material_path = StringProperty(name="DMX material path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
+	use_image_names = BoolProperty(name="Ignore Blender Materials",description="Only export face-assigned image filenames",default=False)
+	layer_filter = BoolProperty(name="Visible layers only",description="Ignore objects in hidden layers",default=False)
+	material_path = StringProperty(name="Material Path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
 	export_list_active = IntProperty(name="Active exportable",default=0,update=export_active_changed)
 	export_list = CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
-	game_path = StringProperty(name="Game path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH",update=game_path_changed)
+	game_path = StringProperty(name="Game Path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH",update=game_path_changed)
 
 class ExportableProps():
 	flex_controller_modes = (

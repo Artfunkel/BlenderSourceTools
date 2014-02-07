@@ -235,6 +235,9 @@ def MakeObjectIcon(object,prefix=None,suffix=None):
 		out += suffix
 	return out
 
+def GetCustomPropName(data,prop, suffix=""):
+	return "".join([getattr(type(data), prop)[1]['name'], suffix])
+
 def getObExportName(ob):
 	return ob.name
 
