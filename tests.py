@@ -174,3 +174,6 @@ class Datamodel_KV2(unittest.TestCase,Datamodel):
 
 class Datamodel_Binary5(unittest.TestCase,Datamodel):
 	format= ("binary",5)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -851,7 +851,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			def _writeTime(time, shape_name = None):
 				self.smd_file.write( "time {}{}\n".format(time, " # {}".format(shape_name) if shape_name else ""))
 			
-			shape_names = set()
+			shape_names = ordered_set.OrderedSet()
 			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 				for shape_name in bake.shapes.keys():
 					shape_names.add(shape_name)
