@@ -218,6 +218,10 @@ class ValveSource_TextProps(CurveTypeProps,PropertyGroup):
 
 def register():
 	bpy.utils.register_module(__name__)
+	
+	from . import translations
+	bpy.app.translations.register(__name__,translations.translations)
+	
 	bpy.types.INFO_MT_file_import.append(menu_func_import)
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
@@ -250,6 +254,7 @@ def unregister():
 	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
 
+	bpy.app.translations.unregister(__name__)
 	bpy.utils.unregister_module(__name__)
 
 	del bpy.types.Scene.vs

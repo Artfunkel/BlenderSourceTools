@@ -1,5 +1,4 @@
-translations = {
-  'en': {
+ids = {
     'controllers_simple_tip': "Generate one flex controller per shape key",
     'action_selection_filter_tip': "All actions that match the armature's filter term and have users",
     'action_selection_current_tip': "The armature's currently assigned action or NLA tracks",
@@ -183,5 +182,10 @@ translations = {
     'update_done': "Upgraded to Source Tools {}!",
     'updater_title_tip': "Connects to http://steamreview.org/BlenderSourceTools/latest.php",
     'update_alreadylatest': "The latest Source Tools ({}) are already installed.",
+}
+
+translations = {
+  'ru': {
+    (None, 'Source Engine Exportables'): "TEST",
   },
 }

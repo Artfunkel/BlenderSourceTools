@@ -536,7 +536,7 @@ class Cache:
 	validObs_version = 0
 
 	from . import translations
-	ids = translations.translations['en']
+	ids = translations.ids
 
 	def __del__(self):
 		self.validObs.clear()
