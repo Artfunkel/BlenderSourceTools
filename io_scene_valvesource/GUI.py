@@ -46,7 +46,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				
 			num_obs = len(single_obs)
 			if num_obs > 1:
-				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected").format(num_obs), icon='OBJECT_DATA')
+				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(num_obs), icon='OBJECT_DATA')
 			elif num_obs:
 				l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
 		elif len(bpy.context.selected_objects):
@@ -56,7 +56,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 
 		row = l.row()
 		num_scene_exports = count_exports(context)
-		row.operator(SmdExporter.bl_idname, text=get_id("exportmenu_scene").format(num_scene_exports), icon='SCENE_DATA').export_scene = True
+		row.operator(SmdExporter.bl_idname, text=get_id("exportmenu_scene", True).format(num_scene_exports), icon='SCENE_DATA').export_scene = True
 		row.enabled = num_scene_exports > 0
 
 class SMD_PT_Scene(bpy.types.Panel):
@@ -211,7 +211,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			if item.type == 'ARMATURE': armature = item
 			if armature:
 				def _makebox():
-					return self.makeSettingsBox(text=get_id("exportables_armature_props").format(armature.name),icon='OUTLINER_OB_ARMATURE')
+					return self.makeSettingsBox(text=get_id("exportables_armature_props", True).format(armature.name),icon='OUTLINER_OB_ARMATURE')
 				col = None
 
 				if armature == item: # only display action stuff if the user has actually selected the armature
@@ -274,8 +274,8 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			col.separator()
 			row = col.row()
 			row.alignment = 'CENTER'
-			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count").format(num_shapes))
-			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective").format(num_correctives))
+			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
+			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
 		
 		if item.vs.export and hasCurves(item):
 			col = self.makeSettingsBox(text=get_id("exportables_curve_props"),icon='OUTLINER_OB_CURVE')

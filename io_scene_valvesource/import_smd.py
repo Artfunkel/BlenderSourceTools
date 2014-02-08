@@ -66,10 +66,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if len(filepath_lc) == 0:
 				self.report({'ERROR'},get_id("importer_err_nofile"))
 			else:
-				self.report({'ERROR'},get_id("importer_err_badfile").format(os.path.basename(self.properties.filepath)))
+				self.report({'ERROR'},get_id("importer_err_badfile", True).format(os.path.basename(self.properties.filepath)))
 			return {'CANCELLED'}
 
-		self.errorReport(get_id("importer_complete").format(self.countSMDs,self.elapsed_time()))
+		self.errorReport(get_id("importer_complete", True).format(self.countSMDs,self.elapsed_time()))
 		if self.countSMDs:
 			ops.object.select_all(action='DESELECT')
 			new_obs = set(bpy.context.scene.objects).difference(pre_obs)
@@ -823,7 +823,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				md.update()
 
 			if badWeights:
-				self.warning(get_id("importer_err_badweights").format(badWeights,smd.jobName))
+				self.warning(get_id("importer_err_badweights", True).format(badWeights,smd.jobName))
 			print("- Imported {} polys".format(countPolys))
 
 	# vertexanimation block
@@ -921,7 +921,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if len(bad_vta_verts) > 0:
 						err_ratio = len(bad_vta_verts) / num_vta_verts
 						vta_err_vg.add(bad_vta_verts,1.0,'REPLACE')
-						message = get_id("importer_err_unmatched_mesh").format(len(bad_vta_verts), int(err_ratio * 100))
+						message = get_id("importer_err_unmatched_mesh", True).format(len(bad_vta_verts), int(err_ratio * 100))
 						if err_ratio == 1:
 							self.error(message)
 							return
@@ -994,7 +994,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			
 			# Skip macros
 			if line[0] == "$definemacro":
-				self.warning(get_id("importer_qc_macroskip").format(filename))
+				self.warning(get_id("importer_qc_macroskip", True).format(filename))
 				while line[-1] == "\\\\":
 					line = self.parseQuoteBlockedLine( file.readline())
 
@@ -1179,7 +1179,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				try:
 					self.readQC(path,False, doAnim, makeCamera, rotMode)
 				except IOError:
-					self.warning(get_id("importer_err_qci").format(path))
+					self.warning(get_id("importer_err_qci", True).format(path))
 
 		file.close()
 
@@ -1223,7 +1223,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		try:
 			smd.file = file = open(filepath, 'r')
 		except IOError as err: # TODO: work out why errors are swallowed if I don't do this!
-			self.error(get_id("importer_err_smd").format(smd.jobName,err))
+			self.error(get_id("importer_err_smd", True).format(smd.jobName,err))
 			return 0
 
 		if newscene:
@@ -1327,7 +1327,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				validateSkeleton(DmeModel["children"], None)
 
 				if len(missing_bones):
-					self.warning(get_id("importer_err_missingbones").format(smd.jobName,len(missing_bones),smd.a.name,", ".join(missing_bones)))
+					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(missing_bones),smd.a.name,", ".join(missing_bones)))
 			else:
 				if smd.jobType == ANIM: smd.jobType = ANIM_SOLO
 				restData = {}

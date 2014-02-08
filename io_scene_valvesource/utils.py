@@ -86,9 +86,10 @@ def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
 		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
 
-def get_id(id):
+def get_id(id, format_string = False):
 	from . import translations
-	return pgettext(translations.translations['en'][id])
+	out = p_cache.ids[id]
+	return pgettext(oun) if format_string else out
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
@@ -344,7 +345,7 @@ def make_export_list():
 		for g in scene_groups:
 			i = s.vs.export_list.add()
 			if g.vs.mute:
-				i.name = "{} {}".format(g.name,pgettext(get_id("exportables_group_mute_suffix")))
+				i.name = "{} {}".format(g.name,pgettext(get_id("exportables_group_mute_suffix",True)))
 			else:
 				i.name = makeDisplayName(g)
 			i.item_name = g.name
@@ -363,7 +364,7 @@ def make_export_list():
 				if ad:
 					i_icon = i_type = "ACTION"
 					if ob.data.vs.action_selection == 'FILTERED':
-						i_name = "\"{}\" actions ({})".format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
+						i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
 					elif ad.action:
 						i_name = makeDisplayName(ob,ad.action.name)
 					elif len(ad.nla_tracks):
@@ -444,7 +445,7 @@ class Logger:
 
 	def errorReport(self,message):
 		if len(self.log_errors) or len(self.log_warnings):
-			message += " with {0} Errors and {1} Warnings".format(len(self.log_errors),len(self.log_warnings))
+			message += get_id("exporter_report_suffix",True).format(len(self.log_errors),len(self.log_warnings))
 			if not bpy.app.background:
 				bpy.context.window_manager.popup_menu(self.list_errors,title=get_id("exporter_report_menu"))
 			
@@ -533,6 +534,9 @@ class Cache:
 
 	validObs = set()
 	validObs_version = 0
+
+	from . import translations
+	ids = translations.translations['en']
 
 	def __del__(self):
 		self.validObs.clear()

@@ -55,7 +55,7 @@ class SmdToolsUpdate(bpy.types.Operator):
 			
 			for i in range(min( len(remote_bpy), len(bpy.app.version) )):
 				if int(remote_bpy[i]) > bpy.app.version[i]:
-					self.report({'ERROR'},get_id("update_err_outdated").format( PrintVer(remote_bpy) ))
+					self.report({'ERROR'},get_id("update_err_outdated", True).format( PrintVer(remote_bpy) ))
 					return {'FINISHED'}
 					
 			for i in range(min( len(remote_ver), len(cur_version) )):
@@ -70,11 +70,11 @@ class SmdToolsUpdate(bpy.types.Operator):
 					zip.extractall(path=os.path.join(os.path.dirname( os.path.abspath( __file__ ) ),".."))
 					
 					bpy.ops.script.reload()
-					self.report({'INFO'},get_id("update_done").format(PrintVer(remote_ver)))
+					self.report({'INFO'},get_id("update_done", True).format(PrintVer(remote_ver)))
 					bpy.ops.wm.call_menu(name="SMD_MT_Updated")
 					return {'FINISHED'}
 			
-			self.report({'INFO'},get_id("update_alreadylatest").format( PrintVer(cur_version) ))
+			self.report({'INFO'},get_id("update_alreadylatest", True).format( PrintVer(cur_version) ))
 			return {'FINISHED'}
 			
 		except urllib.error.URLError as err:

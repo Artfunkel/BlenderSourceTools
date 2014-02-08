@@ -48,7 +48,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		#	bpy.context.window_manager.progress_begin(0,1)
 		if not self.properties.filepath:
 			self.properties.filepath = "QC"
-		self.errorReport(get_id("qc_compile_complete").format(getEngineBranchName(),num))
+		self.errorReport(get_id("qc_compile_complete",True).format(getEngineBranchName(),num))
 		bpy.context.window_manager.progress_end()
 		return {'FINISHED'}
 	
@@ -84,7 +84,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		if num_qcs == 0:
 			self.error(get_id("qc_compile_err_nofiles"))
 		elif not os.path.exists(studiomdl_path):
-			self.error( get_id("qc_compile_err_compiler").format(studiomdl_path) )
+			self.error(get_id("qc_compile_err_compiler", True).format(studiomdl_path) )
 		else:
 			i = 0
 			for qc in paths:
@@ -107,7 +107,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 				if studiomdl.returncode == 0:
 					num_good_compiles += 1
 				else:
-					self.error(get_id("qc_compile_err_unknown").format(os.path.basename(qc)))
+					self.error(get_id("qc_compile_err_unknown", True).format(os.path.basename(qc)))
 				i+=1
 		return num_good_compiles
 
@@ -198,8 +198,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 						self.exportId(context, exportable.get_id())
 				else:
 					group = bpy.data.groups[self.group]
-					if group.vs.mute: self.error(get_id("exporter_err_groupmuted").format(group.name))
-					elif len(group.objects) == 0: self.error(get_id("exporter_err_groupempty").format(group.name))
+					if group.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(group.name))
+					elif len(group.objects) == 0: self.error(get_id("exporter_err_groupempty", True).format(group.name))
 					else: self.exportId(context, group)
 			
 			num_good_compiles = None
@@ -215,7 +215,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					print("\n")
 			
 			if num_good_compiles != None:
-				self.errorReport(get_id("exporter_report_qc").format(
+				self.errorReport(get_id("exporter_report_qc", True).format(
 						self.files_exported,
 						self.elapsed_time(),
 						num_good_compiles,
@@ -223,7 +223,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						os.path.basename(getGamePath())
 						))
 			else:
-				self.errorReport(get_id("exporter_report").format(
+				self.errorReport(get_id("exporter_report", True).format(
 					self.files_exported,
 					self.elapsed_time()
 					))
@@ -263,7 +263,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			try:
 				os.makedirs(path)
 			except Exception as err:
-				self.error(get_id("exporter_err_makedirs").format(err))
+				self.error(get_id("exporter_err_makedirs", True).format(err))
 				return
 		
 		# We don't want to bake any meshes with poses applied
@@ -570,7 +570,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			elif mod.type == 'SOLIDIFY' and not solidify_fill_rim:
 				solidify_fill_rim = mod.use_rim
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':
-				self.error(get_id("exporter_err_shapes_decimate").format(id.name,mod.decimate_type))
+				self.error(get_id("exporter_err_shapes_decimate", True).format(id.name,mod.decimate_type))
 				return result
 		
 		ops.object.mode_set(mode='OBJECT')
@@ -580,7 +580,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		data.name = id.name + "_baked"
 		
 		if len(data.polygons) == 0:
-			self.error(get_id("exporter_err_nopolys").format(id.name))
+			self.error(get_id("exporter_err_nopolys", True).format(id.name))
 			return
 		
 		def put_in_object(id,data, quiet=False):
@@ -601,7 +601,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if id.data.vs.faces == 'BOTH':
 					ops.mesh.duplicate()
 					if solidify_fill_rim and not quiet:
-						self.warning(get_id("exporter_err_solidifyinside").format(id.name))
+						self.warning(get_id("exporter_err_solidifyinside", True).format(id.name))
 				if id.data.vs.faces != 'FORWARD':
 					ops.mesh.flip_normals()
 				ops.object.mode_set(mode='OBJECT')
@@ -623,7 +623,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else:
 						result.balance_vg = baked.vertex_groups.get(id.data.vs.flex_stereo_vg)
 						if not result.balance_vg:
-							self.warning(get_id("exporter_err_splitvgroup_missing").format(id.data.vs.flex_stereo_vg,id.name))
+							self.warning(get_id("exporter_err_splitvgroup_missing", True).format(id.data.vs.flex_stereo_vg,id.name))
 				else:
 					axis = axes_lookup[id.data.vs.flex_stereo_mode]
 					balance_width = baked.dimensions[axis]  * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
@@ -690,7 +690,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		try:
 			self.smd_file = open(full_path, 'w')
 		except Exception as err:
-			self.error(get_id("exporter_err_open").format("SMD", err))
+			self.error(get_id("exporter_err_open", True).format("SMD", err))
 			return 0
 		print("-",full_path)
 			
@@ -733,7 +733,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			max_bones = 128
 			if num_bones > max_bones:
-				self.warning(get_id("exporter_err_bonelimit").format(num_bones,max_bones))
+				self.warning(get_id("exporter_err_bonelimit", True).format(num_bones,max_bones))
 		
 		if not flex:
 			# ANIMATION
@@ -1045,7 +1045,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					for elem in [elem for elem in DmeCombinationOperator["targets"] if elem.type != "DmeFlexRules"]:
 						DmeCombinationOperator["targets"].remove(elem)
 				except Exception as err:
-					self.error(get_id("exporter_err_flexctrl_loadfail").format(err))
+					self.error(get_id("exporter_err_flexctrl_loadfail", True).format(err))
 					return 0
 			else:
 				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
@@ -1257,7 +1257,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 							try:
 								wrinkle_scale = _FindScale()
 							except ValueError:
-								self.warning(get_id("exporter_err_flexctrl_missing").format(shape_name))
+								self.warning(get_id("exporter_err_flexctrl_missing", True).format(shape_name))
 							pass
 					
 					delta_state_weights.append(datamodel.Vector2([0.0,0.0])) # ??
@@ -1474,7 +1474,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			else:
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
 		except (PermissionError, FileNotFoundError) as err:
-			self.error(get_id("exporter_err_open").format("DMX",err))
+			self.error(get_id("exporter_err_open", True).format("DMX",err))
 
 		bench.report("write")
 		if bench.quiet:

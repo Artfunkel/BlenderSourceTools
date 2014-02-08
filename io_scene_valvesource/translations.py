@@ -93,7 +93,7 @@ translations = {
     'exporter_err_dmxenc': "DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later",
     'exporter_prop_group': "Group Name",
     'qc_compile_tip': "Compile QCs with the Source SDK",
-    'exporter_report_suffix': "with {0} Errors and {1} Warnings",
+    'exporter_report_suffix': " with {0} Errors and {1} Warnings",
     'exporter_err_groupempty': "Group {} has no active objects",
     'exporter_err_dmxother': "Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.",
     'exporter_prop_group_tip': "Name of the Group to export",

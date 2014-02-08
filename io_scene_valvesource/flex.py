@@ -87,7 +87,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		if not id.vs.flex_controller_source or bpy.data.texts.get(id.vs.flex_controller_source):
 			id.vs.flex_controller_source = text.name
 		
-		self.report({'INFO'},get_id("gen_block_success").format(text.name))		
+		self.report({'INFO'},get_id("gen_block_success", True).format(text.name))		
 		
 		return {'FINISHED'}
 
@@ -115,7 +115,7 @@ class ActiveDependencyShapes(bpy.types.Operator):
 				num_activated += 1
 			else:
 				key.value = 0
-		self.report({'INFO'},get_id("activate_dep_shapes_success").format(num_activated - 1))
+		self.report({'INFO'},get_id("activate_dep_shapes_success", True).format(num_activated - 1))
 		return {'FINISHED'}
 
 class AddCorrectiveShapeDrivers(bpy.types.Operator):
