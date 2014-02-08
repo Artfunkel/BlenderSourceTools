@@ -160,7 +160,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		return cache.filter, cache.order if self.use_filter_sort_alpha else []
 		
 class SMD_PT_Object_Config(bpy.types.Panel):
-	bl_label = "Source Engine Exportables"
+	bl_label = get_id('exportables_title')
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"

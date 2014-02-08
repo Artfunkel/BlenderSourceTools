@@ -86,6 +86,10 @@ def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
 		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
 
+def get_id(id):
+	from . import translations
+	return pgettext(translations.translations['en'][id])
+
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
 		self._indent = indent * 4
