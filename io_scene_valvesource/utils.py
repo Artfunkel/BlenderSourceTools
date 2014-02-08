@@ -19,6 +19,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy, struct, time, collections, os, subprocess, sys, builtins
+from bpy.app.translations import pgettext
 from mathutils import *
 from math import *
 from . import datamodel
@@ -339,7 +340,7 @@ def make_export_list():
 		for g in scene_groups:
 			i = s.vs.export_list.add()
 			if g.vs.mute:
-				i.name = g.name + " (suppressed)"
+				i.name = "{} {}".format(g.name,pgettext("(suppressed)"))
 			else:
 				i.name = makeDisplayName(g)
 			i.item_name = g.name
@@ -428,24 +429,22 @@ class Logger:
 		l = menu.layout
 		if len(self.log_errors):
 			for msg in self.log_errors:
-				l.label("ERROR: "+msg)
+				l.label("{}: {}".format(pgettext("Error").upper(), msg))
 			l.separator()
 		if len(self.log_warnings):
 			for msg in self.log_warnings:
-				l.label("WARNING: "+msg)
+				l.label("{}: {}".format(pgettext("Warning").upper(), msg))
 
-	def errorReport(self, jobName, output, numOut):
-		message = "{} {}{} {}".format(numOut,output,"s" if numOut != 1 else "",jobName)
-		if numOut:
-			message += " in {} seconds".format( round( time.time() - self.startTime, 1 ) )
+	def elapsed_time(self):
+		return round(time.time() - self.startTime, 1)
 
+	def errorReport(self,message):
 		if len(self.log_errors) or len(self.log_warnings):
-			msg_summary = "{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings))
-			message += " with " + msg_summary
+			message += " with {0} Errors and {1} Warnings".format(len(self.log_errors),len(self.log_warnings))
 			if not bpy.app.background:
-				bpy.context.window_manager.popup_menu(self.list_errors,title=msg_summary,icon='ERROR')
+				bpy.context.window_manager.popup_menu(self.list_errors,title="Source Tools Error Report")
 			
-			print(msg_summary)
+			print("{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings)))
 			for msg in self.log_errors: print("Error:",msg)
 			for msg in self.log_warnings: print("Warning:",msg)
 		

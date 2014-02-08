@@ -36,7 +36,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_label = "Compile QC"
 	bl_description = "Compile QCs with the Source SDK"
 
-	filepath = bpy.props.StringProperty(name="File path", description="QC to compile", maxlen=1024, default="", subtype='FILE_PATH')
+	filepath = bpy.props.StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
 	
 	@classmethod
 	def poll(self,context):
@@ -116,8 +116,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 	bl_idname = "export_scene.smd"
 	bl_label = "Export SMD/VTA/DMX"
 	
-	group = bpy.props.StringProperty(name="Group name",description="Name of a Group to export")
-	export_scene = bpy.props.BoolProperty(name="Scene export",description="Export all items selected in the Source Engine Exportables panel",default=False) 
+	group = bpy.props.StringProperty(name="Group Name",description="Name of the Group to export")
+	export_scene = bpy.props.BoolProperty(name="Scene Export",description="Export all items selected in the Source Engine Exportables panel",default=False) 
 
 	@classmethod
 	def poll(self,context):
@@ -202,20 +202,31 @@ class SmdExporter(bpy.types.Operator, Logger):
 					elif len(group.objects) == 0: self.error("Group {} has no active objects".format(group.name))
 					else: self.exportId(context, group)
 			
-			jobMessage = "exported"
+			num_good_compiles = None
 
 			if self.attemptedExports == 0:
-				self.error("Found no valid objects for export")
+				self.report('ERROR',"Found no valid objects for export")
 			elif context.scene.vs.qc_compile and context.scene.vs.qc_path:
 				# ...and compile the QC
 				if not SMD_OT_Compile.poll(context):
 					print("Skipping QC compile step: context incorrect\n")
 				else:
 					num_good_compiles = SMD_OT_Compile.compileQCs(self)
-					jobMessage += " and {} QC{} compiled ({}/{})".format(num_good_compiles, "" if num_good_compiles == 1 else "s", getEngineBranchName(), os.path.basename(getGamePath()))
 					print("\n")
-				
-			self.errorReport(jobMessage,"file",self.files_exported)
+			
+			if num_good_compiles != None:
+				self.errorReport("{0} files exported and {2} QCs compiled ({3}/{4}) in {1} seconds".format(
+						self.files_exported,
+						self.elapsed_time(),
+						num_good_compiles,
+						getEngineBranchName(),
+						os.path.basename(getGamePath())
+						))
+			else:
+				self.errorReport("{0} files exported in {1} seconds".format(
+					self.files_exported,
+					self.elapsed_time()
+					))
 		finally:
 			# Clean everything up
 			ops.ed.undo_push(message=self.bl_label)
@@ -679,7 +690,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		try:
 			self.smd_file = open(full_path, 'w')
 		except Exception as err:
-			self.error("Could not create SMD file. Python reports: {}.".format(err))
+			self.error("Could not create {} file. Python reports: {}.".format("SMD", err))
 			return 0
 		print("-",full_path)
 			
@@ -835,7 +846,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 					face_index += 1
 
 				if bad_face_mats:
-					self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,bake.src.data.name,"" if bpy.context.scene.vs.use_image_names else " or material"))
+					format_str = "{} faces on {} did not have a Texture assigned" if bpy.context.scene.vs.use_image_names else "{} faces on {} did not have a Material or Texture assigned"
+					self.warning(format_str.format(bad_face_mats,bake.src.data.name))
 				
 				print("- Exported",face_index,"polys")
 				
@@ -1211,7 +1223,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			vertex_data["normalsIndices"] = datamodel.make_array(normsIndices,int)
 			
 			if bad_face_mats:
-				self.warning("{} faces on {} did not have a texture{} assigned".format(bad_face_mats,bake.name,"" if bpy.context.scene.vs.use_image_names else " or material"))
+				format_str = "{} faces on {} did not have a Texture assigned" if bpy.context.scene.vs.use_image_names else "{} faces on {} did not have a Material or Texture assigned"
+				self.warning(format_str.format(bad_face_mats, bake.name))
 			bench.report("polys")
 			
 			
@@ -1461,7 +1474,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			else:
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
 		except (PermissionError, FileNotFoundError) as err:
-			self.error("Could not create DMX. Python reports: {}.".format(err))
+			self.error("Could not create {} file. Python reports: {}.".format("DMX",err))
 
 		bench.report("write")
 		if bench.quiet:
