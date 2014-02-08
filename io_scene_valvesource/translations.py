@@ -110,10 +110,10 @@ _data = {
 	'en': "Steam Community",
 },
 'exportables_arm_filter_result': {
-	'en': "\"{}\" actions ({})",
+	'en': "\"{0}\" actions ({1})",
 },
 'exportables_flex_count_corrective': {
-	'en': "Corrective Shapes: {}",
+	'en': "Corrective Shapes: {0}",
 },
 'exportables_curve_polyside': {
 	'en': "Polygon Generation:",
@@ -149,7 +149,7 @@ _data = {
 	'en': "(suppressed)",
 },
 'exportmenu_scene': {
-	'en': "Scene export ({} files)",
+	'en': "Scene export ({0} files)",
 },
 'exportpanel_dmxver': {
 	'en': "DMX Version:",
@@ -159,16 +159,16 @@ _data = {
 },
 'exportables_title': {
 	'en': "Source Engine Exportables",
-	'ru': "TEST",
+	'ru': "立方体",
 },
 'exportables_armature_props': {
-	'en': "Armature Properties ({})",
+	'en': "Armature Properties ({0})",
 },
 'qc_bad_enginepath': {
 	'en': "Invalid Engine Path",
 },
 'exportmenu_selected': {
-	'en': "Selected objects ({} files)",
+	'en': "Selected objects ({0} files)",
 },
 'exportables_group_props': {
 	'en': "Group Properties",
@@ -180,7 +180,7 @@ _data = {
 	'en': "Curve Properties",
 },
 'exportables_flex_count': {
-	'en': "Shapes: {}",
+	'en': "Shapes: {0}",
 },
 'activate_dependency_shapes': {
 	'en': "Activate dependency shapes",
@@ -210,43 +210,43 @@ _data = {
 	'en': "Cannot export to a relative path until the blend file has been saved.",
 },
 'exporter_err_nopolys': {
-	'en': "Object {} has no polygons, skipping",
+	'en': "Object {0} has no polygons, skipping",
 },
 'exporter_err_arm_nonuniform': {
-	'en': "Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.",
+	'en': "Armature \"{0}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.",
 },
 'exporter_err_vtadist': {
-	'en': "Shape \"{}\" has {} vertex movements that exceed eight units. Source does not support this!",
+	'en': "Shape \"{0}\" has {1} vertex movements that exceed eight units. Source does not support this!",
 },
 'exporter_err_facesnotex_ormat': {
-	'en': "{} faces on {} did not have a Material or Texture assigned",
+	'en': "{0} faces on {1} did not have a Material or Texture assigned",
 },
 'exporter_err_arm_noanims': {
-	'en': "Couldn't find any animation for Armature \"{}\"",
+	'en': "Couldn't find any animation for Armature \"{0}\"",
 },
 'exporter_err_dupeenv_arm': {
-	'en': "Armature modifier \"{}\" found on \"{}\", which already has a bone parent or constraint. Ignoring.",
+	'en': "Armature modifier \"{0}\" found on \"{1}\", which already has a bone parent or constraint. Ignoring.",
 },
 'exporter_err_bonelimit': {
-	'en': "Exported {} bones, but SMD only supports {}!",
+	'en': "Exported {0} bones, but SMD only supports {1}!",
 },
 'exporter_err_flexctrl_loadfail': {
-	'en': "Could not load flex controllers. Python reports: {}",
+	'en': "Could not load flex controllers. Python reports: {0}",
 },
 'qc_compile_err_nofiles': {
 	'en': "Cannot compile, no QCs provided. The Blender Source Tools do not generate QCs.",
 },
 'qc_compile_complete': {
-	'en': "\"Compiled {} {} QCs\"",
+	'en': "\"Compiled {0} {1} QCs\"",
 },
 'exporter_err_shapes_decimate': {
-	'en': "Cannot export shape keys from \"{}\" because it has a '{}' Decimate modifier. Only Un-Subdivide mode is supported.",
+	'en': "Cannot export shape keys from \"{0}\" because it has a '{1}' Decimate modifier. Only Un-Subdivide mode is supported.",
 },
 'exporter_err_splitvgroup_undefined': {
-	'en': "Object \"{}\" uses Vertex Group stereo split, but does not define a Vertex Group to use.",
+	'en': "Object \"{0}\" uses Vertex Group stereo split, but does not define a Vertex Group to use.",
 },
 'exporter_err_open': {
-	'en': "Could not create {} file. Python reports: {}.",
+	'en': "Could not create {0} file. Python reports: {1}.",
 },
 'qc_compile_title': {
 	'en': "Compile QC",
@@ -255,16 +255,16 @@ _data = {
 	'en': "Found no valid objects for export",
 },
 'exporter_err_flexctrl_missing': {
-	'en': "No flex controller defined for shape {}.",
+	'en': "No flex controller defined for shape {0}.",
 },
 'qc_compile_err_compiler': {
-	'en': "Could not execute studiomdl from \"{}\"",
+	'en': "Could not execute studiomdl from \"{0}\"",
 },
 'exporter_err_facesnotex': {
-	'en': "{} faces on {} did not have a Texture assigned",
+	'en': "{0} faces on {1} did not have a Texture assigned",
 },
 'exporter_err_flexctrl_undefined': {
-	'en': "Could not find flex controllers for \"{}\"",
+	'en': "Could not find flex controllers for \"{0}\"",
 },
 'exporter_tip': {
 	'en': "Export and compile Source Engine models",
@@ -273,7 +273,7 @@ _data = {
 	'en': "Export all items selected in the Source Engine Exportables panel",
 },
 'exporter_err_dmxenc': {
-	'en': "DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later",
+	'en': "DMX format \"Model {0}\" requires DMX encoding \"Binary 3\" or later",
 },
 'exporter_prop_group': {
 	'en': "Group Name",
@@ -285,7 +285,7 @@ _data = {
 	'en': " with {0} Errors and {1} Warnings",
 },
 'exporter_err_groupempty': {
-	'en': "Group {} has no active objects",
+	'en': "Group {0} has no active objects",
 },
 'exporter_err_dmxother': {
 	'en': "Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.",
@@ -294,19 +294,19 @@ _data = {
 	'en': "Name of the Group to export",
 },
 'exporter_err_solidifyinside': {
-	'en': "Curve {} has the Solidify modifier with rim fill, but is still exporting polys on both sides.",
+	'en': "Curve {0} has the Solidify modifier with rim fill, but is still exporting polys on both sides.",
 },
 'exporter_err_dupeenv_con': {
-	'en': "Bone constraint \"{}\" found on \"{}\", which already has a bone parent. Ignoring.",
+	'en': "Bone constraint \"{0}\" found on \"{1}\", which already has a bone parent. Ignoring.",
 },
 'exporter_err_unconfigured': {
 	'en': "Scene unconfigured. See the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.",
 },
 'exporter_err_makedirs': {
-	'en': "Could not create export folder. Python reports: {}",
+	'en': "Could not create export folder. Python reports: {0}",
 },
 'exporter_err_weightlinks': {
-	'en': "{} verts on \"{}\" have over 3 weight links. Studiomdl does not support this!",
+	'en': "{0} verts on \"{1}\" have over 3 weight links. Studiomdl does not support this!",
 },
 'exporter_report_menu': {
 	'en': "Source Tools Error Report",
@@ -315,28 +315,28 @@ _data = {
 	'en': "{0} files exported in {1} seconds",
 },
 'exporter_err_groupmuted': {
-	'en': "Group {} is suppressed",
+	'en': "Group {0} is suppressed",
 },
 'exporter_title': {
 	'en': "Export SMD/VTA/DMX",
 },
 'qc_compile_err_unknown': {
-	'en': "Compile of {} failed. Check the console for details",
+	'en': "Compile of {0} failed. Check the console for details",
 },
 'exporter_err_splitvgroup_missing': {
-	'en': "Could not find stereo split Vertex Group \"{}\" on object \"{}\"",
+	'en': "Could not find stereo split Vertex Group \"{0}\" on object \"{1}\"",
 },
 'importer_complete': {
-	'en': "Imported {} files in {} seconds",
+	'en': "Imported {0} files in {1} seconds",
 },
 'importer_err_nofile': {
 	'en': "No file selected",
 },
 'importer_err_smd': {
-	'en': "Could not open SMD file \"{}\": {}",
+	'en': "Could not open SMD file \"{0}\": {1}",
 },
 'importer_qc_macroskip': {
-	'en': "Skipping macro in QC {}",
+	'en': "Skipping macro in QC {0}",
 },
 'importer_tip': {
 	'en': "Imports uncompiled Source Engine model data",
@@ -346,6 +346,9 @@ _data = {
 },
 'importer_makecamera': {
 	'en': "Make Camera At $origin",
+},
+'importer_bone_parent_miss': {
+	'en': "Parent mismatch for bone \"{0}\": \"{1}\" in Blender, \"{2}\" in {3}.",
 },
 'importer_makecamera_tip': {
 	'en': "For use in viewmodel editing; if not set, an Empty will be created instead",
@@ -360,13 +363,13 @@ _data = {
 	'en': "Rotation mode",
 },
 'importer_err_qci': {
-	'en': "Could not open QC $include file \"{}\" - skipping!",
+	'en': "Could not open QC $include file \"{0}\" - skipping!",
 },
 'importer_up_tip': {
 	'en': "Which axis represents 'up' (ignored for QCs)",
 },
 'importer_err_unmatched_mesh': {
-	'en': "{} VTA vertices ({}%) were not matched to a mesh vertex! An object with a vertex group has been created to show where the VTA file's vertices are.",
+	'en': "{0} VTA vertices ({1}%) were not matched to a mesh vertex! An object with a vertex group has been created to show where the VTA file's vertices are.",
 },
 'importer_name_nomat': {
 	'en': "UndefinedMaterial",
@@ -375,16 +378,16 @@ _data = {
 	'en': "Whether imports will latch onto an existing armature or create their own",
 },
 'importer_err_refanim': {
-	'en': "Found animation in reference mesh \"{}\", ignoring!",
+	'en': "Found animation in reference mesh \"{0}\", ignoring!",
 },
 'importer_err_badweights': {
-	'en': "{} vertices weighted to invalid bones on {}",
+	'en': "{0} vertices weighted to invalid bones on {1}",
 },
 'importer_err_bonelimit_smd': {
 	'en': "Source only supports 128 bones!",
 },
 'importer_err_badfile': {
-	'en': "Format of {} not recognised",
+	'en': "Format of {0} not recognised",
 },
 'importer_err_smd_ver': {
 	'en': "Unrecognised/invalid SMD file. Import will proceed, but may fail!",
@@ -399,7 +402,7 @@ _data = {
 	'en': "Import Animations",
 },
 'importer_err_missingbones': {
-	'en': "{} contains {} bones not present in {}: {}",
+	'en': "{0} contains {1} bones not present in {2}: {3}",
 },
 'importer_name_unmatchedvta': {
 	'en': "Unmatched VTA",
@@ -414,7 +417,7 @@ _data = {
 	'en': "Activate Dependency Shapes",
 },
 'gen_block_success': {
-	'en': "DMX written to text block \"{}\"",
+	'en': "DMX written to text block \"{0}\"",
 },
 'gen_block': {
 	'en': "Generate DMX Flex Controller block",
@@ -429,7 +432,7 @@ _data = {
 	'en': "Activates shapes found in the name of the current shape (underscore delimited)",
 },
 'activate_dep_shapes_success': {
-	'en': "Activated {} dependency shapes",
+	'en': "Activated {0} dependency shapes",
 },
 'launch_hlmv': {
 	'en': "Launch HLMV",
@@ -531,7 +534,7 @@ _data = {
 	'en': "View changelog?",
 },
 'update_err_outdated': {
-	'en': "The latest Source Tools require Blender {}. Please upgrade.",
+	'en': "The latest Source Tools require Blender {0}. Please upgrade.",
 },
 'update_err_unknown': {
 	'en': "Could not install update:",
@@ -543,13 +546,13 @@ _data = {
 	'en': "Update was downloaded, but file was not valid",
 },
 'update_done': {
-	'en': "Upgraded to Source Tools {}!",
+	'en': "Upgraded to Source Tools {0}!",
 },
 'updater_title_tip': {
 	'en': "Connects to http://steamreview.org/BlenderSourceTools/latest.php",
 },
 'update_alreadylatest': {
-	'en': "The latest Source Tools ({}) are already installed.",
+	'en': "The latest Source Tools ({0}) are already installed.",
 },
 }
 

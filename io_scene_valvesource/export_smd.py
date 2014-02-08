@@ -48,7 +48,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		#	bpy.context.window_manager.progress_begin(0,1)
 		if not self.properties.filepath:
 			self.properties.filepath = "QC"
-		self.errorReport(get_id("qc_compile_complete",True).format(getEngineBranchName(),num))
+		self.errorReport(get_id("qc_compile_complete",True).format(num,getEngineBranchName()))
 		bpy.context.window_manager.progress_end()
 		return {'FINISHED'}
 	

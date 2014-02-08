@@ -1316,7 +1316,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							scene_parent = bone.parent.name if bone.parent else "<None>"
 							dmx_parent = parent_elem.name if parent_elem else "<None>"
 							if scene_parent != dmx_parent:
-								self.warning("Parent mismatch for bone \"{}\": \"{}\" in Blender, \"{}\" in {}.".format(elem.name,scene_parent,dmx_parent,smd.jobName))
+								self.warning(get_id('importer_bone_parent_miss',True).format(elem.name,scene_parent,dmx_parent,smd.jobName))
 							
 							smd.boneIDs[elem.id] = bone.name
 							smd.boneTransformIDs[elem["transform"].id] = bone.name
