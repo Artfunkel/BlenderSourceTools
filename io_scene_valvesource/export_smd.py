@@ -33,8 +33,8 @@ if not 'progress_begin' in dir(wm): # instead of requiring 2.67
 
 class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_idname = "smd.compile_qc"
-	bl_label = "Compile QC"
-	bl_description = "Compile QCs with the Source SDK"
+	bl_label = get_id("qc_compile_title")
+	bl_description = get_id("qc_compile_tip")
 
 	filepath = bpy.props.StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
 	
@@ -48,7 +48,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		#	bpy.context.window_manager.progress_begin(0,1)
 		if not self.properties.filepath:
 			self.properties.filepath = "QC"
-		self.errorReport("compiled","{} QC".format(getEngineBranchName()), num)
+		self.errorReport(get_id("qc_compile_complete").format(getEngineBranchName(),num))
 		bpy.context.window_manager.progress_end()
 		return {'FINISHED'}
 	
@@ -82,9 +82,9 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		num_good_compiles = 0
 		num_qcs = len(paths)
 		if num_qcs == 0:
-			self.error("Cannot compile, no QCs provided. The Blender Source Tools do not generate QCs.")
+			self.error(get_id("qc_compile_err_nofiles"))
 		elif not os.path.exists(studiomdl_path):
-			self.error( "Could not execute studiomdl from \"{}\"".format(studiomdl_path) )
+			self.error( get_id("qc_compile_err_compiler").format(studiomdl_path) )
 		else:
 			i = 0
 			for qc in paths:
@@ -107,17 +107,17 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 				if studiomdl.returncode == 0:
 					num_good_compiles += 1
 				else:
-					self.error("Compile of {} failed. Check the console for details".format(os.path.basename(qc)))
+					self.error(get_id("qc_compile_err_unknown").format(os.path.basename(qc)))
 				i+=1
 		return num_good_compiles
 
 class SmdExporter(bpy.types.Operator, Logger):
-	'''Export and compile Source Engine models'''
+	get_id("exporter_tip")
 	bl_idname = "export_scene.smd"
-	bl_label = "Export SMD/VTA/DMX"
+	bl_label = get_id("exporter_title")
 	
-	group = bpy.props.StringProperty(name="Group Name",description="Name of the Group to export")
-	export_scene = bpy.props.BoolProperty(name="Scene Export",description="Export all items selected in the Source Engine Exportables panel",default=False) 
+	group = bpy.props.StringProperty(name=get_id("exporter_prop_group"),description=get_id("exporter_prop_group_tip"))
+	export_scene = bpy.props.BoolProperty(name=get_id("scene_export"),description=get_id("exporter_prop_scene_tip"),default=False) 
 
 	@classmethod
 	def poll(self,context):
@@ -138,13 +138,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
 				return {'CANCELLED' }
 		if len(context.scene.vs.export_path) == 0:
-			self.report({'ERROR'},"Scene unconfigured. See the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
+			self.report({'ERROR'},get_id("exporter_err_unconfigured"))
 			return {'CANCELLED'}
 		if context.scene.vs.export_path.startswith("//") and not context.blend_data.filepath:
-			self.report({'ERROR'},"Cannot export to a relative path until the blend file has been saved.")
+			self.report({'ERROR'},get_id("exporter_err_relativeunsaved"))
 			return {'CANCELLED'}
 		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
-			self.report({'ERROR'},"Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.")
+			self.report({'ERROR'},get_id("exporter_err_dmxother"))
 			return {'CANCELLED'}
 		
 		# Don't create an undo level from edit mode
@@ -198,14 +198,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 						self.exportId(context, exportable.get_id())
 				else:
 					group = bpy.data.groups[self.group]
-					if group.vs.mute: self.error("Group {} is suppressed".format(group.name))
-					elif len(group.objects) == 0: self.error("Group {} has no active objects".format(group.name))
+					if group.vs.mute: self.error(get_id("exporter_err_groupmuted").format(group.name))
+					elif len(group.objects) == 0: self.error(get_id("exporter_err_groupempty").format(group.name))
 					else: self.exportId(context, group)
 			
 			num_good_compiles = None
 
 			if self.attemptedExports == 0:
-				self.report('ERROR',"Found no valid objects for export")
+				self.report('ERROR',get_id("exporter_err_noexportables"))
 			elif context.scene.vs.qc_compile and context.scene.vs.qc_path:
 				# ...and compile the QC
 				if not SMD_OT_Compile.poll(context):
@@ -215,7 +215,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					print("\n")
 			
 			if num_good_compiles != None:
-				self.errorReport("{0} files exported and {2} QCs compiled ({3}/{4}) in {1} seconds".format(
+				self.errorReport(get_id("exporter_report_qc").format(
 						self.files_exported,
 						self.elapsed_time(),
 						num_good_compiles,
@@ -223,7 +223,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						os.path.basename(getGamePath())
 						))
 			else:
-				self.errorReport("{0} files exported in {1} seconds".format(
+				self.errorReport(get_id("exporter_report").format(
 					self.files_exported,
 					self.elapsed_time()
 					))
@@ -263,7 +263,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			try:
 				os.makedirs(path)
 			except Exception as err:
-				self.error("Could not create export folder. Python reports: {}".format(err))
+				self.error(get_id("exporter_err_makedirs").format(err))
 				return
 		
 		# We don't want to bake any meshes with poses applied
@@ -570,7 +570,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			elif mod.type == 'SOLIDIFY' and not solidify_fill_rim:
 				solidify_fill_rim = mod.use_rim
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':
-				self.error("Cannot export shape keys from \"{}\" because it has a '{}' Decimate modifier. Only Un-Subdivide mode is supported.".format(id.name,mod.decimate_type))
+				self.error(get_id("exporter_err_shapes_decimate").format(id.name,mod.decimate_type))
 				return result
 		
 		ops.object.mode_set(mode='OBJECT')
@@ -580,7 +580,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		data.name = id.name + "_baked"
 		
 		if len(data.polygons) == 0:
-			self.error("Object {} has no polygons, skipping".format(id.name))
+			self.error(get_id("exporter_err_nopolys").format(id.name))
 			return
 		
 		def put_in_object(id,data, quiet=False):
@@ -601,7 +601,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if id.data.vs.faces == 'BOTH':
 					ops.mesh.duplicate()
 					if solidify_fill_rim and not quiet:
-						self.warning("Curve {} has the Solidify modifier with rim fill, but is still exporting polys on both sides.".format(id.name))
+						self.warning(get_id("exporter_err_solidifyinside").format(id.name))
 				if id.data.vs.faces != 'FORWARD':
 					ops.mesh.flip_normals()
 				ops.object.mode_set(mode='OBJECT')
@@ -623,7 +623,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else:
 						result.balance_vg = baked.vertex_groups.get(id.data.vs.flex_stereo_vg)
 						if not result.balance_vg:
-							self.warning("Could not find stereo split Vertex Group \"{}\" on object \"{}\"".format(id.data.vs.flex_stereo_vg,id.name))
+							self.warning(get_id("exporter_err_splitvgroup_missing").format(id.data.vs.flex_stereo_vg,id.name))
 				else:
 					axis = axes_lookup[id.data.vs.flex_stereo_mode]
 					balance_width = baked.dimensions[axis]  * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
@@ -690,7 +690,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		try:
 			self.smd_file = open(full_path, 'w')
 		except Exception as err:
-			self.error("Could not create {} file. Python reports: {}.".format("SMD", err))
+			self.error(get_id("exporter_err_open").format("SMD", err))
 			return 0
 		print("-",full_path)
 			
@@ -733,7 +733,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			max_bones = 128
 			if num_bones > max_bones:
-				self.warning("Exported {} bones, but SMD only supports {}!".format(num_bones,max_bones))
+				self.warning(get_id("exporter_err_bonelimit").format(num_bones,max_bones))
 		
 		if not flex:
 			# ANIMATION
@@ -846,7 +846,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					face_index += 1
 
 				if bad_face_mats:
-					format_str = "{} faces on {} did not have a Texture assigned" if bpy.context.scene.vs.use_image_names else "{} faces on {} did not have a Material or Texture assigned"
+					format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
 					self.warning(format_str.format(bad_face_mats,bake.src.data.name))
 				
 				print("- Exported",face_index,"polys")
@@ -1045,7 +1045,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					for elem in [elem for elem in DmeCombinationOperator["targets"] if elem.type != "DmeFlexRules"]:
 						DmeCombinationOperator["targets"].remove(elem)
 				except Exception as err:
-					self.error("Could not load flex controllers. Python reports: {}".format(err))
+					self.error(get_id("exporter_err_flexctrl_loadfail").format(err))
 					return 0
 			else:
 				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
@@ -1223,7 +1223,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			vertex_data["normalsIndices"] = datamodel.make_array(normsIndices,int)
 			
 			if bad_face_mats:
-				format_str = "{} faces on {} did not have a Texture assigned" if bpy.context.scene.vs.use_image_names else "{} faces on {} did not have a Material or Texture assigned"
+				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
 				self.warning(format_str.format(bad_face_mats, bake.name))
 			bench.report("polys")
 			
@@ -1257,7 +1257,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 							try:
 								wrinkle_scale = _FindScale()
 							except ValueError:
-								self.warning("No flex controller defined for shape {}.".format(shape_name))
+								self.warning(get_id("exporter_err_flexctrl_missing").format(shape_name))
 							pass
 					
 					delta_state_weights.append(datamodel.Vector2([0.0,0.0])) # ??
@@ -1474,7 +1474,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			else:
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
 		except (PermissionError, FileNotFoundError) as err:
-			self.error("Could not create {} file. Python reports: {}.".format("DMX",err))
+			self.error(get_id("exporter_err_open").format("DMX",err))
 
 		bench.report("write")
 		if bench.quiet:

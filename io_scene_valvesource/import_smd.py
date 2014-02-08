@@ -26,8 +26,8 @@ from .utils import *
 
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
-	bl_label = "Import SMD/VTA, DMX, QC"
-	bl_description = "Imports uncompiled Source Engine model data"
+	bl_label = get_id("importer_title")
+	bl_description = get_id("importer_tip")
 	bl_options = {'UNDO'}
 	
 	qc = None
@@ -39,12 +39,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 	filter_glob = StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
 
 	# Custom properties
-	append = BoolProperty(name="Append To Existing Model", description="Whether imports will latch onto an existing armature or create their own", default=True)
-	doAnim = BoolProperty(name="Import Animations", default=True)
-	upAxis = EnumProperty(name="Up Axis",items=axes,default='Z',description="Which axis represents 'up' (ignored for QCs)")
-	makeCamera = BoolProperty(name="Make Camera At $origin",description="For use in viewmodel editing; if not set, an Empty will be created instead",default=False)
+	append = BoolProperty(name=get_id("importer_append"), description=get_id("importer_append_tip"), default=True)
+	doAnim = BoolProperty(name=get_id("importer_doanims"), default=True)
+	upAxis = EnumProperty(name="Up Axis",items=axes,default='Z',description=get_id("importer_up_tip"))
+	makeCamera = BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
-	rotMode = EnumProperty(name="Rotation mode",items=rotModes,default='XYZ',description="Determines the type of rotation Keyframes created when importing bones or animation")
+	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
 	
 	def execute(self, context):		
 		pre_obs = set(bpy.context.scene.objects)
@@ -64,12 +64,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 			self.countSMDs = self.readDMX(self.properties.filepath, self.properties.upAxis, self.properties.rotMode, append=self.properties.append)
 		else:
 			if len(filepath_lc) == 0:
-				self.report({'ERROR'},"No file selected")
+				self.report({'ERROR'},get_id("importer_err_nofile"))
 			else:
-				self.report({'ERROR'},"Format of {} not recognised".format(os.path.basename(self.properties.filepath)))
+				self.report({'ERROR'},get_id("importer_err_badfile").format(os.path.basename(self.properties.filepath)))
 			return {'CANCELLED'}
 
-		self.errorReport("imported","file",self.countSMDs)
+		self.errorReport(get_id("importer_complete").format(self.countSMDs,self.elapsed_time()))
 		if self.countSMDs:
 			ops.object.select_all(action='DESELECT')
 			new_obs = set(bpy.context.scene.objects).difference(pre_obs)
@@ -273,7 +273,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		print("- Imported {} new bones".format(len(smd.a.data.bones)) )
 
 		if len(smd.a.data.bones) > 128:
-			self.warning("Source only supports 128 bones!")
+			self.warning(get_id("importer_err_bonelimit_smd"))
 
 	@classmethod
 	def findArmature(self):
@@ -562,11 +562,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 				smd.a.select = True
 				if ops.graph.clean.poll():
 					ops.graph.handle_type(type='AUTO')
-				bpy.context.area.type = oldType # in Blender 2.59 this leaves context.region blank, making some future ops calls (e.g. view3d.view_all) fail!'''
+				bpy.context.area.type = oldType # in Blender 2.59 this leaves context.region blank, making some future ops calls (e.g. view3d.view_all) fail!
 				for bone in smd.a.data.bones:
 					bone.select = False
 			else: # Blender is probably in background mode
-				self.warning("Unable to clean keyframe handles, animations might be jittery.")
+				self.warning(get_id("importer_err_cleancurves"))
 
 		# clear any unkeyed poses
 		for bone in smd.a.pose.bones:
@@ -736,7 +736,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if smdContinue(line):
 				continue
 
-			mat, mat_ind = self.getMeshMaterial(line if line else pgettext("UndefinedMaterial"))
+			mat, mat_ind = self.getMeshMaterial(line if line else pgettext(get_id("importer_name_nomat")))
 			mats.append(mat_ind)
 
 			# ***************************************************************
@@ -823,7 +823,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				md.update()
 
 			if badWeights:
-				self.warning("{} vertices weighted to invalid bones on {}".format(badWeights,smd.jobName))
+				self.warning(get_id("importer_err_badweights").format(badWeights,smd.jobName))
 			print("- Imported {} polys".format(countPolys))
 
 	# vertexanimation block
@@ -844,7 +844,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							smd.m = obj
 				
 		if not smd.m:
-			self.error("Could not import shape keys: no valid target object found") # FIXME: this could actually be supported
+			self.error(get_id("importer_err_shapetarget")) # FIXME: this could actually be supported
 			return
 		
 		smd.m.show_only_shape_key = True # easier to view each shape, less confusion when several are active at once
@@ -883,7 +883,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					vta_ref.matrix_world = smd.m.matrix_world
 					bpy.context.scene.objects.link(vta_ref)
 
-					vta_err_vg = vta_ref.vertex_groups.new("Unmatched VTA")
+					vta_err_vg = vta_ref.vertex_groups.new(get_id("importer_name_unmatchedvta"))
 				elif making_base_shape:
 					vd.vertices.add(len(vta_cos)/3)
 					vd.vertices.foreach_set("co",vta_cos)
@@ -921,7 +921,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if len(bad_vta_verts) > 0:
 						err_ratio = len(bad_vta_verts) / num_vta_verts
 						vta_err_vg.add(bad_vta_verts,1.0,'REPLACE')
-						message = "{} VTA vertices ({}%) were not matched to a mesh vertex! An object with a vertex group has been created to show where the VTA file's vertices are.".format(len(bad_vta_verts), int(err_ratio * 100))
+						message = get_id("importer_err_unmatched_mesh").format(len(bad_vta_verts), int(err_ratio * 100))
 						if err_ratio == 1:
 							self.error(message)
 							return
@@ -994,7 +994,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			
 			# Skip macros
 			if line[0] == "$definemacro":
-				self.warning("Skipping macro in QC {}".format(filename))
+				self.warning(get_id("importer_qc_macroskip").format(filename))
 				while line[-1] == "\\\\":
 					line = self.parseQuoteBlockedLine( file.readline())
 
@@ -1179,7 +1179,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				try:
 					self.readQC(path,False, doAnim, makeCamera, rotMode)
 				except IOError:
-					self.warning("Could not open QC $include file \"{}\" - skipping!".format(path))
+					self.warning(get_id("importer_err_qci").format(path))
 
 		file.close()
 
@@ -1223,7 +1223,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		try:
 			smd.file = file = open(filepath, 'r')
 		except IOError as err: # TODO: work out why errors are swallowed if I don't do this!
-			self.error("Could not open SMD file \"{}\": {}".format(smd.jobName,err))
+			self.error(get_id("importer_err_smd").format(smd.jobName,err))
 			return 0
 
 		if newscene:
@@ -1238,7 +1238,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if len(header): break
 		
 		if header != ["version" ,"1"]:
-			self.warning ("Unrecognised/invalid SMD file. Import will proceed, but may fail!")
+			self.warning (get_id("importer_err_smd_ver"))
 
 		if smd.jobType == None:
 			self.scanSMD() # What are we dealing with?
@@ -1250,13 +1250,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if line == "vertexanimation\n": self.readShapes()
 
 		file.close()
-		'''
-		if smd.m and smd.upAxisMat and smd.upAxisMat != 1:
-			smd.m.rotation_euler = smd.upAxisMat.to_euler()
-			smd.m.select = True
-			bpy.context.scene.update()
-			ops.object.transform_apply(rotation=True)
-		'''
 		printTimeMessage(smd.startTime,smd.jobName,"import")
 
 		return 1
@@ -1334,7 +1327,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				validateSkeleton(DmeModel["children"], None)
 
 				if len(missing_bones):
-					self.warning("{} contains {} bones not present in {}:\n{}".format(smd.jobName,len(missing_bones),smd.a.name,", ".join(missing_bones)))
+					self.warning(get_id("importer_err_missingbones").format(smd.jobName,len(missing_bones),smd.a.name,", ".join(missing_bones)))
 			else:
 				if smd.jobType == ANIM: smd.jobType = ANIM_SOLO
 				restData = {}

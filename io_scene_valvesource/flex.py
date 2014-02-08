@@ -23,9 +23,9 @@ from . import datamodel
 from .utils import *
 
 class DmxWriteFlexControllers(bpy.types.Operator):
-	'''Generate a simple Flex Controller DMX block'''
 	bl_idname = "export_scene.dmx_flex_controller"
-	bl_label = "Generate DMX Flex Controller block"
+	bl_label = get_id("gen_block")
+	bl_description = get_id("gen_block_tip")
 	bl_options = {'UNDO','INTERNAL'}
 	
 	@classmethod
@@ -87,14 +87,14 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		if not id.vs.flex_controller_source or bpy.data.texts.get(id.vs.flex_controller_source):
 			id.vs.flex_controller_source = text.name
 		
-		self.report({'INFO'},"DMX written to text block \"{}\"".format(text.name))		
+		self.report({'INFO'},get_id("gen_block_success").format(text.name))		
 		
 		return {'FINISHED'}
 
 class ActiveDependencyShapes(bpy.types.Operator):
-	'''Activates shapes found in the name of the current shape (underscore delimited)'''
 	bl_idname = "object.shape_key_activate_dependents"
-	bl_label = "Activate Dependency Shapes"
+	bl_label = get_id("activate_dep_shapes")
+	bl_description = get_id("activate_dep_shapes_tip")
 	bl_options = {'UNDO'}
 
 	@classmethod
@@ -115,13 +115,13 @@ class ActiveDependencyShapes(bpy.types.Operator):
 				num_activated += 1
 			else:
 				key.value = 0
-		self.report({'INFO'},"Activated {} dependency shapes".format(num_activated - 1))
+		self.report({'INFO'},get_id("activate_dep_shapes_success").format(num_activated - 1))
 		return {'FINISHED'}
 
 class AddCorrectiveShapeDrivers(bpy.types.Operator):
-	'''Adds Blender animation drivers to corrective Source engine shapes'''
 	bl_idname = "object.sourcetools_generate_corrective_drivers"
-	bl_label = "Generate Corrective Shape Key Drivers"
+	bl_label = get_id("gen_drivers")
+	bl_description = get_id("gen_drivers_tip")
 	bl_options = {'UNDO'}
 
 	@classmethod
@@ -148,9 +148,10 @@ class AddCorrectiveShapeDrivers(bpy.types.Operator):
 		return {'FINISHED'}
 
 class InsertUUID(bpy.types.Operator):
-	'''Inserts a random UUID at the current location'''
 	bl_idname = "text.insert_uuid"
-	bl_label = "Insert UUID"
+	bl_label = get_id("insert_uuid")
+	bl_description = get_id("insert_uuid_tip")
+
 	@classmethod
 	def poll(self,context):
 		return context.space_data.type == 'TEXT_EDITOR' and context.space_data.text

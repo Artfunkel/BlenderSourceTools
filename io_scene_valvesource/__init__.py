@@ -74,13 +74,13 @@ class ValveSource_Exportable(bpy.types.PropertyGroup):
 			bpy.context.scene.update_tag()
 
 def menu_func_import(self, context):
-	self.layout.operator(import_smd.SmdImporter.bl_idname, text="Source Engine (.smd, .vta, .dmx, .qc)")
+	self.layout.operator(import_smd.SmdImporter.bl_idname, text=get_id("import_menuitem"))
 
 def menu_func_export(self, context):
-	self.layout.menu("SMD_MT_ExportChoice", text="Source Engine (.smd, .vta, .dmx)")
+	self.layout.menu("SMD_MT_ExportChoice", text=get_id("export_menuitem"))
 
 def menu_func_shapekeys(self,context):
-	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text="Activate dependency shapes", icon='SHAPEKEY_DATA')
+	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text=get_id("activate_dependency_shapes"), icon='SHAPEKEY_DATA')
 
 def menu_func_textedit(self,context):
 	self.layout.operator(flex.InsertUUID.bl_idname)
@@ -148,61 +148,61 @@ formats = []
 for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '') )
 
 class ValveSource_SceneProps(PropertyGroup):
-	export_path = StringProperty(name="Export Path",description="The root folder into which SMD and DMX exports from this scene are written", subtype='DIR_PATH')
-	qc_compile = BoolProperty(name="Compile all on export",description="Compile all QC files whenever anything is exported",default=False)
+	export_path = StringProperty(name=get_id("exportroot"),description=get_id("exportroot_tip"), subtype='DIR_PATH')
+	qc_compile = BoolProperty(name=get_id("qc_compileall"),description=get_id("qc_compileall_tip"),default=False)
 	qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
-	engine_path = StringProperty(name="Engine Path",description="Directory containing studiomdl", subtype="DIR_PATH",update=engine_path_changed)
+	engine_path = StringProperty(name=get_id("engine_path"),description=get_id("engine_path_tip"), subtype="DIR_PATH",update=engine_path_changed)
 	
-	dmx_encoding = EnumProperty(name="DMX encoding",description="Manual override for binary DMX encoding version",items=tuple(encodings),default='2')
-	dmx_format = EnumProperty(name="DMX format",description="Manual override for DMX model format version",items=tuple(formats),default='1')
+	dmx_encoding = EnumProperty(name=get_id("dmx_encoding"),description=get_id("dmx_encoding_tip"),items=tuple(encodings),default='2')
+	dmx_format = EnumProperty(name=get_id("dmx_format"),description=get_id("dmx_format_tip"),items=tuple(formats),default='1')
 	
-	export_format = EnumProperty(name="Export Format",items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
-	up_axis = EnumProperty(name="Target Up Axis",items=axes,default='Z',description="Use for compatibility with data from other 3D tools")
-	use_image_names = BoolProperty(name="Ignore Blender Materials",description="Only export face-assigned image filenames",default=False)
-	layer_filter = BoolProperty(name="Visible layers only",description="Ignore objects in hidden layers",default=False)
-	material_path = StringProperty(name="Material Path",description="Folder relative to game root containing VMTs referenced in this scene (DMX only)")
-	export_list_active = IntProperty(name="Active exportable",default=0,update=export_active_changed)
+	export_format = EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
+	up_axis = EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
+	use_image_names = BoolProperty(name=get_id("ignore_materials"),description=get_id("ignore_materials_tip"),default=False)
+	layer_filter = BoolProperty(name=get_id("visible_only"),description=get_id("visible_only_tip"),default=False)
+	material_path = StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
+	export_list_active = IntProperty(name=get_id("active_exportable"),default=0,update=export_active_changed)
 	export_list = CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
-	game_path = StringProperty(name="Game Path",description="Directory containing gameinfo.txt (if unset, the system VPROJECT will be used)",subtype="DIR_PATH",update=game_path_changed)
+	game_path = StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=game_path_changed)
 
 class ExportableProps():
 	flex_controller_modes = (
-		('SIMPLE',"Simple","Generate one flex controller per shape key"),
-		('ADVANCED',"Advanced","Insert the flex controllers of an existing DMX file")
+		('SIMPLE',"Simple",get_id("controllers_simple_tip")),
+		('ADVANCED',"Advanced",get_id("controllers_advanced_tip"))
 	)
 
-	export = BoolProperty(name="Scene Export",description="Export this item with the scene",default=True)
-	subdir = StringProperty(name="Subfolder",description="Optional path relative to scene output folder")
-	flex_controller_mode = EnumProperty(name="DMX Flex Controller generation",description="How flex controllers are defined",items=flex_controller_modes,default='SIMPLE')
-	flex_controller_source = StringProperty(name="DMX Flex Controller source",description="A DMX file (or Text datablock) containing flex controllers",subtype='FILE_PATH')
+	export = BoolProperty(name=get_id("scene_export"),description=get_id("use_scene_export_tip"),default=True)
+	subdir = StringProperty(name=get_id("subdir"),description=get_id("subdir_tip"))
+	flex_controller_mode = EnumProperty(name=get_id("controllers_mode"),description=get_id("controllers_mode_tip"),items=flex_controller_modes,default='SIMPLE')
+	flex_controller_source = StringProperty(name=get_id("controller_source"),description=get_id("controllers_source_tip"),subtype='FILE_PATH')
 
 class ValveSource_ObjectProps(ExportableProps,PropertyGroup):
-	action_filter = StringProperty(name="Action Filter",description="Actions with names matching this filter pattern and have users will be exported")
-	triangulate = BoolProperty(name="Triangulate",description="Avoids concave DMX faces, which are not supported by studiomdl",default=False)
+	action_filter = StringProperty(name=get_id("action_filter"),description=get_id("action_filter_tip"))
+	triangulate = BoolProperty(name=get_id("triangulate"),description=get_id("triangulate_tip"),default=False)
 
 class ValveSource_ArmatureProps(PropertyGroup):
-	implicit_zero_bone = BoolProperty(name="Implicit motionless bone",default=True,description="Create a dummy bone for vertices which don't move. Emulates Blender's behaviour in Source, but may break compatibility with existing files (SMD only)")
+	implicit_zero_bone = BoolProperty(name=get_id("dummy_bone"),default=True,description=get_id("dummy_bone_tip"))
 	arm_modes = (
-		('CURRENT',"Current / NLA","The armature's currently assigned action or NLA tracks"),
-		('FILTERED',"Action Filter","All actions that match the armature's filter term and have users")
+		('CURRENT',get_id("action_selection_current"),get_id("action_selection_current_tip")),
+		('FILTERED',get_id("action_filter"),get_id("action_selection_filter_tip"))
 	)
-	action_selection = EnumProperty(name="Action Selection", items=arm_modes,description="How actions are selected for export",default='CURRENT')
-	legacy_rotation = BoolProperty(name="Legacy rotation",description="Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",default=False)
+	action_selection = EnumProperty(name=get_id("action_selection_mode"), items=arm_modes,description=get_id("action_selection_mode_tip"),default='CURRENT')
+	legacy_rotation = BoolProperty(name=get_id("bone_rot_legacy"),description=get_id("bone_rot_legacy_tip"),default=False)
 
 class ValveSource_GroupProps(ExportableProps,PropertyGroup):
-	mute = BoolProperty(name="Suppress",description="Export this group's objects individually",default=False)
+	mute = BoolProperty(name=get_id("group_suppress"),description=get_id("group_suppress_tip"),default=False)
 	selected_item = IntProperty(update=group_selected_changed)
-	automerge = BoolProperty(name="Merge mechanical parts",description="Optimises DMX export of meshes sharing the same parent bone",default=False)
+	automerge = BoolProperty(name=get_id("group_merge_mech"),description=get_id("group_merge_mech_tip"),default=False)
 
 class ShapeTypeProps():
-	flex_stereo_sharpness = FloatProperty(name="DMX stereo split sharpness",description="How sharply stereo flex shapes should transition from left to right",default=90,min=0,max=100,subtype='PERCENTAGE')
-	flex_stereo_mode = EnumProperty(name="DMX stereo split mode",description="How stereo split balance should be defined",
+	flex_stereo_sharpness = FloatProperty(name=get_id("shape_stereo_sharpness"),description=get_id("shape_stereo_sharpness_tip"),default=90,min=0,max=100,subtype='PERCENTAGE')
+	flex_stereo_mode = EnumProperty(name=get_id("shape_stereo_mode"),description=get_id("shape_stereo_mode_tip"),
 								 items=tuple(list(axes) + [('VGROUP','Vertex Group','Use a vertex group to define stereo balance')]), default='X')
-	flex_stereo_vg = StringProperty(name="DMX stereo split vertex group",description="The vertex group that defines stereo balance (0=Left, 1=Right)")
+	flex_stereo_vg = StringProperty(name=get_id("shape_stereo_vgroup"),description=get_id("shape_stereo_vgroup_tip"))
 
 class CurveTypeProps():
-	faces = EnumProperty(name="Polygon Generation",description="Determines which side(s) of this curve will generate polygons when exported",default='FORWARD',items=(
+	faces = EnumProperty(name=get_id("curve_poly_side"),description=get_id("curve_poly_side_tip"),default='FORWARD',items=(
 	('FORWARD', 'Forward (outer) side', ''),
 	('BACKWARD', 'Backward (inner) side', ''),
 	('BOTH', 'Both sides', '')) )
@@ -230,7 +230,7 @@ def register():
 	except: pass
 	
 	def make_pointer(prop_type):
-		return PointerProperty(name="Blender Source Tools settings",type=prop_type)
+		return PointerProperty(name=get_id("settings_prop"),type=prop_type)
 		
 	bpy.types.Scene.vs = make_pointer(ValveSource_SceneProps)
 	bpy.types.Object.vs = make_pointer(ValveSource_ObjectProps)

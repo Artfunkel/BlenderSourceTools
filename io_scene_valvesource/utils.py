@@ -344,7 +344,7 @@ def make_export_list():
 		for g in scene_groups:
 			i = s.vs.export_list.add()
 			if g.vs.mute:
-				i.name = "{} {}".format(g.name,pgettext("(suppressed)"))
+				i.name = "{} {}".format(g.name,pgettext(get_id("exportables_group_mute_suffix")))
 			else:
 				i.name = makeDisplayName(g)
 			i.item_name = g.name
@@ -446,7 +446,7 @@ class Logger:
 		if len(self.log_errors) or len(self.log_warnings):
 			message += " with {0} Errors and {1} Warnings".format(len(self.log_errors),len(self.log_warnings))
 			if not bpy.app.background:
-				bpy.context.window_manager.popup_menu(self.list_errors,title="Source Tools Error Report")
+				bpy.context.window_manager.popup_menu(self.list_errors,title=get_id("exporter_report_menu"))
 			
 			print("{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings)))
 			for msg in self.log_errors: print("Error:",msg)
@@ -542,10 +542,10 @@ if not "p_cache" in globals():
 	p_cache = Cache() # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
-	'''Launches Half-Life Model Viewer'''
 	bl_idname = "smd.launch_hlmv"
-	bl_label = "Launch HLMV"
-	
+	bl_label = get_id("launch_hlmv")
+	bl_description = get_id("launch_hlmv_tip")
+
 	@classmethod
 	def poll(self,context):
 		return bool(context.scene.vs.engine_path)
@@ -559,10 +559,10 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 
 class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
 	bl_idname = "smd.toggle_export"
-	bl_label = "Set Source Tools export state"
+	bl_label = get_id("exportstate")
 	bl_options = {'REGISTER','UNDO'}
 	
-	pattern = bpy.props.StringProperty(name="Search pattern",description="Visible objects with this string in their name will be affected")
+	pattern = bpy.props.StringProperty(name=get_id("exportstate_pattern"),description=get_id("exportstate_pattern_tip"))
 	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
 	
 	@classmethod
