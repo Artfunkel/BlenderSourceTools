@@ -876,7 +876,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if values[0] == "time":
 				shape_name = smd.shapeNames.get(values[1])
 				if smd.vta_ref == None:
-					smd.m.shape_key_add(shape_name if shape_name else "Basis")
+					if not hasShapes(smd.m, False): smd.m.shape_key_add(shape_name if shape_name else "Basis")
 					vd = bpy.data.meshes.new(name="VTA vertices")
 					vta_ref = smd.vta_ref = bpy.data.objects.new(name=vd.name,object_data=vd)
 					vta_ref.matrix_world = smd.m.matrix_world
