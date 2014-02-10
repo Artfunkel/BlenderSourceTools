@@ -89,7 +89,7 @@ def print(*args, newline=True, debug_only=False):
 def get_id(id, format_string = False):
 	from . import translations
 	out = p_cache.ids[id]
-	return pgettext(oun) if format_string else out
+	return pgettext(out) if format_string else out
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
