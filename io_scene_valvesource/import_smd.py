@@ -845,9 +845,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if not smd.m:
 			self.error("Could not import shape keys: no valid target object found") # FIXME: this could actually be supported
 			return
-		
+
+		if hasShapes(smd.m):
+			smd.m.active_shape_key_index = 0
 		smd.m.show_only_shape_key = True # easier to view each shape, less confusion when several are active at once
-		
+
 		def vec_round(v):
 			return Vector([round(co,3) for co in v])
 		co_map = {}
