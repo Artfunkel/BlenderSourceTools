@@ -20,7 +20,7 @@
 
 bl_info = {
 	"name": "Blender Source Tools",
-	"author": "Tom Edwards (Artfunkel)",
+	"author": "Tom Edwards (Russian translation: Grigory Revzin)",
 	"version": (2, 0, 0),
 	"blender": (2, 66, 0),
 	"api": 54697,
@@ -74,7 +74,7 @@ class ValveSource_Exportable(bpy.types.PropertyGroup):
 			bpy.context.scene.update_tag()
 
 def menu_func_import(self, context):
-	self.layout.operator(import_smd.SmdImporter.bl_idname, text=get_id("import_menuitem"))
+	self.layout.operator(import_smd.SmdImporter.bl_idname, text=get_id("import_menuitem", True))
 
 def menu_func_export(self, context):
 	self.layout.menu("SMD_MT_ExportChoice", text=get_id("export_menuitem"))
@@ -150,7 +150,7 @@ for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '
 class ValveSource_SceneProps(PropertyGroup):
 	export_path = StringProperty(name=get_id("exportroot"),description=get_id("exportroot_tip"), subtype='DIR_PATH')
 	qc_compile = BoolProperty(name=get_id("qc_compileall"),description=get_id("qc_compileall_tip"),default=False)
-	qc_path = StringProperty(name="QC Path",description="This scene's QC file(s); Unix wildcards supported",default="//*.qc",subtype="FILE_PATH")
+	qc_path = StringProperty(name=get_id("qc_path"),description=get_id("qc_path_tip"),default="//*.qc",subtype="FILE_PATH")
 	engine_path = StringProperty(name=get_id("engine_path"),description=get_id("engine_path_tip"), subtype="DIR_PATH",update=engine_path_changed)
 	
 	dmx_encoding = EnumProperty(name=get_id("dmx_encoding"),description=get_id("dmx_encoding_tip"),items=tuple(encodings),default='2')
@@ -198,14 +198,14 @@ class ValveSource_GroupProps(ExportableProps,PropertyGroup):
 class ShapeTypeProps():
 	flex_stereo_sharpness = FloatProperty(name=get_id("shape_stereo_sharpness"),description=get_id("shape_stereo_sharpness_tip"),default=90,min=0,max=100,subtype='PERCENTAGE')
 	flex_stereo_mode = EnumProperty(name=get_id("shape_stereo_mode"),description=get_id("shape_stereo_mode_tip"),
-								 items=tuple(list(axes) + [('VGROUP','Vertex Group','Use a vertex group to define stereo balance')]), default='X')
+								 items=tuple(list(axes) + [('VGROUP','Vertex Group',get_id("shape_stereo_mode_vgroup"))]), default='X')
 	flex_stereo_vg = StringProperty(name=get_id("shape_stereo_vgroup"),description=get_id("shape_stereo_vgroup_tip"))
 
 class CurveTypeProps():
 	faces = EnumProperty(name=get_id("curve_poly_side"),description=get_id("curve_poly_side_tip"),default='FORWARD',items=(
-	('FORWARD', 'Forward (outer) side', ''),
-	('BACKWARD', 'Backward (inner) side', ''),
-	('BOTH', 'Both sides', '')) )
+	('FORWARD', get_id("curve_poly_side_fwd"), ''),
+	('BACKWARD', get_id("curve_poly_side_back"), ''),
+	('BOTH', get_id("curve_poly_side_both"), '')) )
 
 class ValveSource_MeshProps(ShapeTypeProps,PropertyGroup):
 	pass

@@ -9,6 +9,9 @@ _data = {
 	'en': "All actions that match the armature's filter term and have users",
 	'ru': "Все действия, которые подходят под фильтр имён действий и где-либо используются",
 },
+'curve_poly_side_fwd': {
+	'en': "Forward (outer) side",
+},
 'action_selection_current_tip': {
 	'en': "The armature's currently assigned action or NLA tracks",
 	'ru': "Текущее действие (или нелинейная анимация) скелета",
@@ -77,6 +80,9 @@ _data = {
 	'en': "Export this item with the scene",
 	'ru': "Экспортировать этот объект при экспорте сцены",
 },
+'curve_poly_side_back': {
+	'en': "Backward (inner) side",
+},
 'bone_rot_legacy_tip': {
 	'en': "Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",
 	'ru': "Переназначить Y-ось всех костей в Z-ось для обратной совместимости с старыми импортами",
@@ -121,6 +127,9 @@ _data = {
 	'en': "Triangulate",
 	'ru': "Преобразовывать все многоугольники в треугольники",
 },
+'curve_poly_side_both': {
+	'en': "Both sides",
+},
 'group_merge_mech_tip': {
 	'en': "Optimises DMX export of meshes sharing the same parent bone",
 	'ru': "Оптимизиция экспорт объектов, имеющих общих родителей",
@@ -128,6 +137,9 @@ _data = {
 'action_selection_mode': {
 	'en': "Action Selection",
 	'ru': "Выбор действия",
+},
+'shape_stereo_mode_vgroup': {
+	'en': "Use a vertex group to define stereo balance",
 },
 'controllers_mode_tip': {
 	'en': "How flex controllers are defined",
@@ -240,6 +252,9 @@ _data = {
 'exportables_flex_count': {
 	'en': "Shapes: {0}",
 	'ru': "Ключей формы: {0}",
+},
+'bl_info_author': {
+	'en': "Tom Edwards (Russian translation: Grigory Revzin)",
 },
 'activate_dependency_shapes': {
 	'en': "Activate dependency shapes",
@@ -601,6 +616,9 @@ _data = {
 	'en': "Adds Blender animation drivers to corrective Source engine shapes",
 	'ru': "Создаёт драйверы для ключей форм коррекции, использующихся в Source",
 },
+'qc_path': {
+	'en': "QC Path",
+},
 'engine_path': {
 	'en': "Engine Path",
 	'ru': "Путь до папки bin движка",
@@ -660,6 +678,9 @@ _data = {
 'qc_compileall_tip': {
 	'en': "Compile all QC files whenever anything is exported",
 	'ru': "Компилировать все указанные QC-файлы сразу после экспорта",
+},
+'qc_path_tip': {
+	'en': "This scene's QC file(s); Unix wildcards supported",
 },
 'qc_nogamepath': {
 	'en': "No Game Path and invalid VPROJECT",

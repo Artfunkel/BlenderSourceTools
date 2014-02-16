@@ -143,7 +143,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		r = layout.row(align=True)
 		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
-		r.label(text=item.name,icon=MakeObjectIcon(item,suffix="_DATA"))
+		r.label(text=item.name,translate=False,icon=MakeObjectIcon(item,suffix="_DATA"))
 	
 	def filter_items(self, context, data, propname):
 		fname = self.filter_name.lower()
@@ -245,7 +245,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text=get_id("exportables_flex_generate", True))
 				row.operator("wm.url_open",text=get_id("exportables_flex_help", True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
 				
-				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER')
+				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER',text=get_id("gen_drivers",True))
 				
 				datablocks_dispayed = []
 				
@@ -326,7 +326,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		if have_qcs or isWild(p_cache.qc_lastPath):
 			c = l.column_flow(2)
 			for path in p_cache.qc_paths:
-				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path)).filepath = path
+				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
 		
 		error_row = l.row()
 		compile_row = l.row()
