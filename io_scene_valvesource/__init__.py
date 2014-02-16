@@ -80,7 +80,7 @@ def menu_func_export(self, context):
 	self.layout.menu("SMD_MT_ExportChoice", text=get_id("export_menuitem"))
 
 def menu_func_shapekeys(self,context):
-	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text=get_id("activate_dependency_shapes"), icon='SHAPEKEY_DATA')
+	self.layout.operator(flex.ActiveDependencyShapes.bl_idname, text=get_id("activate_dependency_shapes",True), icon='SHAPEKEY_DATA')
 
 def menu_func_textedit(self,context):
 	self.layout.operator(flex.InsertUUID.bl_idname)

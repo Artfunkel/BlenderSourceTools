@@ -113,10 +113,10 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		col = l.column(align=True)
 		row = col.row(align=True)
-		row.operator("wm.url_open",text=get_id("help"),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Exporting"
-		row.operator("wm.url_open",text=get_id("exportpanel_steam"),icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
+		row.operator("wm.url_open",text=get_id("help",True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Exporting"
+		row.operator("wm.url_open",text=get_id("exportpanel_steam",True),icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
 		if "SmdToolsUpdate" in globals():
-			col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update"),icon='URL')
+			col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
 
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -242,8 +242,8 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				controller_source.prop(item.vs,"flex_controller_source",text=get_id("exportables_flex_src"),icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
 				
 				row = col.row(align=True)
-				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text=get_id("exportables_flex_generate"))
-				row.operator("wm.url_open",text=get_id("exportables_flex_help"),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
+				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text=get_id("exportables_flex_generate", True))
+				row.operator("wm.url_open",text=get_id("exportables_flex_help", True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
 				
 				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER')
 				
@@ -331,7 +331,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
-		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow"),icon='SCRIPT')
+		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT')
 		
 		if not have_qcs:
 			if scene.vs.qc_path:
