@@ -11,6 +11,7 @@ _data = {
 },
 'curve_poly_side_fwd': {
 	'en': "Forward (outer) side",
+	'ru': "Внешняя сторона",
 },
 'action_selection_current_tip': {
 	'en': "The armature's currently assigned action or NLA tracks",
@@ -82,6 +83,7 @@ _data = {
 },
 'curve_poly_side_back': {
 	'en': "Backward (inner) side",
+	'ru': "Внутренняя сторона",
 },
 'bone_rot_legacy_tip': {
 	'en': "Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",
@@ -129,6 +131,7 @@ _data = {
 },
 'curve_poly_side_both': {
 	'en': "Both sides",
+	'ru': "Обе стороны",
 },
 'group_merge_mech_tip': {
 	'en': "Optimises DMX export of meshes sharing the same parent bone",
@@ -140,6 +143,7 @@ _data = {
 },
 'shape_stereo_mode_vgroup': {
 	'en': "Use a vertex group to define stereo balance",
+	'ru': "Использовать группу вершин для разделения стерео-контроллеров",
 },
 'controllers_mode_tip': {
 	'en': "How flex controllers are defined",
@@ -255,6 +259,7 @@ _data = {
 },
 'bl_info_author': {
 	'en': "Tom Edwards (Russian translation: Grigory Revzin)",
+	'ru': "Том Эдвардс (Перевод на русский: Григорий Ревзин)",
 },
 'activate_dependency_shapes': {
 	'en': "Activate dependency shapes",
@@ -492,6 +497,9 @@ _data = {
 	'en': "Determines the type of rotation Keyframes created when importing bones or animation",
 	'ru': "Задаёт тип создаваемых при экспорте ключевых кадров с вращением",
 },
+'importer_balance_group': {
+	'en': "DMX Stereo Balance",
+},
 'importer_rotmode': {
 	'en': "Rotation mode",
 	'ru': "Способ задания вращения",
@@ -618,6 +626,7 @@ _data = {
 },
 'qc_path': {
 	'en': "QC Path",
+	'ru': "Путь до QC-файлов",
 },
 'engine_path': {
 	'en': "Engine Path",
@@ -681,6 +690,7 @@ _data = {
 },
 'qc_path_tip': {
 	'en': "This scene's QC file(s); Unix wildcards supported",
+	'ru': "QC-файлы, связанные с этой сценой; поддерживаются маски для имён файлов",
 },
 'qc_nogamepath': {
 	'en': "No Game Path and invalid VPROJECT",
@@ -692,7 +702,7 @@ _data = {
 },
 'exportroot': {
 	'en': "Export Path",
-	'ru': "Куда экспортировать?",
+	'ru': "Куда экспортировать",
 },
 'export_format': {
 	'en': "Export Format",

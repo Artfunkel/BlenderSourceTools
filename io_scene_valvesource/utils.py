@@ -86,10 +86,13 @@ def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
 		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
 
-def get_id(id, format_string = False):
+def get_id(id, format_string = False, data = False):
 	from . import translations
 	out = p_cache.ids[id]
-	return pgettext(out) if format_string else out
+	if format_string or (data and bpy.context.user_preferences.system.use_translate_new_dataname):
+	   return pgettext(out)
+	else:
+		return out
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
@@ -242,7 +245,7 @@ def MakeObjectIcon(object,prefix=None,suffix=None):
 	return out
 
 def GetCustomPropName(data,prop, suffix=""):
-	return "".join([getattr(type(data), prop)[1]['name'], suffix])
+	return "".join([pgettext(getattr(type(data), prop)[1]['name']), suffix])
 
 def getObExportName(ob):
 	return ob.name

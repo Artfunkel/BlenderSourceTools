@@ -736,7 +736,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if smdContinue(line):
 				continue
 
-			mat, mat_ind = self.getMeshMaterial(line if line else pgettext(get_id("importer_name_nomat")))
+			mat, mat_ind = self.getMeshMaterial(line if line else pgettext(get_id("importer_name_nomat", data=True)))
 			mats.append(mat_ind)
 
 			# ***************************************************************
@@ -1472,7 +1472,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					
 					# Stereo balance
 					if "balance" in DmeVertexData["vertexFormat"]:
-						vg = ob.vertex_groups.new("DMX Stereo Balance")
+						vg = ob.vertex_groups.new(get_id("importer_balance_group", data=True))
 						balanceIndices = DmeVertexData["balanceIndices"]
 						balance = DmeVertexData["balance"]
 						ones = []

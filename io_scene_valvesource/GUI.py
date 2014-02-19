@@ -339,4 +339,4 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			compile_row.enabled = False
 		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path") # can't add this until the above test completes!
 		
-		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN')
+		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN',text=get_id("launch_hlmv",True))
