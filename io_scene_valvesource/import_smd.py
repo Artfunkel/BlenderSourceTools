@@ -44,6 +44,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 	makeCamera = BoolProperty(name="Make camera at $origin",description="For use in viewmodel editing; if not set, an empty will be created instead",default=False)
 	rotModes = ( ('XYZ', "Euler XYZ", ''), ('QUATERNION', "Quaternion", "") )
 	rotMode = EnumProperty(name="Rotation mode",items=rotModes,default='XYZ',description="Keyframes will be inserted in this rotation mode")
+	boneMode = EnumProperty(name="Bone shapes",items=(('NONE','None',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description="The type of custom bone shapes to create")
 	
 	def execute(self, context):		
 		pre_obs = set(bpy.context.scene.objects)
@@ -410,12 +411,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 			# Get sphere bone mesh
 			bone_vis = bpy.data.objects.get("smd_bone_vis")
 			if not bone_vis:
-				ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
-				bone_vis = bpy.context.active_object
-				bone_vis.data.name = bone_vis.name = "smd_bone_vis"
-				bone_vis.use_fake_user = True
-				bpy.context.scene.objects.unlink(bone_vis) # don't want the user deleting this
-				bpy.context.scene.objects.active = smd.a
+				if self.properties.boneMode == 'SPHERE':
+					ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
+					bone_vis = bpy.context.active_object
+					bone_vis.data.name = bone_vis.name = "smd_bone_vis"
+					bone_vis.use_fake_user = True
+					bpy.context.scene.objects.unlink(bone_vis) # don't want the user deleting this
+					bpy.context.scene.objects.active = smd.a
+				elif self.properties.boneMode == 'ARROWS':
+					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
+					bone_vis.use_fake_user = True
+					bone_vis.empty_draw_type = 'ARROWS'
+					bone_vis.empty_draw_size = 5
 				
 			# Calculate armature dimensions...Blender should be doing this!
 			maxs = [0,0,0]
