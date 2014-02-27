@@ -119,7 +119,7 @@ _data = {
 },
 'controllers_source_tip': {
 	'en': "A DMX file (or Text datablock) containing flex controllers",
-	'ru': "DMX-файл или внутренний текст в Blender, ",
+	'ru': "DMX-файл или внутренний текст в Blender, содержащий настройки контроллеров лицевой анимации",
 },
 'curve_poly_side_tip': {
 	'en': "Determines which side(s) of this curve will generate polygons when exported",
@@ -403,7 +403,7 @@ _data = {
 },
 'exporter_err_dmxother': {
 	'en': "Cannot export DMX. Resolve errors with the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.",
-	'ru': "Невозможно экспортировать DMX-файлы. Проверьте панель",
+	'ru': "Невозможно экспортировать DMX-файлы. Проверьте панель \"Экспорт в Source\"",
 },
 'exporter_prop_group_tip': {
 	'en': "Name of the Group to export",
@@ -419,7 +419,7 @@ _data = {
 },
 'exporter_err_unconfigured': {
 	'en': "Scene unconfigured. See the SOURCE ENGINE EXPORT panel in SCENE PROPERTIES.",
-	'ru': "Требуется скофигурировать сцену для экспорта в Source. Проверьте панели \"Эк",
+	'ru': "Требуется скофигурировать сцену для экспорта в Source. Проверьте панель \"Экcпорт в Source\"",
 },
 'exporter_err_makedirs': {
 	'en': "Could not create export folder. Python reports: {0}",
@@ -451,7 +451,7 @@ _data = {
 },
 'exporter_err_splitvgroup_missing': {
 	'en': "Could not find stereo split Vertex Group \"{0}\" on object \"{1}\"",
-	'ru': "Не найдена группа для разделения для стерео-ко",
+	'ru': "Не найдена группа веришн {0} для разделения на левую и правую части стерео-контроллеров на объекте {1}",
 },
 'importer_complete': {
 	'en': "Imported {0} files in {1} seconds",
@@ -499,6 +499,7 @@ _data = {
 },
 'importer_balance_group': {
 	'en': "DMX Stereo Balance",
+	'ru': "Разделение стерео-контроллеров",
 },
 'importer_rotmode': {
 	'en': "Rotation mode",
@@ -650,7 +651,7 @@ _data = {
 },
 'up_axis': {
 	'en': "Target Up Axis",
-	'ru': "Ось, соответствующая направлению \"вверх\"",
+	'ru': "Направление \"Вверх\"",
 },
 'dmx_format': {
 	'en': "DMX format",
