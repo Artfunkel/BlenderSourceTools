@@ -45,6 +45,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 	makeCamera = BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
 	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
+	boneMode = EnumProperty(name="Bone shapes",items=(('NONE','None',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description="The type of custom bone shapes to create")
 	
 	def execute(self, context):		
 		pre_obs = set(bpy.context.scene.objects)
@@ -411,12 +412,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 			# Get sphere bone mesh
 			bone_vis = bpy.data.objects.get("smd_bone_vis")
 			if not bone_vis:
-				ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
-				bone_vis = bpy.context.active_object
-				bone_vis.data.name = bone_vis.name = "smd_bone_vis"
-				bone_vis.use_fake_user = True
-				bpy.context.scene.objects.unlink(bone_vis) # don't want the user deleting this
-				bpy.context.scene.objects.active = smd.a
+				if self.properties.boneMode == 'SPHERE':
+					ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
+					bone_vis = bpy.context.active_object
+					bone_vis.data.name = bone_vis.name = "smd_bone_vis"
+					bone_vis.use_fake_user = True
+					bpy.context.scene.objects.unlink(bone_vis) # don't want the user deleting this
+					bpy.context.scene.objects.active = smd.a
+				elif self.properties.boneMode == 'ARROWS':
+					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
+					bone_vis.use_fake_user = True
+					bone_vis.empty_draw_type = 'ARROWS'
+					bone_vis.empty_draw_size = 5
 				
 			# Calculate armature dimensions...Blender should be doing this!
 			maxs = [0,0,0]
@@ -846,9 +853,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if not smd.m:
 			self.error(get_id("importer_err_shapetarget")) # FIXME: this could actually be supported
 			return
-		
+
+		if hasShapes(smd.m):
+			smd.m.active_shape_key_index = 0
 		smd.m.show_only_shape_key = True # easier to view each shape, less confusion when several are active at once
-		
+
 		def vec_round(v):
 			return Vector([round(co,3) for co in v])
 		co_map = {}
@@ -877,7 +886,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if values[0] == "time":
 				shape_name = smd.shapeNames.get(values[1])
 				if smd.vta_ref == None:
-					smd.m.shape_key_add(shape_name if shape_name else "Basis")
+					if not hasShapes(smd.m, False): smd.m.shape_key_add(shape_name if shape_name else "Basis")
 					vd = bpy.data.meshes.new(name="VTA vertices")
 					vta_ref = smd.vta_ref = bpy.data.objects.new(name=vd.name,object_data=vd)
 					vta_ref.matrix_world = smd.m.matrix_world

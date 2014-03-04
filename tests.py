@@ -114,11 +114,13 @@ class Tests:
 					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_reference.smd",
 					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_expressions.vta",
 					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_Animations_sdk/ShootSMG1.smd")
+		self.assertEqual(len(bpy.data.meshes["Male_06_reference"].shape_keys.key_blocks), 33)
 
 	def test_import_DMX(self):
 		self.runImportTest("import_dmx",
 					 sdk_content_path + "tf/modelsrc/player/heavy/scripts/heavy_low.qc",
 					 sdk_content_path + "tf/modelsrc/player/heavy/animations/dmx/Die_HeadShot_Deployed.dmx")
+		self.assertEqual(len(bpy.data.meshes["head=zero"].shape_keys.key_blocks), 43)
 		
 
 class bpy_266a(unittest.TestCase,Tests):
@@ -174,3 +176,6 @@ class Datamodel_KV2(unittest.TestCase,Datamodel):
 
 class Datamodel_Binary5(unittest.TestCase,Datamodel):
 	format= ("binary",5)
+
+if __name__ == '__main__':
+    unittest.main()
