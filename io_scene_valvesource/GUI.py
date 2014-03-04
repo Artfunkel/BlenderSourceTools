@@ -254,7 +254,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 						col.label(text=get_id("exportables_flex_split"))
 						sharpness_col = col.column(align=True)
 					r = sharpness_col.split(0.33,align=True)
-					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 					r2 = r.split(0.7,align=True)
 					if ob.data.vs.flex_stereo_mode == 'VGROUP':
 						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) == None
@@ -283,7 +283,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			done = set()
 			for ob in [ob for ob in objects if ob.vs.export and hasCurves(ob) and not ob.data in done]:
 				row = col.split(0.33)
-				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 				row.prop(ob.data.vs,"faces",text="")
 				done.add(ob.data)
 			
