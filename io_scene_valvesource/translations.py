@@ -1,4 +1,4 @@
-_languages = ['ru']
+_languages = ['ru', 'uk']
 
 _data = {
 'controllers_simple_tip': {
@@ -457,6 +457,9 @@ _data = {
 	'en': "Imported {0} files in {1} seconds",
 	'ru': "Импортировано файлов: {0}. Прошло секунд: {1}.",
 },
+'importer_bonemode': {
+	'en': "Bone shapes",
+},
 'importer_err_nofile': {
 	'en': "No file selected",
 	'ru': "Файл не выбран",
@@ -504,6 +507,9 @@ _data = {
 'importer_rotmode': {
 	'en': "Rotation mode",
 	'ru': "Способ задания вращения",
+},
+'importer_bonemode_tip': {
+	'en': "How bones in new Armatures should be displayed",
 },
 'importer_err_qci': {
 	'en': "Could not open QC $include file \"{0}\" - skipping!",

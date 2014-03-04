@@ -45,9 +45,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 	makeCamera = BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
 	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
-	boneMode = EnumProperty(name="Bone shapes",items=(('NONE','None',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description="The type of custom bone shapes to create")
+	boneMode = EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
 	
-	def execute(self, context):		
+	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
 
 		pre_eem = context.user_preferences.edit.use_enter_edit_mode
