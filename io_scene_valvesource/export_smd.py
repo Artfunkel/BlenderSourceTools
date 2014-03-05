@@ -163,7 +163,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		scene_update(context.scene, immediate=True)
 		self.bake_results = []
-		self.armature = None
+		self.armature = self.armature_src = None
 		self.bone_ids = {}
 		self.materials_used = set()
 		
