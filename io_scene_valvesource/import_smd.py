@@ -408,21 +408,20 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bone.matrix = keyframes[bone][0].matrix
 			ops.pose.armature_apply()
 			
-			# Get sphere bone mesh
-			bone_vis = bpy.data.objects.get("smd_bone_vis")
-			if not bone_vis:
-				if self.properties.boneMode == 'SPHERE':
-					ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
-					bone_vis = bpy.context.active_object
-					bone_vis.data.name = bone_vis.name = "smd_bone_vis"
-					bone_vis.use_fake_user = True
-					bpy.context.scene.objects.unlink(bone_vis) # don't want the user deleting this
-					bpy.context.scene.objects.active = smd.a
-				elif self.properties.boneMode == 'ARROWS':
-					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
-					bone_vis.use_fake_user = True
-					bone_vis.empty_draw_type = 'ARROWS'
-					bone_vis.empty_draw_size = 5
+			bone_vis = None if self.properties.boneMode == 'NONE' else bpy.data.objects.get("smd_bone_vis")
+			
+			if self.properties.boneMode == 'SPHERE' and (not bone_vis or bone_vis.type != 'MESH'):
+				ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
+				bone_vis = bpy.context.active_object
+				bone_vis.data.name = bone_vis.name = "smd_bone_vis"
+				bone_vis.use_fake_user = True
+				bpy.context.scene.objects.unlink(bone_vis) # don't want the user deleting this
+				bpy.context.scene.objects.active = smd.a
+			elif self.properties.boneMode == 'ARROWS' and (not bone_vis or bone_vis.type != 'EMPTY'):
+				bone_vis = bpy.data.objects.new("smd_bone_vis",None)
+				bone_vis.use_fake_user = True
+				bone_vis.empty_draw_type = 'ARROWS'
+				bone_vis.empty_draw_size = 5
 				
 			# Calculate armature dimensions...Blender should be doing this!
 			maxs = [0,0,0]
