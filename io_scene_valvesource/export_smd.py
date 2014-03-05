@@ -364,12 +364,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
 		
-		if self.armature:
-			if list(self.armature.scale).count(self.armature.scale[0]) != 3:
-				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature.name))
-			armature_bake = self.bakeObj(self.armature)
-			self.armature = armature_bake.object
-			self.armature_src = armature_bake.src
+		if self.armature_src:
+			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
+				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature_src.name))
+			self.armature = self.bakeObj(self.armature_src).object
 			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (type(id) == bpy.types.Object and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
@@ -489,7 +487,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id):
-		for bake in [bake for bake in self.bake_results if bake.src == id]:
+		for bake in [bake for bake in self.bake_results if bake.src == id or bake.object == id]:
 			return bake
 		
 		result = self.BakeResult(id.name)
@@ -513,7 +511,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		while cur_parent:
 			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE' and not result.envelope:
 				result.envelope = cur_parent.parent_bone
-				self.armature = cur_parent.parent
+				self.armature_src = cur_parent.parent
 			
 			top_parent = cur_parent
 			cur_parent = cur_parent.parent
@@ -545,7 +543,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if result.envelope:
 					self.warning("Bone constraint \"{}\" found on \"{}\", which already has a bone parent. Ignoring.".format(con.name,id.name))
 				else:
-					self.armature = con.target
+					self.armature_src = con.target
 					result.envelope = con.subtarget
 		
 		solidify_fill_rim = None
@@ -554,7 +552,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if result.envelope:
 					self.warning("Armature modifier \"{}\" found on \"{}\", which already has a bone parent or constraint. Ignoring.".format(mod.name,id.name))
 				else:
-					self.armature = mod.object
+					self.armature_src = mod.object
 					result.envelope = mod
 			elif mod.type == 'SOLIDIFY' and not solidify_fill_rim:
 				solidify_fill_rim = mod.use_rim
