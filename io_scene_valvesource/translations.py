@@ -63,7 +63,7 @@ _data = {
 },
 'dummy_bone': {
 	'en': "Implicit motionless bone",
-	'ru': "\"Пустая\" кость",
+	'ru': "\"Пустая\" недвижимая кость",
 },
 'curve_poly_side': {
 	'en': "Polygon Generation",
@@ -258,8 +258,8 @@ _data = {
 	'ru': "Ключей формы: {0}",
 },
 'bl_info_author': {
-	'en': "Tom Edwards (Russian translation: Grigory Revzin)",
-	'ru': "Том Эдвардс (Перевод на русский: Григорий Ревзин)",
+	'en': "Tom Edwards (translators: Grigory Revzin, Maxim Tkachenko)",
+	'ru': "Том Эдвардс (переводили: Григорий Ревзин, Максим Ткаченко)",
 },
 'activate_dependency_shapes': {
 	'en': "Activate dependency shapes",
@@ -383,7 +383,7 @@ _data = {
 },
 'exporter_err_dmxenc': {
 	'en': "DMX format \"Model {0}\" requires DMX encoding \"Binary 3\" or later",
-	'ru': "Формат DMX-файла \"Model {0}\" требует структуры DMX-файла не более старую, чем \"Binary 3\".",
+	'ru': "Формат DMX-файла \"Model {0}\" требует структуру DMX-файла не более старую, чем \"Binary 3\".",
 },
 'exporter_prop_group': {
 	'en': "Group Name",
@@ -459,6 +459,7 @@ _data = {
 },
 'importer_bonemode': {
 	'en': "Bone shapes",
+	'ru': "Отображение костей",
 },
 'importer_err_nofile': {
 	'en': "No file selected",
@@ -510,6 +511,7 @@ _data = {
 },
 'importer_bonemode_tip': {
 	'en': "How bones in new Armatures should be displayed",
+	'ru': "Как будут выглядеть кости в импортированном скелете?",
 },
 'importer_err_qci': {
 	'en': "Could not open QC $include file \"{0}\" - skipping!",
