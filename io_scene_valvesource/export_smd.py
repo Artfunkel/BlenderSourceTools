@@ -994,8 +994,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				children = bone_elem["children"] = datamodel.make_array([],datamodel.Element)
 				for child_elems in [writeBone(child) for child in bone.children]:
 					if child_elems: children.extend(child_elems)
-			
-			bpy.context.window_manager.progress_update(len(jointTransforms)/num_bones)
+
+				bpy.context.window_manager.progress_update(len(jointTransforms)/num_bones)
 			return [bone_elem]
 	
 		if armature:
