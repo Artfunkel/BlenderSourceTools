@@ -79,6 +79,8 @@ class Tests:
 	def test_Export_NoArmature_Curve(self):
 		self.runExportTest("Curve_NoArmature")
 
+	def test_Export_NoBones(self):
+		self.runExportTest("Armature_NoBones")
 	def test_Export_AllTypes(self):
 		self.runExportTest("AllTypes_Armature")
 
