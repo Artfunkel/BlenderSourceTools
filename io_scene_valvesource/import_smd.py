@@ -1345,7 +1345,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				if len(missing_bones):
 					self.warning("{} contains {} bones not present in {}:\n{}".format(smd.jobName,len(missing_bones),smd.a.name,", ".join(missing_bones)))
-			else:
+			elif len([child for child in DmeModel["children"] if child.type == "DmeJoint"]):
 				if smd.jobType == ANIM: smd.jobType = ANIM_SOLO
 				restData = {}
 				smd.append = False
@@ -1404,7 +1404,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 						parseModel(subelem,matrix)
 				elif elem.type == "DmeMesh":
 					DmeMesh = elem
-					ops.object.mode_set(mode='OBJECT')
+					if bpy.context.active_object:
+						ops.object.mode_set(mode='OBJECT')
 					ob = smd.m = bpy.data.objects.new(name=DmeMesh.name, object_data=bpy.data.meshes.new(name=DmeMesh.name))
 					bpy.context.scene.objects.link(ob)
 					self.setLayer()
