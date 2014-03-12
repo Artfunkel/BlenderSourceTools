@@ -363,11 +363,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
-		
+
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
 				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature_src.name))
-			self.armature = self.bakeObj(self.armature_src).object
+			if not self.armature:
+				self.armature = self.bakeObj(self.armature_src).object
 			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (type(id) == bpy.types.Object and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
@@ -532,6 +533,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if id.type == 'ARMATURE':			
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
 			self.armature = result.object = id
+			self.armature_src = result.src
 			return result
 		
 		if id.type == 'CURVE':
@@ -925,8 +927,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bench = BenchMarker(1,"DMX")
 		filepath = os.path.realpath(os.path.join(filepath,name + ".dmx"))
 		print("-",filepath)
-		armature = self.armature
-		armature_name = self.armature_src.name if armature else name
+		armature_name = self.armature_src.name if self.armature_src else name
 		materials = {}
 		
 		def makeTransform(name,matrix,object_name):
@@ -953,7 +954,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			jointList = DmeModel["jointList"] = datamodel.make_array([],datamodel.Element)
 		jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)
 		bone_transforms = {} # cache for animation lookup
-		if armature: scale = armature.matrix_world.to_scale()
+		if self.armature: scale = self.armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
 			if bone and not bone in self.exportable_bones:
@@ -974,7 +975,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if cur_p:
 					relMat = cur_p.matrix.inverted() * bone.matrix
 				else:
-					relMat = armature.matrix_world * bone.matrix
+					relMat = self.armature.matrix_world * bone.matrix
 			
 			trfm = makeTransform(bone_name,relMat,"bone"+bone_name)
 			trfm_base = makeTransform(bone_name,relMat,"bone_base"+bone_name)
@@ -998,8 +999,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.window_manager.progress_update(len(jointTransforms)/num_bones)
 			return [bone_elem]
 	
-		if armature:
-			
+		if self.armature:
 			num_bones = len(self.exportable_bones)
 			
 			DmeModel_children.extend(writeBone(None))
@@ -1108,7 +1108,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if type(bake.envelope) == str:
 				jointWeights = [ 1.0 ] * len(ob.data.vertices)
-				bone = armature.pose.bones[bake.envelope]
+				bone = self.armature.pose.bones[bake.envelope]
 				while bone and not bone in self.exportable_bones: bone = bone.parent
 				bone_id = self.bone_ids[bone.name] if bone else 0
 				jointIndices = [ bone_id ] * len(ob.data.vertices)
@@ -1340,7 +1340,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
-			ad = armature.animation_data
+			ad = self.armature.animation_data
 						
 			anim_len = animationLength(ad)
 			

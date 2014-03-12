@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (Artfunkel)",
-	"version": (2, 0, 2),
+	"version": (2, 0, 3),
 	"blender": (2, 66, 0),
 	"api": 54697,
 	"category": "Import-Export",

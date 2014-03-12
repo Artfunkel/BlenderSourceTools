@@ -13,6 +13,9 @@ def section(*args):
 	print("\n\n********\n********  {} {}".format(C.scene.name,*args),"\n********")
 
 class Tests:
+	compare_results = False
+	blend = None
+
 	def loadBlender(self):
 		global bpy, C, D
 		import_module(self.bpy_version)
@@ -23,9 +26,21 @@ class Tests:
 		bpy.app.debug_value = 1
 		print("Blender version",bpy.app.version)
 
-	compare_results = False
+	def compareResults(self):
+		if self.compare_results:
+			expectedresults_path = join("Tests","ExpectedResults",self.blend)
+			if os.path.exists(expectedresults_path):
+				self.maxDiff = None
+				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
+					for f in filenames:
+						with open(join(dirpath,f),'rb') as out_file:
+							with open(join(expectedresults_path,f),'rb') as expected_file:
+								self.assertEqual(out_file.read(),expected_file.read())
+			print("Output matches expected results")
+
 	def runExportTest(self,blend):
 		self.loadBlender()
+		self.blend = blend
 		bpy.ops.wm.open_mainfile(filepath=join("Tests",blend + ".blend"))
 		blend_name = os.path.splitext(blend)[0]
 		C.scene.vs.export_path = os.path.realpath(join(results_path,self.bpy_version,blend_name))
@@ -47,16 +62,7 @@ class Tests:
 		section("SMD scene")
 		ex(True)
 
-		if self.compare_results:
-			expectedresults_path = join("Tests","ExpectedResults",blend)
-			if os.path.exists(expectedresults_path):
-				self.maxDiff = None
-				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
-					for f in filenames:
-						with open(join(dirpath,f),'rb') as out_file:
-							with open(join(expectedresults_path,f),'rb') as expected_file:
-								self.assertEqual(out_file.read(),expected_file.read())
-			print("Output matches expected results")
+		self.compareResults()
 
 		qc_name = bpy.path.abspath("//" + blend_name + ".qc")
 		if os.path.exists(qc_name):
@@ -64,6 +70,17 @@ class Tests:
 			C.scene.vs.game_path = join(steam_common_path,"SourceFilmmaker","game","usermod")
 			C.scene.vs.engine_path = os.path.realpath(join(C.scene.vs.game_path,"..","bin"))
 			bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc"))
+
+	def runExportTest_Single(self,ob_name):
+		bpy.ops.object.mode_set(mode='OBJECT')
+		bpy.ops.object.select_all(action='DESELECT')
+		bpy.data.objects[ob_name].select = True
+		
+		for fmt in ['DMX','SMD']:
+			C.scene.vs.export_format = fmt
+			bpy.ops.export_scene.smd()
+
+		self.compareResults()
 
 	def test_Export_Armature_Mesh(self):
 		self.runExportTest("Cube_Armature")
@@ -83,9 +100,11 @@ class Tests:
 		self.runExportTest("Armature_NoBones")
 	def test_Export_AllTypes(self):
 		self.runExportTest("AllTypes_Armature")
+		self.runExportTest_Single("Armature")
 
 	def test_Export_TF2(self):
 		self.runExportTest("scout")
+		self.runExportTest_Single("vsDmxIO Scene")
 
 	def test_Generate_FlexControllers(self):
 		self.loadBlender()
