@@ -1,4 +1,4 @@
-#  Copyright (c) 2013 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -22,9 +22,9 @@ import bpy, io
 from .utils import *
 
 class SMD_MT_Updated(bpy.types.Menu):
-	bl_label = "Source Tools update"
+	bl_label = get_id("offerchangelog_title")
 	def draw(self,context):
-		self.layout.operator("wm.url_open",text="View changelog?",icon='TEXT').url = "http://steamcommunity.com/groups/BlenderSourceTools#announcements"
+		self.layout.operator("wm.url_open",text=get_id("offerchangelog_offer"),icon='TEXT').url = "http://steamcommunity.com/groups/BlenderSourceTools#announcements"
 
 updater_supported = True
 try:
@@ -34,8 +34,8 @@ except:
 
 class SmdToolsUpdate(bpy.types.Operator):
 	bl_idname = "script.update_smd"
-	bl_label = "Check for Source Tools updates"
-	bl_description = "Connects to http://steamreview.org/BlenderSourceTools/latest.php"
+	bl_label = get_id("updater_title")
+	bl_description = get_id("updater_title_tip")
 	
 	@classmethod
 	def poll(self,context):
@@ -55,7 +55,7 @@ class SmdToolsUpdate(bpy.types.Operator):
 			
 			for i in range(min( len(remote_bpy), len(bpy.app.version) )):
 				if int(remote_bpy[i]) > bpy.app.version[i]:
-					self.report({'ERROR'},"The latest Source Tools require Blender {}. Please upgrade.".format( PrintVer(remote_bpy) ))
+					self.report({'ERROR'},get_id("update_err_outdated", True).format( PrintVer(remote_bpy) ))
 					return {'FINISHED'}
 					
 			for i in range(min( len(remote_ver), len(cur_version) )):
@@ -70,19 +70,19 @@ class SmdToolsUpdate(bpy.types.Operator):
 					zip.extractall(path=os.path.join(os.path.dirname( os.path.abspath( __file__ ) ),".."))
 					
 					bpy.ops.script.reload()
-					self.report({'INFO'},"Upgraded to Source Tools {}!".format(PrintVer(remote_ver)))
+					self.report({'INFO'},get_id("update_done", True).format(PrintVer(remote_ver)))
 					bpy.ops.wm.call_menu(name="SMD_MT_Updated")
 					return {'FINISHED'}
 			
-			self.report({'INFO'},"The latest Source Tools ({}) are already installed.".format( PrintVer(cur_version) ))
+			self.report({'INFO'},get_id("update_alreadylatest", True).format( PrintVer(cur_version) ))
 			return {'FINISHED'}
 			
 		except urllib.error.URLError as err:
-			self.report({'ERROR'},"Could not complete download: " + str(err))
+			self.report({'ERROR'}," ".join([get_id("update_err_downloadfailed") + str(err)]))
 			return {'CANCELLED'}
 		except zipfile.BadZipfile:
-			self.report({'ERROR'},"Update was downloaded, but was not a valid package")
+			self.report({'ERROR'},get_id("update_err_corruption"))
 			return {'CANCELLED'}
 		except IOError as err:
-			self.report({'ERROR'},"Could not install update: " + str(err))
+			self.report({'ERROR'}," ".join([get_id("update_err_unknown"), str(err)]))
 			return {'CANCELLED'}

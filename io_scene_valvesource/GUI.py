@@ -1,4 +1,4 @@
-#  Copyright (c) 2013 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -26,7 +26,7 @@ from .flex import *
 global p_cache
 
 class SMD_MT_ExportChoice(bpy.types.Menu):
-	bl_label = "Source Tools Export"
+	bl_label = get_id("exportmenu_title")
 
 	def draw(self, context):
 		l = self.layout
@@ -46,21 +46,21 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				
 			num_obs = len(single_obs)
 			if num_obs > 1:
-				l.operator(SmdExporter.bl_idname, text="Selected objects ({} files)".format(num_obs), icon='OBJECT_DATA')
+				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(num_obs), icon='OBJECT_DATA')
 			elif num_obs:
 				l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
 		elif len(bpy.context.selected_objects):
 			row = l.row()
-			row.operator(SmdExporter.bl_idname, text="Cannot export selection",icon='BLANK1')
+			row.operator(SmdExporter.bl_idname, text=get_id("exportmenu_invalid"),icon='BLANK1')
 			row.enabled = False
 
 		row = l.row()
 		num_scene_exports = count_exports(context)
-		row.operator(SmdExporter.bl_idname, text="Scene export ({} files)".format(num_scene_exports), icon='SCENE_DATA').export_scene = True
+		row.operator(SmdExporter.bl_idname, text=get_id("exportmenu_scene", True).format(num_scene_exports), icon='SCENE_DATA').export_scene = True
 		row.enabled = num_scene_exports > 0
 
 class SMD_PT_Scene(bpy.types.Panel):
-	bl_label = "Source Engine Export"
+	bl_label = get_id("exportpanel_title")
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
@@ -75,19 +75,19 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		row = l.row()
 		row.alignment = 'CENTER'
-		row.prop(scene.vs,"layer_filter",text="Visible layers only")
-		row.prop(scene.vs,"use_image_names",text="Ignore Blender materials")
+		row.prop(scene.vs,"layer_filter")
+		row.prop(scene.vs,"use_image_names")
 
 		row = l.row()
 		row.alert = len(scene.vs.export_path) == 0
-		row.prop(scene.vs,"export_path",text="Export Path")
+		row.prop(scene.vs,"export_path")
 		
 		if allowDMX():
 			row = l.row().split(0.33)
-			row.label(text="Export Format:")
+			row.label(text=GetCustomPropName(scene.vs,"export_format",":"))
 			row.row().prop(scene.vs,"export_format",expand=True)
 		row = l.row().split(0.33)
-		row.label(text="Export Up Axis:")
+		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
 		if shouldExportDMX():
@@ -101,22 +101,22 @@ class SMD_PT_Scene(bpy.types.Panel):
 		if scene.vs.export_format == 'DMX':
 			if getDmxVersionsForSDK() == None:
 				row = l.split(0.33)
-				row.label(text="DMX Version:")
+				row.label(text=get_id("exportpanel_dmxver"))
 				row = row.row(align=True)
 				row.prop(scene.vs,"dmx_encoding",text="")
 				row.prop(scene.vs,"dmx_format",text="")
 				row.enabled = not row.alert
 			if canExportDMX():
 				row = l.row()
-				row.prop(scene.vs,"material_path",text="Material Path")
+				row.prop(scene.vs,"material_path")
 				row.enabled = shouldExportDMX()
 		
 		col = l.column(align=True)
 		row = col.row(align=True)
-		row.operator("wm.url_open",text="Help",icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Exporting"
-		row.operator("wm.url_open",text="Steam Community",icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
+		row.operator("wm.url_open",text=get_id("help",True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Exporting"
+		row.operator("wm.url_open",text=get_id("exportpanel_steam",True),icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
 		if "SmdToolsUpdate" in globals():
-			col.operator(SmdToolsUpdate.bl_idname,text="Check for updates",icon='URL')
+			col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
 
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -143,7 +143,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		r = layout.row(align=True)
 		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
-		r.label(text=item.name,icon=MakeObjectIcon(item,suffix="_DATA"))
+		r.label(text=item.name,translate=False,icon=MakeObjectIcon(item,suffix="_DATA"))
 	
 	def filter_items(self, context, data, propname):
 		fname = self.filter_name.lower()
@@ -160,7 +160,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		return cache.filter, cache.order if self.use_filter_sort_alpha else []
 		
 class SMD_PT_Object_Config(bpy.types.Panel):
-	bl_label = "Source Engine Exportables"
+	bl_label = get_id('exportables_title')
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
@@ -191,16 +191,16 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		col = l.column()
 		
 		if not (is_group and item.vs.mute):
-			col.prop(item.vs,"subdir",text="Subfolder",icon='FILE_FOLDER')
+			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
 		
 		if is_group:
-			col = self.makeSettingsBox(text="Group properties",icon='GROUP')
+			col = self.makeSettingsBox(text=get_id("exportables_group_props"),icon='GROUP')
 			if not item.vs.mute:				
 				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2,rows=2,maxrows=10)
 			
 			r = col.row()
 			r.alignment = 'CENTER'
-			r.prop(item.vs,"mute",text="Suppress")
+			r.prop(item.vs,"mute")
 			if item.vs.mute:
 				return
 			elif shouldExportDMX():
@@ -211,7 +211,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			if item.type == 'ARMATURE': armature = item
 			if armature:
 				def _makebox():
-					return self.makeSettingsBox(text="Armature properties ({})".format(armature.name),icon='OUTLINER_OB_ARMATURE')
+					return self.makeSettingsBox(text=get_id("exportables_armature_props", True).format(armature.name),icon='OUTLINER_OB_ARMATURE')
 				col = None
 
 				if armature == item: # only display action stuff if the user has actually selected the armature
@@ -232,29 +232,29 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
 
 		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
-			col = self.makeSettingsBox(text="Flex properties",icon='SHAPEKEY_DATA')
+			col = self.makeSettingsBox(text=get_id("exportables_flex_props"),icon='SHAPEKEY_DATA')
 			
 			col.row().prop(item.vs,"flex_controller_mode",expand=True)
 			
 			if item.vs.flex_controller_mode == 'ADVANCED':
 				controller_source = col.row()
 				controller_source.alert = hasFlexControllerSource(item.vs.flex_controller_source) == False
-				controller_source.prop(item.vs,"flex_controller_source",text="Controller source",icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
+				controller_source.prop(item.vs,"flex_controller_source",text=get_id("exportables_flex_src"),icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
 				
 				row = col.row(align=True)
-				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text="Generate controllers")
-				row.operator("wm.url_open",text="Flex controller help",icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
+				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text=get_id("exportables_flex_generate", True))
+				row.operator("wm.url_open",text=get_id("exportables_flex_help", True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
 				
-				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER')
+				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER',text=get_id("gen_drivers",True))
 				
 				datablocks_dispayed = []
 				
 				for ob in [ob for ob in objects if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed]:
 					if not len(datablocks_dispayed):
-						col.label(text="Stereo flex balance:")
+						col.label(text=get_id("exportables_flex_split"))
 						sharpness_col = col.column(align=True)
 					r = sharpness_col.split(0.33,align=True)
-					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 					r2 = r.split(0.7,align=True)
 					if ob.data.vs.flex_stereo_mode == 'VGROUP':
 						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) == None
@@ -274,20 +274,21 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			col.separator()
 			row = col.row()
 			row.alignment = 'CENTER'
-			row.label(icon='SHAPEKEY_DATA',text = "{} shape{}, {} corrective{}".format(num_shapes,"s" if num_shapes != 1 else "", num_correctives,"s" if num_correctives != 1 else ""))
+			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
+			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
 		
 		if item.vs.export and hasCurves(item):
-			col = self.makeSettingsBox(text="Curve properties",icon='OUTLINER_OB_CURVE')
-			col.label(text="Generate polygons on:")
+			col = self.makeSettingsBox(text=get_id("exportables_curve_props"),icon='OUTLINER_OB_CURVE')
+			col.label(text=get_id("exportables_curve_polyside"))
 			done = set()
 			for ob in [ob for ob in objects if ob.vs.export and hasCurves(ob) and not ob.data in done]:
 				row = col.split(0.33)
-				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'))
+				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 				row.prop(ob.data.vs,"faces",text="")
 				done.add(ob.data)
 			
 class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
-	bl_label = "Source Engine QC Complies"
+	bl_label = get_id("qc_title")
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
@@ -299,18 +300,18 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		
 		if not p_cache.enginepath_valid:
 			if len(scene.vs.engine_path):
-				l.label(icon='ERROR',text="Invalid Engine Path")
+				l.label(icon='ERROR',text=get_id("qc_bad_enginepath"))
 			else:
-				l.label(icon='INFO',text="No Engine Path provided")
+				l.label(icon='INFO',text=get_id("qc_no_enginepath"))
 			return
 			
 		row = l.row()
 		row.alert = len(scene.vs.game_path) > 0 and not p_cache.gamepath_valid
-		row.prop(scene.vs,"game_path",text="Game Path")
+		row.prop(scene.vs,"game_path")
 		
 		if len(scene.vs.game_path) == 0 and not p_cache.gamepath_valid:
 			row = l.row()
-			row.label(icon='ERROR',text="No Game Path and invalid VPROJECT")
+			row.label(icon='ERROR',text=get_id("qc_nogamepath"))
 			row.enabled = False
 			return
 		
@@ -325,17 +326,17 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		if have_qcs or isWild(p_cache.qc_lastPath):
 			c = l.column_flow(2)
 			for path in p_cache.qc_paths:
-				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path)).filepath = path
+				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
 		
 		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
-		compile_row.operator(SMD_OT_Compile.bl_idname,text="Compile all now",icon='SCRIPT')
+		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT')
 		
 		if not have_qcs:
 			if scene.vs.qc_path:
 				p_cache.qc_lastPath_row.alert = True
 			compile_row.enabled = False
-		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path",text="QC Path") # can't add this until the above test completes!
+		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path") # can't add this until the above test completes!
 		
-		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN')
+		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN',text=get_id("launch_hlmv",True))

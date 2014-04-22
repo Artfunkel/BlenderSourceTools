@@ -1,4 +1,4 @@
-#  Copyright (c) 2013 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -19,6 +19,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy, struct, time, collections, os, subprocess, sys, builtins
+from bpy.app.translations import pgettext
 from mathutils import *
 from math import *
 from . import datamodel
@@ -84,6 +85,14 @@ dmx_versions = { # [encoding, format]
 def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
 		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
+
+def get_id(id, format_string = False, data = False):
+	from . import translations
+	out = p_cache.ids[id]
+	if format_string or (data and bpy.context.user_preferences.system.use_translate_new_dataname):
+	   return pgettext(out)
+	else:
+		return out
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
@@ -235,6 +244,9 @@ def MakeObjectIcon(object,prefix=None,suffix=None):
 		out += suffix
 	return out
 
+def GetCustomPropName(data,prop, suffix=""):
+	return "".join([pgettext(getattr(type(data), prop)[1]['name']), suffix])
+
 def getObExportName(ob):
 	return ob.name
 
@@ -336,7 +348,7 @@ def make_export_list():
 		for g in scene_groups:
 			i = s.vs.export_list.add()
 			if g.vs.mute:
-				i.name = g.name + " (suppressed)"
+				i.name = "{} {}".format(g.name,pgettext(get_id("exportables_group_mute_suffix",True)))
 			else:
 				i.name = makeDisplayName(g)
 			i.item_name = g.name
@@ -355,7 +367,7 @@ def make_export_list():
 				if ad:
 					i_icon = i_type = "ACTION"
 					if ob.data.vs.action_selection == 'FILTERED':
-						i_name = "\"{}\" actions ({})".format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
+						i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
 					elif ad.action:
 						i_name = makeDisplayName(ob,ad.action.name)
 					elif len(ad.nla_tracks):
@@ -425,24 +437,22 @@ class Logger:
 		l = menu.layout
 		if len(self.log_errors):
 			for msg in self.log_errors:
-				l.label("ERROR: "+msg)
+				l.label("{}: {}".format(pgettext("Error").upper(), msg))
 			l.separator()
 		if len(self.log_warnings):
 			for msg in self.log_warnings:
-				l.label("WARNING: "+msg)
+				l.label("{}: {}".format(pgettext("Warning").upper(), msg))
 
-	def errorReport(self, jobName, output, numOut):
-		message = "{} {}{} {}".format(numOut,output,"s" if numOut != 1 else "",jobName)
-		if numOut:
-			message += " in {} seconds".format( round( time.time() - self.startTime, 1 ) )
+	def elapsed_time(self):
+		return round(time.time() - self.startTime, 1)
 
+	def errorReport(self,message):
 		if len(self.log_errors) or len(self.log_warnings):
-			msg_summary = "{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings))
-			message += " with " + msg_summary
+			message += get_id("exporter_report_suffix",True).format(len(self.log_errors),len(self.log_warnings))
 			if not bpy.app.background:
-				bpy.context.window_manager.popup_menu(self.list_errors,title=msg_summary,icon='ERROR')
+				bpy.context.window_manager.popup_menu(self.list_errors,title=get_id("exporter_report_menu"))
 			
-			print(msg_summary)
+			print("{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings)))
 			for msg in self.log_errors: print("Error:",msg)
 			for msg in self.log_warnings: print("Warning:",msg)
 		
@@ -528,6 +538,9 @@ class Cache:
 	validObs = set()
 	validObs_version = 0
 
+	from . import translations
+	ids = translations.ids
+
 	def __del__(self):
 		self.validObs.clear()
 
@@ -536,10 +549,10 @@ if not "p_cache" in globals():
 	p_cache = Cache() # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
-	'''Launches Half-Life Model Viewer'''
 	bl_idname = "smd.launch_hlmv"
-	bl_label = "Launch HLMV"
-	
+	bl_label = get_id("launch_hlmv")
+	bl_description = get_id("launch_hlmv_tip")
+
 	@classmethod
 	def poll(self,context):
 		return bool(context.scene.vs.engine_path)
@@ -553,10 +566,10 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 
 class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
 	bl_idname = "smd.toggle_export"
-	bl_label = "Set Source Tools export state"
+	bl_label = get_id("exportstate")
 	bl_options = {'REGISTER','UNDO'}
 	
-	pattern = bpy.props.StringProperty(name="Search pattern",description="Visible objects with this string in their name will be affected")
+	pattern = bpy.props.StringProperty(name=get_id("exportstate_pattern"),description=get_id("exportstate_pattern_tip"))
 	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
 	
 	@classmethod
