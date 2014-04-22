@@ -1,4 +1,5 @@
-_languages = ['ru', 'uk']
+#coding=utf-8
+_languages = ['ru']
 
 _data = {
 'controllers_simple_tip': {
@@ -258,8 +259,8 @@ _data = {
 	'ru': "Ключей формы: {0}",
 },
 'bl_info_author': {
-	'en': "Tom Edwards (translators: Grigory Revzin, Maxim Tkachenko)",
-	'ru': "Том Эдвардс (переводили: Григорий Ревзин, Максим Ткаченко)",
+	'en': "Tom Edwards (translators: Grigory Revzin)",
+	'ru': "Том Эдвардс (переводили: Григорий Ревзин)",
 },
 'activate_dependency_shapes': {
 	'en': "Activate dependency shapes",
