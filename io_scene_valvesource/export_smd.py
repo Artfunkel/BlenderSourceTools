@@ -381,7 +381,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ad = id.animation_data
 			if id.data.vs.action_selection == 'FILTERED':
 				for action in actionsForFilter(id.vs.action_filter):
-					id.animation_data.action = action
+					bake_results[0].object.animation_data.action = action
 					self.files_exported += write_func(id, bake_results, action.name, path)
 				return
 			elif ad.action:
