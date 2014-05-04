@@ -69,7 +69,6 @@ class SmdToolsUpdate(bpy.types.Operator):
 					zip = zipfile.ZipFile( io.BytesIO(urllib.request.urlopen(download_url).read()))
 					zip.extractall(path=os.path.join(os.path.dirname( os.path.abspath( __file__ ) ),".."))
 					
-					bpy.ops.script.reload()
 					self.report({'INFO'},get_id("update_done", True).format(PrintVer(remote_ver)))
 					bpy.ops.wm.call_menu(name="SMD_MT_Updated")
 					return {'FINISHED'}

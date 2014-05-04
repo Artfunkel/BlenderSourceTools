@@ -747,7 +747,7 @@ _data = {
 	'ru': "Не удалось завершить загрузку обновления",
 },
 'offerchangelog_offer': {
-	'en': "View changelog?",
+	'en': "Restart Blender to complete the update. Click to view the changelog.",
 	'ru': "Список изменений",
 },
 'update_err_outdated': {
@@ -767,7 +767,7 @@ _data = {
 	'ru': "Не удалось обновиться: файлы обновления повреждены",
 },
 'update_done': {
-	'en': "Upgraded to Source Tools {0}!",
+	'en': "Installed Source Tools {0}!",
 	'ru': "Успешно обновлено до Blender Source Tools {0}",
 },
 'updater_title_tip': {
