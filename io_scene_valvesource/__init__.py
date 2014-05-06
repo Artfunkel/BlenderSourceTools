@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (2, 1, 0),
+	"version": (2, 2, 0),
 	"blender": (2, 66, 0),
 	"api": 54697,
 	"category": "Import-Export",
@@ -114,7 +114,7 @@ def scene_load_post(_):
 		scene_update_post.remove(scene_load_post)
 
 def export_active_changed(self, context):
-	id = context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
+	id = get_active_exportable(context)
 	
 	if type(id) == bpy.types.Group and id.vs.mute: return
 	for ob in context.scene.objects: ob.select = False
@@ -166,6 +166,11 @@ class ValveSource_SceneProps(PropertyGroup):
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path = StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=game_path_changed)
 
+class ValveSource_VertexAnimation(PropertyGroup):
+	name = StringProperty(name="Name",default="VertexAnim")
+	start = IntProperty(name="Start",description=get_id("vca_start_tip"),default=0)
+	end = IntProperty(name="End",description=get_id("vca_end_tip"),default=250)
+
 class ExportableProps():
 	flex_controller_modes = (
 		('SIMPLE',"Simple",get_id("controllers_simple_tip")),
@@ -176,6 +181,9 @@ class ExportableProps():
 	subdir = StringProperty(name=get_id("subdir"),description=get_id("subdir_tip"))
 	flex_controller_mode = EnumProperty(name=get_id("controllers_mode"),description=get_id("controllers_mode_tip"),items=flex_controller_modes,default='SIMPLE')
 	flex_controller_source = StringProperty(name=get_id("controller_source"),description=get_id("controllers_source_tip"),subtype='FILE_PATH')
+
+	vertex_animations = CollectionProperty(name=get_id("vca_group_props"),type=ValveSource_VertexAnimation)
+	active_vertex_animation = IntProperty(default=-1)
 
 class ValveSource_ObjectProps(ExportableProps,PropertyGroup):
 	action_filter = StringProperty(name=get_id("action_filter"),description=get_id("action_filter_tip"))

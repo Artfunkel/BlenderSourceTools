@@ -50,6 +50,9 @@ _data = {
 	'en': "Action Filter",
 	'ru': "Фильтр действий",
 },
+'vca_start_tip': {
+	'en': "Scene frame at which to start recording Vertex Animation",
+},
 'action_filter_tip': {
 	'en': "Actions with names matching this filter pattern and have users will be exported",
 	'ru': "Будут эксортированы только те действия, имена которых подходят под этот фильтр, и которые где-либо используются",
@@ -65,6 +68,9 @@ _data = {
 'dummy_bone': {
 	'en': "Implicit motionless bone",
 	'ru': "\"Пустая\" недвижимая кость",
+},
+'vca_group_props': {
+	'en': "Vertex Animation",
 },
 'curve_poly_side': {
 	'en': "Polygon Generation",
@@ -145,6 +151,9 @@ _data = {
 'shape_stereo_mode_vgroup': {
 	'en': "Use a vertex group to define stereo balance",
 	'ru': "Использовать группу вершин для разделения стерео-контроллеров",
+},
+'vca_end_tip': {
+	'en': "Scene frame at which to stop recording Vertex Animation",
 },
 'controllers_mode_tip': {
 	'en': "How flex controllers are defined",

@@ -25,6 +25,8 @@ from .update import SmdToolsUpdate # comment this line if you make third-party c
 from .flex import *
 global p_cache
 
+vca_icon = 'EDITMODE_HLT'
+
 class SMD_MT_ExportChoice(bpy.types.Menu):
 	bl_label = get_id("exportmenu_title")
 
@@ -122,13 +124,29 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		id = item.get_id()
 		if id == None: return
+
+		enabled = not (type(id) == bpy.types.Group and id.vs.mute)
 		
 		row = layout.row(align=True)
-		if type(id) == bpy.types.Group:
-			row.enabled = id.vs.mute == False
+		row.alignment = 'LEFT'
+		row.enabled = enabled
 			
-		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and row.enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
+		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
 		row.label(item.name,icon=item.icon)
+
+		if not enabled: return
+
+		row = layout.row(align=True)
+		row.alignment='RIGHT'
+
+		num_shapes, num_correctives = countShapes(id)
+		num_shapes += num_correctives
+		if num_shapes > 0:
+			row.label(str(num_shapes),icon='SHAPEKEY_DATA')
+
+		num_vca = len(id.vs.vertex_animations)
+		if num_vca > 0:
+			row.label(str(num_vca),icon=vca_icon)
 
 class FilterCache:
 	def __init__(self,validObs_version):
@@ -158,7 +176,70 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 			gui_cache[data] = cache
 			
 		return cache.filter, cache.order if self.use_filter_sort_alpha else []
+
+class SMD_UL_VertexAnimationItem(bpy.types.UIList):
+	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+		r = layout.row()
+		r.alignment='LEFT'
+		r.prop(item,"name",text="",emboss=False)
+		r = layout.row(align=True)
+		r.alignment='RIGHT'
+		r.operator(SMD_OT_PreviewVertexAnimation.bl_idname,text="",icon='PAUSE' if context.screen.is_animation_playing else 'PLAY')
+		r.prop(item,"start",text="")
+		r.prop(item,"end",text="")
+
+class SMD_OT_AddVertexAnimation(bpy.types.Operator):
+	'''Add a Vertex Animation to the active Source Tools exportable'''
+	bl_idname = "smd.vertexanim_add"
+	bl_label = "Add Vertex Animation"
+	bl_options = {'INTERNAL'}
+
+	@classmethod
+	def poll(self,c):
+		return type(get_active_exportable(c)) in [bpy.types.Object, bpy.types.Group]
+	
+	def execute(self,c):
+		id = get_active_exportable(c)
+		id.vs.vertex_animations.add()
+		id.vs.active_vertex_animation = len(id.vs.vertex_animations) - 1
+		return {'FINISHED'}
+
+class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
+	'''Remove the active Vertex Animation from the active Source Tools exportable'''
+	bl_idname = "smd.vertexanim_remove"
+	bl_label = "Remove Vertex Animation"
+	bl_options = {'INTERNAL'}
+
+	index = bpy.props.IntProperty(min=0)
+
+	@classmethod
+	def poll(self,c):
+		id = get_active_exportable(c)
+		return type(id) in [bpy.types.Object, bpy.types.Group] and len(id.vs.vertex_animations)
+	
+	def execute(self,c):
+		id = get_active_exportable(c)
+		id.vs.vertex_animations.remove(self.index)
+		id.vs.active_vertex_animation -= 1
+		return {'FINISHED'}
 		
+class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
+	'''Plays the active Source Tools Vertex Animation using scene preview settings'''
+	bl_idname = "smd.vertexanim_preview"
+	bl_label = "Preview Vertex Animation"
+	bl_options = {'INTERNAL'}
+
+	def execute(self,c):
+		id = get_active_exportable(c)
+		anim = id.vs.vertex_animations[id.vs.active_vertex_animation]
+		c.scene.use_preview_range = True
+		c.scene.frame_preview_start = anim.start
+		c.scene.frame_preview_end = anim.end
+		if not c.screen.is_animation_playing:
+			c.scene.frame_set(anim.start)
+		bpy.ops.screen.animation_play()
+		return {'FINISHED'}
+
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = get_id('exportables_title')
 	bl_space_type = "PROPERTIES"
@@ -192,6 +273,18 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		
 		if not (is_group and item.vs.mute):
 			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
+
+		if bpy.context.scene.vs.export_format == 'SMD' and (is_group or item.type in mesh_compatible):
+			col = self.makeSettingsBox(text=get_id("vca_group_props"),icon=vca_icon)
+			
+			r = col.row(align=True)
+			r.operator(SMD_OT_AddVertexAnimation.bl_idname,icon="ZOOMIN",text="Add")
+			op = r.operator(SMD_OT_RemoveVertexAnimation.bl_idname,icon="ZOOMOUT",text="Remove")
+			r.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/Vertex_animation"
+
+			if len(item.vs.vertex_animations) > 0:
+				op.index = item.vs.active_vertex_animation
+				col.template_list("SMD_UL_VertexAnimationItem","",item.vs,"vertex_animations",item.vs,"active_vertex_animation",rows=2,maxrows=4)
 		
 		if is_group:
 			col = self.makeSettingsBox(text=get_id("exportables_group_props"),icon='GROUP')
@@ -264,12 +357,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					r2.prop(ob.data.vs,"flex_stereo_mode",text="")
 					datablocks_dispayed.append(ob.data)
 			
-			num_shapes = 0
-			num_correctives = 0
-			for ob in [ob for ob in objects if ob.vs.export and hasShapes(ob)]:
-					for shape in ob.data.shape_keys.key_blocks[1:]:
-						if "_" in shape.name: num_correctives += 1
-						else: num_shapes += 1
+			num_shapes, num_correctives = countShapes(objects)
 			
 			col.separator()
 			row = col.row()

@@ -496,6 +496,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.name = name
 			self.shapes = collections.OrderedDict()
 			self.matrix = Matrix()
+			self.vertex_animations = collections.defaultdict(list)
 			
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id):
@@ -511,8 +512,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.scene.objects.link(id)
 		id.data = id.data.copy()
 		
-		bpy.context.scene.objects.active = id
 		ops.object.mode_set(mode='OBJECT')
+		bpy.context.scene.objects.active = id
 		ops.object.select_all(action='DESELECT')
 		id.select = True
 		
@@ -531,10 +532,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if id.type == 'MESH':
 			ops.object.mode_set(mode='EDIT')
 			ops.mesh.reveal()
+			
 			if id.matrix_world.is_negative:
-				ops.mesh.select_all(action="SELECT")
+				ops.mesh.select_all(action='SELECT')
 				ops.mesh.flip_normals()
-				ops.mesh.select_all(action="DESELECT")
+
+			ops.mesh.select_all(action="DESELECT")
 			ops.object.mode_set(mode='OBJECT')
 		
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # avoids a few Blender bugs (as of 2.69)
@@ -572,7 +575,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':
 				self.error(get_id("exporter_err_shapes_decimate", True).format(id.name,mod.decimate_type))
 				return result
-		
 		ops.object.mode_set(mode='OBJECT')
 		
 		# Bake reference mesh
@@ -584,6 +586,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return
 		
 		def put_in_object(id,data, quiet=False):
+			if bpy.context.scene.objects.active:
+				ops.object.mode_set(mode='OBJECT')
+
 			ob = bpy.data.objects.new(name=id.name,object_data=data)
 			ob.matrix_world = id.matrix_world
 
@@ -610,6 +615,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		baked = result.object = put_in_object(id,data)
 		result.matrix = baked.matrix_world
+		
+		bpy.context.scene.objects.active = baked
+		baked.select = True
+
+		if id.vs.triangulate or not shouldExportDMX():
+			ops.object.mode_set(mode='EDIT')
+			ops.mesh.select_all(action='SELECT')
+			ops.mesh.quads_convert_to_tris()
 
 		for vgroup in id.vertex_groups:
 			baked.vertex_groups.new(name=vgroup.name)
@@ -656,15 +669,35 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.scene.objects.unlink(shape_ob)
 				bpy.data.objects.remove(shape_ob)
 				del shape_ob
-		
-			bpy.context.scene.objects.active = baked
-			baked.select = True
 
-		if id.vs.triangulate or not shouldExportDMX():
-			ops.object.mode_set(mode='EDIT')
-			ops.mesh.select_all(action='SELECT')
-			ops.mesh.quads_convert_to_tris()
-			ops.object.mode_set(mode='OBJECT')
+		for mod in id.modifiers:
+			mod.show_viewport = False # mainly to disable physics modifiers
+
+		for va in id.vs.vertex_animations:
+			frames = result.vertex_animations[va.name]
+			num_frames = va.end - va.start
+			two_percent = num_frames / 50
+			print("- Baking " + va.name,debug_only=True)
+
+			for f in range(va.start,va.end):
+				bpy.context.scene.frame_set(f)
+				frame_ob = put_in_object(id,result.src.to_mesh(bpy.context.scene, True, 'PREVIEW')) # use source mesh to get cached physics results
+				frame = []
+				
+				i = 0
+				for poly in frame_ob.data.polygons:
+					for vert in [frame_ob.data.vertices[v] for v in poly.vertices]:
+						frame.append([i,vert.co[:],(poly.normal if poly.use_smooth else vert.normal)[:]])
+						i += 1
+				frames.append(frame)
+				removeObject(frame_ob)
+
+				if two_percent and len(frames) % two_percent == 0:
+					print(".", debug_only=True, newline=False)
+					bpy.context.window_manager.progress_update(len(frames) / num_frames)
+
+		bpy.context.scene.objects.active = baked
+		baked.select = True
 
 		# project a UV map
 		if len(baked.data.uv_textures) == 0:
@@ -682,10 +715,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		return result
 
-	def writeSMD(self, id, bake_results, name, filepath, flex=False):
-		startTime = time.time()
+	def writeSMD(self, id, bake_results, name, filepath, filetype = 'smd'):
+		bench = BenchMarker(1,"SMD")
 		
-		full_path = os.path.realpath(os.path.join(filepath,name + (".vta" if flex else ".smd")))
+		if filetype == 'vca':
+			filename = name + "_vertex_anim.vta"
+		else:
+			filename = name + "." + filetype
+		full_path = os.path.realpath(os.path.join(filepath, filename))
 		
 		try:
 			self.smd_file = open(full_path, 'w')
@@ -700,7 +737,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.smd_file.write("nodes\n")
 		if not self.armature:
 			self.smd_file.write("0 \"root\" -1\nend\n")
-			if not flex: print("- No skeleton to export")
+			if filetype == 'smd': print("- No skeleton to export")
 		else:
 			curID = 0
 			if self.armature.data.vs.implicit_zero_bone:
@@ -729,13 +766,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			self.smd_file.write("end\n")
 			num_bones = len(self.armature.data.bones)
-			if not flex: print("- Exported",num_bones,"bones")
+			if filetype == 'smd': print("- Exported",num_bones,"bones")
 			
 			max_bones = 128
 			if num_bones > max_bones:
 				self.warning(get_id("exporter_err_bonelimit", True).format(num_bones,max_bones))
 		
-		if not flex:
+		if filetype == 'smd':
 			# ANIMATION
 			self.smd_file.write("skeleton\n")
 			if not self.armature:
@@ -857,7 +894,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if done_header:
 				self.smd_file.write("end\n")
-		else: # flex == True
+		elif filetype == 'vta':
 			self.smd_file.write("skeleton\n")
 			
 			def _writeTime(time, shape_name = None):
@@ -927,12 +964,58 @@ class SmdExporter(bpy.types.Operator, Logger):
 			print("- Exported {} flex shapes ({} verts)".format(i,total_verts))
 
 		self.smd_file.close()
-		printTimeMessage(startTime,name,"export")
+
 		
-		if not flex:
+		if bench.quiet:
+			print("- {} export took".format(filetype.upper()) ,bench.total(),"\n")
+
+		written = 1
+		if filetype == 'smd':
 			for bake in [bake for bake in bake_results if len(bake.shapes)]:
-				self.writeSMD(id,bake_results,name,filepath,flex=True)
-				return 2
+				written += self.writeSMD(id,bake_results,name,filepath,filetype='vta')
+			for name,frames in bake_results[0].vertex_animations.items():
+				written += self.writeVCA(name,frames,filepath)
+		return written
+
+	def writeVCA(self,name,frames,filepath):
+		bench = BenchMarker()
+		full_path = os.path.realpath(os.path.join(filepath, name + ".vta"))
+
+		try:
+			self.smd_file = open(full_path, 'w')
+		except Exception as err:
+			self.error(get_id("exporter_err_open", True).format("vertex animation", err))
+			return 0
+		print("-",full_path)
+			
+		self.smd_file.write(
+'''version 1
+nodes
+0 "root" -1
+end
+skeleton
+''')
+		for i,frame in enumerate(frames):
+			self.smd_file.write("time {}\n0 0 0 0 0 0 0\n".format(i))
+
+		self.smd_file.write("end\nvertexanimation\n")
+		num_frames = len(frames)
+		two_percent = num_frames / 50
+		
+		for i, frame in enumerate(frames):
+			self.smd_file.write("time {}\n".format(i))
+			self.smd_file.writelines(["{} {} {}\n".format(v[0], getSmdVec(v[1]), getSmdVec(v[2])) for v in frame])
+			
+			if two_percent and len(frames) % two_percent == 0:
+				print(".", debug_only=True, newline=False)
+				bpy.context.window_manager.progress_update(len(frames) / num_frames)
+			frame.clear()
+		
+		self.smd_file.write("end\n")
+		print("Exported {} frames ({:.1f}MB)".format(num_frames, self.smd_file.tell() / 1024 / 1024))
+		self.smd_file.close()
+		bench.report("Vertex animation")
+		print()
 		return 1
 
 	def writeDMX(self, id, bake_results, name, filepath):

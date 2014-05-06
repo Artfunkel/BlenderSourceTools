@@ -94,6 +94,10 @@ def get_id(id, format_string = False, data = False):
 	else:
 		return out
 
+def get_active_exportable(context = None):
+	if not context: context = bpy.context
+	return context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
+
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):
 		self._indent = indent * 4
@@ -282,6 +286,23 @@ def hasShapes(id, valid_only = True):
 			return True
 	else:
 		return _test(id)
+
+def countShapes(*objects):
+	num_shapes = 0
+	num_correctives = 0
+	flattened_objects = []
+	for ob in objects:
+		if type(ob) == bpy.types.Group:
+			flattened_objects.extend(ob.objects)
+		elif hasattr(ob,'__iter__'):
+			flattened_objects.extend(ob)
+		else:
+			flattened_objects.append(ob)
+	for ob in [ob for ob in flattened_objects if ob.vs.export and hasShapes(ob)]:
+		for shape in ob.data.shape_keys.key_blocks[1:]:
+			if "_" in shape.name: num_correctives += 1
+			else: num_shapes += 1
+	return num_shapes, num_correctives
 
 def hasCurves(id):
 	def _test(id_):
