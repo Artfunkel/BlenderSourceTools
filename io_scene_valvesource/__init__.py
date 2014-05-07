@@ -170,6 +170,7 @@ class ValveSource_VertexAnimation(PropertyGroup):
 	name = StringProperty(name="Name",default="VertexAnim")
 	start = IntProperty(name="Start",description=get_id("vca_start_tip"),default=0)
 	end = IntProperty(name="End",description=get_id("vca_end_tip"),default=250)
+	export_sequence = BoolProperty(name=get_id("vca_sequence"),description=get_id("vca_sequence_tip"),default=True)
 
 class ExportableProps():
 	flex_controller_modes = (

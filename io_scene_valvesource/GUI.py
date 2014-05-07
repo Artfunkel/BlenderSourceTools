@@ -187,11 +187,12 @@ class SMD_UL_VertexAnimationItem(bpy.types.UIList):
 		r.operator(SMD_OT_PreviewVertexAnimation.bl_idname,text="",icon='PAUSE' if context.screen.is_animation_playing else 'PLAY')
 		r.prop(item,"start",text="")
 		r.prop(item,"end",text="")
+		r.prop(item,"export_sequence",text="",icon='ACTION')
 
 class SMD_OT_AddVertexAnimation(bpy.types.Operator):
-	'''Add a Vertex Animation to the active Source Tools exportable'''
 	bl_idname = "smd.vertexanim_add"
-	bl_label = "Add Vertex Animation"
+	bl_label = get_id("vca_add")
+	bl_description = get_id("vca_add_tip")
 	bl_options = {'INTERNAL'}
 
 	@classmethod
@@ -205,9 +206,9 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 		return {'FINISHED'}
 
 class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
-	'''Remove the active Vertex Animation from the active Source Tools exportable'''
 	bl_idname = "smd.vertexanim_remove"
-	bl_label = "Remove Vertex Animation"
+	bl_label = get_id("vca_remove")
+	bl_description = get_id("vca_remove_tip")
 	bl_options = {'INTERNAL'}
 
 	index = bpy.props.IntProperty(min=0)
@@ -224,9 +225,9 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 		return {'FINISHED'}
 		
 class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
-	'''Plays the active Source Tools Vertex Animation using scene preview settings'''
 	bl_idname = "smd.vertexanim_preview"
-	bl_label = "Preview Vertex Animation"
+	bl_label = get_id("vca_preview")
+	bl_description = get_id("vca_preview_tip")
 	bl_options = {'INTERNAL'}
 
 	def execute(self,c):
@@ -238,6 +239,32 @@ class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
 		if not c.screen.is_animation_playing:
 			c.scene.frame_set(anim.start)
 		bpy.ops.screen.animation_play()
+		return {'FINISHED'}
+
+class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
+	bl_idname = "smd.vertexanim_generate_qc"
+	bl_label = get_id("vca_qcgen")
+	bl_description = get_id("vca_qcgen_tip")
+	bl_options = {'INTERNAL'}
+
+	@classmethod
+	def poll(self,c):
+		return get_active_exportable(c) != None
+	
+	def execute(self,c):
+		id = get_active_exportable(c)
+		fps = c.scene.render.fps / c.scene.render.fps_base
+		c.window_manager.clipboard = '$model "merge_me" {0}.smd {{\n{1}\n}}\n{2}'.format(
+			id.name,
+		    "\n".join(["    vcafile {0}.vta".format(vca.name) for vca in id.vs.vertex_animations]),
+		    "\n".join(['''
+$boneflexdriver "vcabone_{0}" tx "{0}" 0 1
+$boneflexdriver "vcabone_{0}" ty "multi_{0}" 0 1
+$upaxis Y // always needed!
+$sequence "{0}" "vcaanim_{0}.smd" fps {1}
+'''.format(vca.name, fps) for vca in id.vs.vertex_animations if vca.export_sequence]))
+
+		self.report({'INFO'},"QC segment copied to clipboard.")
 		return {'FINISHED'}
 
 class SMD_PT_Object_Config(bpy.types.Panel):
@@ -285,6 +312,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			if len(item.vs.vertex_animations) > 0:
 				op.index = item.vs.active_vertex_animation
 				col.template_list("SMD_UL_VertexAnimationItem","",item.vs,"vertex_animations",item.vs,"active_vertex_animation",rows=2,maxrows=4)
+				col.operator(SMD_OT_GenerateVertexAnimationQCSnippet.bl_idname,icon='SCRIPT')
 		
 		if is_group:
 			col = self.makeSettingsBox(text=get_id("exportables_group_props"),icon='GROUP')

@@ -485,6 +485,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		else:
 			return "no_material", ob.draw_type != 'TEXTURED' # assume it's a collision mesh if it's not textured
 	
+	class BakedVertexAnimation(list):
+		export_sequence = False
+		bone_id = -1
+
 	class BakeResult:
 		object = None
 		matrix = Matrix()
@@ -496,7 +500,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.name = name
 			self.shapes = collections.OrderedDict()
 			self.matrix = Matrix()
-			self.vertex_animations = collections.defaultdict(list)
+			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
 			
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id):
@@ -675,6 +679,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		for va in id.vs.vertex_animations:
 			frames = result.vertex_animations[va.name]
+			frames.export_sequence = va.export_sequence
 			num_frames = va.end - va.start
 			two_percent = num_frames / 50
 			print("- Baking " + va.name,debug_only=True)
@@ -715,31 +720,32 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		return result
 
+	def openSMD(self,path,name,description):
+		full_path = os.path.realpath(os.path.join(path, name))
+
+		try:
+			f = open(full_path, 'w')
+		except Exception as err:
+			self.error(get_id("exporter_err_open", True).format(description, err))
+			return None
+		
+		f.write("version 1\n")
+		print("-",full_path)
+		return f
+
 	def writeSMD(self, id, bake_results, name, filepath, filetype = 'smd'):
 		bench = BenchMarker(1,"SMD")
 		
-		if filetype == 'vca':
-			filename = name + "_vertex_anim.vta"
-		else:
-			filename = name + "." + filetype
-		full_path = os.path.realpath(os.path.join(filepath, filename))
-		
-		try:
-			self.smd_file = open(full_path, 'w')
-		except Exception as err:
-			self.error(get_id("exporter_err_open", True).format("SMD", err))
-			return 0
-		print("-",full_path)
-			
-		self.smd_file.write("version 1\n")
+		self.smd_file = self.openSMD(filepath,name + "." + filetype,filetype.upper())
+		if self.smd_file == None: return 0
 
 		# BONES
 		self.smd_file.write("nodes\n")
+		curID = 0
 		if not self.armature:
-			self.smd_file.write("0 \"root\" -1\nend\n")
+			self.smd_file.write("0 \"root\" -1\n")
 			if filetype == 'smd': print("- No skeleton to export")
 		else:
-			curID = 0
 			if self.armature.data.vs.implicit_zero_bone:
 				self.smd_file.write("0 \"{}\" -1\n".format(implicit_bone_name))
 				curID += 1
@@ -764,13 +770,19 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 				self.smd_file.write(line + "\n")
 
-			self.smd_file.write("end\n")
 			num_bones = len(self.armature.data.bones)
 			if filetype == 'smd': print("- Exported",num_bones,"bones")
 			
 			max_bones = 128
 			if num_bones > max_bones:
 				self.warning(get_id("exporter_err_bonelimit", True).format(num_bones,max_bones))
+
+		for vca in [vca for vca in bake_results[0].vertex_animations.items() if vca[1].export_sequence]:
+			curID += 1
+			vca[1].bone_id = curID
+			self.smd_file.write("{} \"vcabone_{}\" -1\n".format(curID,vca[0]))
+
+		self.smd_file.write("end\n")
 		
 		if filetype == 'smd':
 			# ANIMATION
@@ -973,42 +985,37 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if filetype == 'smd':
 			for bake in [bake for bake in bake_results if len(bake.shapes)]:
 				written += self.writeSMD(id,bake_results,name,filepath,filetype='vta')
-			for name,frames in bake_results[0].vertex_animations.items():
-				written += self.writeVCA(name,frames,filepath)
+			for name,vca in bake_results[0].vertex_animations.items():
+				written += self.writeVCA(name,vca,filepath)
+				if vca.export_sequence:
+					written += self.writeVCASequence(name,vca,filepath)
 		return written
 
-	def writeVCA(self,name,frames,filepath):
+	def writeVCA(self,name,vca,filepath):
 		bench = BenchMarker()
-		full_path = os.path.realpath(os.path.join(filepath, name + ".vta"))
-
-		try:
-			self.smd_file = open(full_path, 'w')
-		except Exception as err:
-			self.error(get_id("exporter_err_open", True).format("vertex animation", err))
-			return 0
-		print("-",full_path)
+		self.smd_file = self.openSMD(filepath,name + ".vta","vertex animation")
+		if self.smd_file == None: return 0
 			
 		self.smd_file.write(
-'''version 1
-nodes
+'''nodes
 0 "root" -1
 end
 skeleton
 ''')
-		for i,frame in enumerate(frames):
+		for i,frame in enumerate(vca):
 			self.smd_file.write("time {}\n0 0 0 0 0 0 0\n".format(i))
 
 		self.smd_file.write("end\nvertexanimation\n")
-		num_frames = len(frames)
+		num_frames = len(vca)
 		two_percent = num_frames / 50
 		
-		for i, frame in enumerate(frames):
+		for i, frame in enumerate(vca):
 			self.smd_file.write("time {}\n".format(i))
 			self.smd_file.writelines(["{} {} {}\n".format(v[0], getSmdVec(v[1]), getSmdVec(v[2])) for v in frame])
 			
-			if two_percent and len(frames) % two_percent == 0:
+			if two_percent and len(vca) % two_percent == 0:
 				print(".", debug_only=True, newline=False)
-				bpy.context.window_manager.progress_update(len(frames) / num_frames)
+				bpy.context.window_manager.progress_update(len(vca) / num_frames)
 			frame.clear()
 		
 		self.smd_file.write("end\n")
@@ -1016,6 +1023,19 @@ skeleton
 		self.smd_file.close()
 		bench.report("Vertex animation")
 		print()
+		return 1
+
+	def writeVCASequence(self,name,vca,filepath):
+		self.smd_file = self.openSMD(filepath,"vcaanim_{}.smd".format(name),"SMD")
+		if self.smd_file == None: return 0
+
+		self.smd_file.write('''nodes\n0 "root" -1\n{0} "vcabone_{1}" -1\nend\nskeleton\n'''.format(vca.bone_id,name))
+		max_frame = float(len(vca)-1)
+		for i, frame in enumerate(vca):
+			self.smd_file.write("time {}\n0 0 0 0 -1.570797 0 0\n".format(i))
+			self.smd_file.write("{0} 1.0 {1} 0 0 0 0\n".format(vca.bone_id,getSmdFloat(i / max_frame)))
+		self.smd_file.write("end\n")
+		self.smd_file.close()
 		return 1
 
 	def writeDMX(self, id, bake_results, name, filepath):

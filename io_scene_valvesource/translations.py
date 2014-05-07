@@ -2,6 +2,9 @@
 _languages = ['ru']
 
 _data = {
+'vca_sequence': {
+	'en': "Generate Sequence",
+},
 'controllers_simple_tip': {
 	'en': "Generate one flex controller per shape key",
 	'ru': "Создавать по контроллеру на каждый ключ формы",
@@ -60,6 +63,9 @@ _data = {
 'shape_stereo_sharpness_tip': {
 	'en': "How sharply stereo flex shapes should transition from left to right",
 	'ru': "Насколько резко будет осуществляться переход между левой и правой частью объекта",
+},
+'vca_sequence_tip': {
+	'en': "On export, generate a $sequence that drives this Vertex Animation",
 },
 'shape_stereo_mode': {
 	'en': "DMX stereo split mode",
@@ -603,6 +609,9 @@ _data = {
 	'en': "Generate DMX Flex Controller block",
 	'ru': "Сгенерировать настройки контроллеров лицевой анимации",
 },
+'vca_add_tip': {
+	'en': "Add a Vertex Animation to the active Source Tools exportable",
+},
 'insert_uuid': {
 	'en': "Insert UUID",
 	'ru': "Вставить UUID",
@@ -614,6 +623,18 @@ _data = {
 'activate_dep_shapes_tip': {
 	'en': "Activates shapes found in the name of the current shape (underscore delimited)",
 	'ru': "Активирует зависимые ключи формы  (ключи формы, которые можно найти в названии данного ключа, разделённые подчёркиванием)",
+},
+'vca_qcgen_tip': {
+	'en': "Copies a QC segment for this object's Vertex Animations to the clipboard",
+},
+'vca_remove_tip': {
+	'en': "Remove the active Vertex Animation from the active Source Tools exportable",
+},
+'vca_add': {
+	'en': "Add Vertex Animation",
+},
+'vca_preview': {
+	'en': "Preview Vertex Animation",
 },
 'activate_dep_shapes_success': {
 	'en': "Activated {0} dependency shapes",
@@ -638,6 +659,15 @@ _data = {
 'gen_drivers': {
 	'en': "Generate Corrective Shape Key Drivers",
 	'ru': "Создать драйверы для ключей форм коррекции",
+},
+'vca_qcgen': {
+	'en': "Generate QC Segment",
+},
+'vca_preview_tip': {
+	'en': "Plays the active Source Tools Vertex Animation using scene preview settings",
+},
+'vca_remove': {
+	'en': "Remove Vertex Animation",
 },
 'gen_drivers_tip': {
 	'en': "Adds Blender animation drivers to corrective Source engine shapes",
