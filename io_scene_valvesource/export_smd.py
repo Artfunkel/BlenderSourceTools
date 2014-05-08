@@ -827,7 +827,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 							if self.armature.data.vs.legacy_rotation: parentMat *= mat_BlenderToSMD 
 							PoseMatrix = parentMat.inverted() * PoseMatrix
 						else:
-							PoseMatrix = self.armature.matrix_world * PoseMatrix				
+							PoseMatrix = self.armature.matrix_world * PoseMatrix
 				
 						self.smd_file.write("{}  {}  {}\n".format(self.bone_ids[posebone.name], getSmdVec(PoseMatrix.to_translation()), getSmdVec(PoseMatrix.to_euler())))
 
@@ -1029,10 +1029,26 @@ skeleton
 		self.smd_file = self.openSMD(filepath,"vcaanim_{}.smd".format(name),"SMD")
 		if self.smd_file == None: return 0
 
-		self.smd_file.write('''nodes\n0 "root" -1\n{0} "vcabone_{1}" -1\nend\nskeleton\n'''.format(vca.bone_id,name))
+		self.smd_file.write(
+'''nodes
+{2}
+{0} "vcabone_{1}" -1
+end
+skeleton
+'''.format(vca.bone_id, name,
+			"\n".join(['''{} "{}" -1'''.format(self.bone_ids[b.name],b.name) for b in self.exportable_bones if b.parent == None])
+				if self.armature_src else '0 "root" -1')
+		)
+
 		max_frame = float(len(vca)-1)
 		for i, frame in enumerate(vca):
-			self.smd_file.write("time {}\n0 0 0 0 -1.570797 0 0\n".format(i))
+			self.smd_file.write("time {}\n".format(i))
+			if self.armature_src:
+				for root_bone in [b for b in self.exportable_bones if b.parent == None]:
+					mat = getUpAxisMat('Y').inverted() * self.armature.matrix_world * root_bone.matrix
+					self.smd_file.write("{} {} {}\n".format(self.bone_ids[root_bone.name], getSmdVec(mat.to_translation()), getSmdVec(mat.to_euler())))
+			else:
+				self.smd_file.write("0 0 0 0 {} 0 0\n".format("-1.570797" if bpy.context.scene.vs.up_axis == 'Z' else "0"))
 			self.smd_file.write("{0} 1.0 {1} 0 0 0 0\n".format(vca.bone_id,getSmdFloat(i / max_frame)))
 		self.smd_file.write("end\n")
 		self.smd_file.close()
