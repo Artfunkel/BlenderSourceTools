@@ -177,6 +177,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			context.tool_settings.use_keyframe_insert_keyingset = False
 			context.user_preferences.edit.use_enter_edit_mode = False
 			unhook_scene_update()
+			if context.scene.rigidbody_world:
+				context.scene.frame_set(context.scene.rigidbody_world.point_cache.frame_start)
 			
 			# lots of operators only work on visible objects
 			for object in context.scene.objects:
@@ -375,6 +377,62 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
 
+		bpy.ops.object.mode_set(mode='OBJECT')
+		for va in id.vs.vertex_animations:
+			frames = bake_results[0].vertex_animations[va.name]
+			frames.export_sequence = va.export_sequence
+			num_frames = va.end - va.start
+			two_percent = num_frames / 50
+			print("- Generating vertex animation \"{}\"".format(va.name))
+			anim_bench = BenchMarker(1,va.name)
+
+			objects = id.objects if type(id) == bpy.types.Group else [id]
+
+			for f in range(va.start,va.end):
+				bpy.context.scene.frame_set(f)
+				frame_obs = []
+				bpy.ops.object.select_all(action='DESELECT')
+				for ob in objects:
+					fob = ob.copy()
+					fob.data = ob.to_mesh(bpy.context.scene, True, 'PREVIEW')
+					frame_obs.append(fob)
+				for fob in frame_obs:
+					bpy.context.scene.objects.link(fob)
+					bpy.context.scene.objects.active = fob
+					fob.select = True
+
+					top_parent = self.getTopParent(ob)
+					bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+					if top_parent:
+						fob.location -= top_parent.location
+					bpy.ops.object.transform_apply()
+
+				if len(frame_obs) > 1:
+					bpy.context.scene.objects.active = frame_obs[0]
+					ops.object.join()
+				ops.object.transform_apply(location=True,scale=not shouldExportDMX(),rotation=not shouldExportDMX())
+
+				del frame_obs
+				frame_ob = bpy.context.active_object
+				anim_bench.report("bake")
+				frame = []
+				
+				i = 0
+				for poly in frame_ob.data.polygons:
+					for vert in [frame_ob.data.vertices[v] for v in poly.vertices]:
+						frame.append([i,vert.co[:],(poly.normal if poly.use_smooth else vert.normal)[:]])
+						i += 1
+				anim_bench.report("record")
+				frames.append(frame)
+				removeObject(frame_ob)
+				frame_ob = None
+				bpy.context.scene.objects.active = bake_results[0].src
+
+				if two_percent and len(frames) % two_percent == 0:
+					print(".", debug_only=True, newline=False)
+					bpy.context.window_manager.progress_update(len(frames) / num_frames)
+			bench.report("\n" + va.name)
+
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
 				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature_src.name))
@@ -484,7 +542,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return mat_name, True
 		else:
 			return "no_material", ob.draw_type != 'TEXTURED' # assume it's a collision mesh if it's not textured
-	
+
+	def getTopParent(self,id):
+		top_parent = id
+		while top_parent.parent:
+			top_parent = top_parent.parent
+		return top_parent
+
 	class BakedVertexAnimation(list):
 		export_sequence = False
 		bone_id = -1
@@ -516,7 +580,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.scene.objects.link(id)
 		id.data = id.data.copy()
 		
-		ops.object.mode_set(mode='OBJECT')
+		if bpy.context.active_object:
+			ops.object.mode_set(mode='OBJECT')
 		bpy.context.scene.objects.active = id
 		ops.object.select_all(action='DESELECT')
 		id.select = True
@@ -524,13 +589,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if hasShapes(id):
 			id.active_shape_key_index = 0
 		
+		top_parent = self.getTopParent(id)
+		
 		cur_parent = id
 		while cur_parent:
-			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE' and not result.envelope:
+			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE':
 				result.envelope = cur_parent.parent_bone
 				self.armature_src = cur_parent.parent
-			
-			top_parent = cur_parent
+				break
 			cur_parent = cur_parent.parent
 			
 		if id.type == 'MESH':
@@ -588,8 +654,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if len(data.polygons) == 0:
 			self.error(get_id("exporter_err_nopolys", True).format(id.name))
 			return
-		
-		def put_in_object(id,data, quiet=False):
+
+		def put_in_object(id, data, quiet=False):
 			if bpy.context.scene.objects.active:
 				ops.object.mode_set(mode='OBJECT')
 
@@ -676,30 +742,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		for mod in id.modifiers:
 			mod.show_viewport = False # mainly to disable physics modifiers
-
-		for va in id.vs.vertex_animations:
-			frames = result.vertex_animations[va.name]
-			frames.export_sequence = va.export_sequence
-			num_frames = va.end - va.start
-			two_percent = num_frames / 50
-			print("- Baking " + va.name,debug_only=True)
-
-			for f in range(va.start,va.end):
-				bpy.context.scene.frame_set(f)
-				frame_ob = put_in_object(id,result.src.to_mesh(bpy.context.scene, True, 'PREVIEW')) # use source mesh to get cached physics results
-				frame = []
-				
-				i = 0
-				for poly in frame_ob.data.polygons:
-					for vert in [frame_ob.data.vertices[v] for v in poly.vertices]:
-						frame.append([i,vert.co[:],(poly.normal if poly.use_smooth else vert.normal)[:]])
-						i += 1
-				frames.append(frame)
-				removeObject(frame_ob)
-
-				if two_percent and len(frames) % two_percent == 0:
-					print(".", debug_only=True, newline=False)
-					bpy.context.window_manager.progress_update(len(frames) / num_frames)
 
 		bpy.context.scene.objects.active = baked
 		baked.select = True
@@ -1019,6 +1061,7 @@ skeleton
 			frame.clear()
 		
 		self.smd_file.write("end\n")
+		print(debug_only=True)
 		print("Exported {} frames ({:.1f}MB)".format(num_frames, self.smd_file.tell() / 1024 / 1024))
 		self.smd_file.close()
 		bench.report("Vertex animation")
