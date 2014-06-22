@@ -136,7 +136,8 @@ def engine_path_changed(self, context):
 	p_cache.enginepath_valid = os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
 
 def game_path_changed(self,context):
-	p_cache.gamepath_valid = os.path.exists(os.path.join(getGamePath(),"gameinfo.txt"))
+	game_path = getGamePath()
+	p_cache.gamepath_valid = game_path and os.path.exists(os.path.join(game_path,"gameinfo.txt"))
 #
 # Property Groups
 #
