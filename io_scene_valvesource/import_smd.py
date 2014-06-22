@@ -1284,9 +1284,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 		error = None
 		try:
 			print("- Loading DMX...")
-			dm = datamodel.load(filepath)
+			try:
+				dm = datamodel.load(filepath)
+			except IOError as e:
+				self.error(e)
+				return 0
 			bench.report("Load DMX")
-			
+
 			if bpy.context.scene.name.startswith("Scene"):
 				bpy.context.scene.name = smd.jobName
 			
@@ -1300,13 +1304,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 				return Quaternion([datamodel_quat[3], datamodel_quat[0], datamodel_quat[1], datamodel_quat[2]])
 			def get_transform_matrix(elem):
 				out = Matrix()
-				if elem == None: return out
+				if not elem: return out
 				trfm = elem.get("transform")
 				if transforms:
 					for e in transforms:
 						if e.name == elem.name:
 							trfm = e
-				if trfm == None: return out
+				if not trfm: return out
 				out *= Matrix.Translation(Vector(trfm["position"]))
 				out *= getBlenderQuat(trfm["orientation"]).to_matrix().to_4x4()
 				return out

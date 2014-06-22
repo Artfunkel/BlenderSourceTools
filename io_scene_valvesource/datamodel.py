@@ -146,7 +146,7 @@ class _Array(list):
 		
 	def frombytes(self,file):
 		length = get_int(file)		
-		self.extend( unpack( typestr*length, file.read( calcsize(typestr) * length) ) )
+		self.extend( unpack( self.type_str*length, file.read( calcsize(self.type_str) * length) ) )
 
 class _BoolArray(_Array):
 	type = bool

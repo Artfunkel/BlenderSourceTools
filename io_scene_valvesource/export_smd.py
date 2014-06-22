@@ -1520,7 +1520,7 @@ skeleton
 			anim_len = animationLength(ad)
 			
 			if ad.action and ('fps') in dir(ad.action):
-				fps = bpy.context.scene.render.fps = action.fps
+				fps = bpy.context.scene.render.fps = ad.action.fps
 				bpy.context.scene.render.fps_base = 1
 			else:
 				fps = bpy.context.scene.render.fps * bpy.context.scene.render.fps_base
