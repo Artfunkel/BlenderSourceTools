@@ -90,7 +90,7 @@ def get_id(id, format_string = False, data = False):
 	from . import translations
 	out = p_cache.ids[id]
 	if format_string or (data and bpy.context.user_preferences.system.use_translate_new_dataname):
-	   return pgettext(out)
+		return pgettext(out)
 	else:
 		return out
 
@@ -541,10 +541,8 @@ class QcInfo:
 		return os.path.join(self.root_filedir,*self.dir_stack)
 		
 class KeyFrame:
-	pos = False
-	rot = False
-	
 	def __init__(self):
+		self.pos = self.rot = False
 		self.matrix = Matrix()
 
 class Cache:
@@ -553,7 +551,16 @@ class Cache:
 	qc_lastUpdate = 0
 	
 	action_filter = ""
+
+	@classmethod
+	def validate_engine_path(cls):
+		cls.enginepath_valid = os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
 	enginepath_valid = True
+
+	@classmethod
+	def validate_game_path(cls):
+		game_path = getGamePath()
+		cls.gamepath_valid = game_path and os.path.exists(os.path.join(game_path,"gameinfo.txt"))
 	gamepath_valid = True
 
 	validObs = set()
@@ -562,8 +569,9 @@ class Cache:
 	from . import translations
 	ids = translations.ids
 
-	def __del__(self):
-		self.validObs.clear()
+	@classmethod
+	def __del__(cls):
+		cls.validObs.clear()
 
 global p_cache
 if not "p_cache" in globals():

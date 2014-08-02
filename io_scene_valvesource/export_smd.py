@@ -390,13 +390,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			for f in range(va.start,va.end):
 				bpy.context.scene.frame_set(f)
-				frame_obs = []
 				bpy.ops.object.select_all(action='DESELECT')
 				for ob in objects:
 					fob = ob.copy()
 					fob.data = ob.to_mesh(bpy.context.scene, True, 'PREVIEW')
-					frame_obs.append(fob)
-				for fob in frame_obs:
 					bpy.context.scene.objects.link(fob)
 					bpy.context.scene.objects.active = fob
 					fob.select = True
@@ -405,12 +402,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 					if top_parent:
 						fob.location -= top_parent.location
-					bpy.ops.object.transform_apply()
+						
+					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
 
 				if len(frame_obs) > 1:
 					bpy.context.scene.objects.active = frame_obs[0]
 					ops.object.join()
-				ops.object.transform_apply(location=True,scale=not shouldExportDMX(),rotation=not shouldExportDMX())
 
 				del frame_obs
 				frame_ob = bpy.context.active_object
@@ -420,7 +417,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				i = 0
 				for poly in frame_ob.data.polygons:
 					for vert in [frame_ob.data.vertices[v] for v in poly.vertices]:
-						frame.append([i,vert.co[:],(poly.normal if poly.use_smooth else vert.normal)[:]])
+						frame.append([vert.index, Vector(vert.co), Vector((poly.normal if poly.use_smooth else vert.normal))])
 						i += 1
 				anim_bench.report("record")
 				frames.append(frame)
@@ -1182,6 +1179,7 @@ skeleton
 
 			bench.report("Bones")
 
+		DmeCombinationOperator = None
 		for _ in [bake for bake in bake_results if len(bake.shapes)]:
 			if self.flex_controller_mode == 'ADVANCED':
 				if not hasFlexControllerSource(self.flex_controller_source):
@@ -1209,11 +1207,14 @@ skeleton
 					return 0
 			else:
 				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
-				
-			root["combinationOperator"] = DmeCombinationOperator
+
 			break
 
-		if root.get("combinationOperator"):
+		if not DmeCombinationOperator and len(bake_results[0].vertex_animations):
+			DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
+
+		if DmeCombinationOperator:
+			root["combinationOperator"] = DmeCombinationOperator
 			bench.report("Flex setup")
 
 		for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
@@ -1386,15 +1387,12 @@ skeleton
 				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
 				self.warning(format_str.format(bad_face_mats, bake.name))
 			bench.report("polys")
-			
-			
+
 			two_percent = int(len(bake.shapes) / 50)
 			print("Shapes: ",debug_only=True,newline=False)
-			# shapes
+			delta_states = []
 			if len(bake.shapes):
-				shape_elems = []
 				shape_names = []
-				delta_state_weights = []
 				num_shapes = len(bake.shapes)
 				num_correctives = 0
 				num_wrinkles = 0
@@ -1419,43 +1417,41 @@ skeleton
 							except ValueError:
 								self.warning(get_id("exporter_err_flexctrl_missing", True).format(shape_name))
 							pass
-					
-					delta_state_weights.append(datamodel.Vector2([0.0,0.0])) # ??
-					
-					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)					
-					shape_elems.append(DmeVertexDeltaData)
-					
+
+					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)
+					delta_states.append(DmeVertexDeltaData)
+
 					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
-										
+
 					wrinkle = []
 					wrinkleIndices = []
-					
+
 					# what do these do?
 					#DmeVertexDeltaData["flipVCoordinates"] = False
 					#DmeVertexDeltaData["corrected"] = True
-					
+
 					shape_pos = []
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
 					if wrinkle_scale: delta_lengths = [None] * len(ob.data.vertices)
-					
+
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
-						
+
 						if ob_vert.co != shape_vert.co:
 							delta = shape_vert.co - ob_vert.co
 							delta_length = delta.length
-						
+
 							if abs(delta_length) > 1e-5:
 								if wrinkle_scale: delta_lengths[ob_vert.index] = delta_length
 								shape_pos.append(datamodel.Vector3(delta))
 								shape_posIndices.append(ob_vert.index)
-						
+
 						if ob_vert.normal != shape_vert.normal:
 							shape_norms.append(datamodel.Vector3(shape_vert.normal))
 							shape_normIndices.append(ob_vert.index)
-					
+
 					del shape_vert
 
 					if wrinkle_scale or len(flat_polys):
@@ -1463,7 +1459,7 @@ skeleton
 						for poly in ob.data.polygons:
 							if wrinkle_scale:
 								for loop in [ob.data.loops[l_i] for l_i in poly.loop_indices]:
-									delta_len = delta_lengths[loop.vertex_index];
+									delta_len = delta_lengths[loop.vertex_index]
 									if delta_len:
 										max_delta = max(max_delta,delta_len)
 										wrinkle.append(delta_len)
@@ -1473,13 +1469,13 @@ skeleton
 								if poly.normal != shape_norm:
 									shape_norms.append(shape_norm)
 									shape_normIndices.append(flat_polys[poly])
-				
+
 						if wrinkle_scale and max_delta:
 							wrinkle_mod = wrinkle_scale / max_delta
-							if (wrinkle_mod != 1):
+							if wrinkle_mod != 1:
 								for i in range(len(wrinkle)):
 									wrinkle[i] *= wrinkle_mod
-					
+
 					DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
 					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
 					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
@@ -1489,17 +1485,62 @@ skeleton
 						num_wrinkles += 1
 						DmeVertexDeltaData["wrinkle"] = datamodel.make_array(wrinkle,float)
 						DmeVertexDeltaData["wrinkleIndices"] = datamodel.make_array(wrinkleIndices,int)
-					
+
 					bpy.data.meshes.remove(shape)
 					del shape
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
 					if two_percent and len(shape_names) % two_percent == 0:
 						print(".",debug_only=True,newline=False)
 
-				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)
-				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
-				DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
+				print(debug_only=True)
+				bench.report("shapes")
+				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
+
+		for name,vca in bake_results[0].vertex_animations.items():
+			frame_shapes = []
+
+			for i, frame in enumerate(vca):
+				DmeVertexDeltaData = dm.add_element("{}-{}".format(name,i),"DmeVertexDeltaData",id=ob.name+name+str(i))
+				delta_states.append(DmeVertexDeltaData)
+				frame_shapes.append(DmeVertexDeltaData)
+				DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
+
+				shape_pos = []
+				shape_posIndices = []
+				shape_norms = []
+				shape_normIndices = []
 				
+				for shape_vert in frame:
+					ob_vert = ob.data.vertices[shape_vert[0]]
+
+					if ob_vert.co != shape_vert[1]:
+						delta = bake.matrix.inverted() * shape_vert[1] - ob_vert.co
+
+						if abs(delta.length) > 1e-5:
+							shape_pos.append(datamodel.Vector3(delta))
+							shape_posIndices.append(ob_vert.index)
+
+					if ob_vert.normal != shape_vert[2]:
+						shape_norms.append(datamodel.Vector3(shape_vert[2]))
+						shape_normIndices.append(ob_vert.index)
+				
+				del shape_vert
+
+				DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
+				DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
+				DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
+				DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
+
+			DmeCombinationOperator
+
+			if vca.export_sequence:
+				pass # TODO
+
+			if len(delta_states):
+				DmeMesh["deltaStates"] = datamodel.make_array(delta_states,datamodel.Element)
+				DmeMesh["deltaStateWeights"] = DmeMesh["deltaStateWeightsLagged"] = \
+					datamodel.make_array([datamodel.Vector2([0.0,0.0])] * len(delta_states),datamodel.Vector2)
+
 				targets = DmeCombinationOperator["targets"]
 				added = False
 				for elem in targets:
@@ -1509,17 +1550,13 @@ skeleton
 							added = True
 				if not added:
 					targets.append(DmeMesh)
-				
-				print(debug_only=True)
-				bench.report("shapes")
-				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
 			ad = self.armature.animation_data
 						
 			anim_len = animationLength(ad)
 			
-			if ad.action and ('fps') in dir(ad.action):
+			if ad.action and 'fps' in dir(ad.action):
 				fps = bpy.context.scene.render.fps = ad.action.fps
 				bpy.context.scene.render.fps_base = 1
 			else:

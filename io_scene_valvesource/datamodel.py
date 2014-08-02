@@ -69,7 +69,6 @@ def _validate_array_list(iterable,array_type):
 		return list([array_type(i) if type(i) != array_type else i for i in iterable])
 	except Exception as e:
 		raise TypeError("Could not convert all values to {}: {}".format(array_type,e))
-	return out
 			
 def _quote(str):
 	return "\"{}\"".format(str)
@@ -521,9 +520,6 @@ class _StringDictionary(list):
 	
 class DataModel:
 	'''Container for Element objects. Has a format name (str) and format version (int). Can write itself to a string object or a file.'''
-	elements = None
-	root = None
-	allow_random_ids = True
 	
 	def __init__(self,format,format_ver):
 		if (format and type(format) != str) or (format_ver and type(format_ver) != int):
@@ -533,6 +529,8 @@ class DataModel:
 		self.format_ver = format_ver
 		
 		self.elements = []
+		self.root = None
+		self.allow_random_ids = True
 		
 	def __repr__(self):
 		return "<Datamodel 0x{}{}>".format(id(self)," (root is \"{}\")".format(self.root.name) if self.root else "")

@@ -49,22 +49,28 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		DmeCombinationOperator = dm.add_element("combinationOperator","DmeCombinationOperator",id=id.name+"controllers")
 		root["combinationOperator"] = DmeCombinationOperator
 		controls = DmeCombinationOperator["controls"] = datamodel.make_array([],datamodel.Element)
-		
-		for ob in objects:
+
+		def createController(namespace,name,deltas):
+			DmeCombinationInputControl = dm.add_element(name,"DmeCombinationInputControl",id=namespace + name + "inputcontrol")
+			controls.append(DmeCombinationInputControl)
+
+			DmeCombinationInputControl["rawControlNames"] = datamodel.make_array(deltas,str)
+			DmeCombinationInputControl["stereo"] = False
+			DmeCombinationInputControl["eyelid"] = False
+
+			DmeCombinationInputControl["flexMax"] = 1.0
+			DmeCombinationInputControl["flexMin"] = 0.0
+
+			DmeCombinationInputControl["wrinkleScales"] = datamodel.make_array([0.0] * len(deltas),float)
+
+		for ob in [ob for ob in objects if ob.data.shape_keys]:
 			for shape in [shape for shape in ob.data.shape_keys.key_blocks[1:] if not "_" in shape.name and shape.name not in shapes]:
-				DmeCombinationInputControl = dm.add_element(shape.name,"DmeCombinationInputControl",id=ob.name+shape.name+"inputcontrol")
-				controls.append(DmeCombinationInputControl)
-				
-				DmeCombinationInputControl["rawControlNames"] = datamodel.make_array([shape.name],str)
-				DmeCombinationInputControl["stereo"] = False
-				DmeCombinationInputControl["eyelid"] = False
-				
-				DmeCombinationInputControl["flexMax"] = 1.0
-				DmeCombinationInputControl["flexMin"] = 0.0
-				
-				DmeCombinationInputControl["wrinkleScales"] = datamodel.make_array([0.0],float)
+				createController(ob.name, shape.name, [shape.name])
 				shapes.add(shape.name)
-				
+
+		for vca in id.vs.vertex_animations:
+			createController(id.name, vca.name, ["{}-{}".format(vca.name,i) for i in range(vca.end - vca.start)])
+
 		controlValues = DmeCombinationOperator["controlValues"] = datamodel.make_array( [ [0.0,0.0,0.5] ] * len(controls), datamodel.Vector3)
 		DmeCombinationOperator["controlValuesLagged"] = datamodel.make_array( controlValues, datamodel.Vector3)
 		DmeCombinationOperator["usesLaggedValues"] = False

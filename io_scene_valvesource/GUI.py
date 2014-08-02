@@ -101,7 +101,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.prop(scene.vs,"engine_path")
 		
 		if scene.vs.export_format == 'DMX':
-			if getDmxVersionsForSDK() == None:
+			if getDmxVersionsForSDK() is None:
 				row = l.split(0.33)
 				row.label(text=get_id("exportpanel_dmxver"))
 				row = row.row(align=True)
@@ -123,7 +123,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		id = item.get_id()
-		if id == None: return
+		if id is None: return
 
 		enabled = not (type(id) == bpy.types.Group and id.vs.mute)
 		
@@ -196,7 +196,7 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 	bl_options = {'INTERNAL'}
 
 	@classmethod
-	def poll(self,c):
+	def poll(cls,c):
 		return type(get_active_exportable(c)) in [bpy.types.Object, bpy.types.Group]
 	
 	def execute(self,c):
@@ -214,7 +214,7 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 	index = bpy.props.IntProperty(min=0)
 
 	@classmethod
-	def poll(self,c):
+	def poll(cls,c):
 		id = get_active_exportable(c)
 		return type(id) in [bpy.types.Object, bpy.types.Group] and len(id.vs.vertex_animations)
 	
@@ -248,10 +248,10 @@ class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
 	bl_options = {'INTERNAL'}
 
 	@classmethod
-	def poll(self,c):
-		return get_active_exportable(c) != None
+	def poll(cls,c):
+		return get_active_exportable(c) is not None
 	
-	def execute(self,c):
+	def execute(self,c): # FIXME: DMX syntax
 		id = get_active_exportable(c)
 		fps = c.scene.render.fps / c.scene.render.fps_base
 		c.window_manager.clipboard = '$model "merge_me" {0}.smd {{\n{1}\n}}\n{2}'.format(
@@ -301,7 +301,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		if not (is_group and item.vs.mute):
 			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
 
-		if bpy.context.scene.vs.export_format == 'SMD' and (is_group or item.type in mesh_compatible):
+		if is_group or item.type in mesh_compatible:
 			col = self.makeSettingsBox(text=get_id("vca_group_props"),icon=vca_icon)
 			
 			r = col.row(align=True)
@@ -378,7 +378,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 					r2 = r.split(0.7,align=True)
 					if ob.data.vs.flex_stereo_mode == 'VGROUP':
-						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) == None
+						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) is None
 						r2.prop_search(ob.data.vs,"flex_stereo_vg",ob,"vertex_groups",text="")
 					else:
 						r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Sharpness")
