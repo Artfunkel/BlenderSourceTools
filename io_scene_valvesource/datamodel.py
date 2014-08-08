@@ -41,7 +41,7 @@ shortsize = calcsize("H")
 floatsize = calcsize("f")
 
 def list_support():
-	return { 'binary':[1,2,3,4,5], 'keyvalues2':[1],'binary_proto':[2] }
+	return { 'binary':[1,2,3,4,5], 'keyvalues2':[1,2,3],'binary_proto':[2] }
 
 def check_support(encoding,encoding_ver):
 	versions = list_support().get(encoding)
@@ -278,7 +278,7 @@ class Element(collections.OrderedDict):
 	_users = 0
 	
 	def __init__(self,datamodel,name,elemtype="DmElement",id=None,_is_placeholder=False):
-		if type(name) != str:
+		if name is not None and type(name) != str:
 			raise TypeError("name must be a string")
 		
 		if elemtype and type(elemtype) != str:
@@ -352,6 +352,9 @@ class Element(collections.OrderedDict):
 			else:
 				raise ValueError("Invalid attribute type ({})".format(t))
 		
+	def get(self,k,d=None):
+		return self[k] if k in self else d
+
 	def get_kv2(self,deep = True):
 		out = ""
 		out += _quote(self.type)
@@ -783,8 +786,12 @@ def load(path = None, in_file = None, element_path = None):
 					if len(line) == 0:
 						continue
 					
-					if line[0] == 'id': id = uuid.UUID(hex=line[2])
-					elif line[0] == 'name': name = line[2]
+					if line[0] == 'id':						
+						new_elem = dm.add_element(name,elem_type,uuid.UUID(hex=line[2]))
+						element_chain.append(new_elem)
+					elif line[0] == 'name':
+						if new_elem: new_elem.name = line[2]
+						else: name = line[2]
 					
 					# don't read elements outside the element path
 					if max_elem_path and name and len(dm.elements):
@@ -802,13 +809,6 @@ def load(path = None, in_file = None, element_path = None):
 							return
 						elif len(element_path):
 							del element_path[0]
-					
-					if id and name:
-						new_elem = dm.add_element(name,elem_type,id)
-						element_chain.append(new_elem)
-						#print("{}+ {}".format('\t' * (len(element_chain)-1),element_chain[-1].name))
-						id = name = None
-						continue
 					
 					if new_elem == None:
 						continue

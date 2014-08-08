@@ -1121,6 +1121,20 @@ skeleton
 		DmeModel["baseStates"] = datamodel.make_array([ DmeModel_transforms ],datamodel.Element)
 		DmeModel_transforms["transforms"] = datamodel.make_array([],datamodel.Element)
 		DmeModel_transforms = DmeModel_transforms["transforms"]
+
+		if DatamodelFormatVersion() >= 22:
+			DmeAxisSystem = DmeModel["axisSystem"] = dm.add_element("axisSystem","DmeAxisSystem","AxisSys" + armature_name)
+			DmeAxisSystem["upAxis"] = axes_lookup[bpy.context.scene.vs.up_axis] + 1
+			DmeAxisSystem["forwardParity"] = 1 # ??
+			DmeAxisSystem["coordSys"] = 0 # ??
+
+			positions_name = "position$0"
+			normals_name = "normal$0"
+			texco_name = "texcoord$0"
+		else:
+			positions_name = "positions"
+			normals_name = "normals"
+			texco_name = "textureCoordinates"
 				
 		# skeleton
 		root["skeleton"] = DmeModel
@@ -1254,7 +1268,7 @@ skeleton
 			if badJointCounts:
 				self.warning("{} verts on \"{}\" have over 3 weight links. Studiomdl does not support this!".format(badJointCounts,bake.src.name))
 			
-			format = [ "positions", "normals", "textureCoordinates" ]
+			format = [ positions_name, normals_name, texco_name ]
 			if jointCount: format.extend( [ "jointWeights", "jointIndices" ] )
 			if len(bake.shapes) and bake.balance_vg:
 				format.append("balance")
@@ -1319,11 +1333,11 @@ skeleton
 			
 			bench.report("verts")
 			
-			vertex_data["positions"] = datamodel.make_array(pos,datamodel.Vector3)
-			vertex_data["positionsIndices"] = datamodel.make_array(Indices,int)
+			vertex_data[positions_name] = datamodel.make_array(pos,datamodel.Vector3)
+			vertex_data[positions_name + "Indices"] = datamodel.make_array(Indices,int)
 			
-			vertex_data["textureCoordinates"] = datamodel.make_array(texco,datamodel.Vector2)
-			vertex_data["textureCoordinatesIndices"] = datamodel.make_array(texcoIndices,int)
+			vertex_data[texco_name] = datamodel.make_array(texco,datamodel.Vector2)
+			vertex_data[texco_name + "Indices"] = datamodel.make_array(texcoIndices,int)
 			
 			if jointCount:
 				vertex_data["jointWeights"] = datamodel.make_array(jointWeights,float)
@@ -1379,8 +1393,8 @@ skeleton
 			print(debug_only=True)
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
-			vertex_data["normals"] = datamodel.make_array(norms,datamodel.Vector3)
-			vertex_data["normalsIndices"] = datamodel.make_array(normsIndices,int)
+			vertex_data[normals_name] = datamodel.make_array(norms,datamodel.Vector3)
+			vertex_data[normals_name + "Indices"] = datamodel.make_array(normsIndices,int)
 			
 			if bad_face_mats:
 				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
@@ -1425,7 +1439,7 @@ skeleton
 					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)					
 					shape_elems.append(DmeVertexDeltaData)
 					
-					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
+					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ positions_name, normals_name ],str)
 										
 					wrinkle = []
 					wrinkleIndices = []
@@ -1480,10 +1494,10 @@ skeleton
 								for i in range(len(wrinkle)):
 									wrinkle[i] *= wrinkle_mod
 					
-					DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
-					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
-					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
-					DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
+					DmeVertexDeltaData[positions_name] = datamodel.make_array(shape_pos,datamodel.Vector3)
+					DmeVertexDeltaData[positions_name + "Indices"] = datamodel.make_array(shape_posIndices,int)
+					DmeVertexDeltaData[normals_name] = datamodel.make_array(shape_norms,datamodel.Vector3)
+					DmeVertexDeltaData[normals_name + "Indices"] = datamodel.make_array(shape_normIndices,int)
 					if wrinkle_scale:
 						vertexFormat.append("wrinkle")
 						num_wrinkles += 1

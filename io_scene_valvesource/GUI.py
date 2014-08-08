@@ -420,6 +420,11 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			else:
 				l.label(icon='INFO',text=get_id("qc_no_enginepath"))
 			return
+
+		if getDmxVersionsForSDK()[1] >= 22:
+			l.enabled = False
+			l.label(icon='INFO',text=get_id("qc_invalid_source2"))
+			return
 			
 		row = l.row()
 		row.alert = len(scene.vs.game_path) > 0 and not p_cache.gamepath_valid

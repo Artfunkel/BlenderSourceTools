@@ -1293,12 +1293,25 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			if bpy.context.scene.name.startswith("Scene"):
 				bpy.context.scene.name = smd.jobName
+
+			if dm.format_ver  >= 22:
+				positions_name = "position$0"
+				normals_name = "normal$0"
+				texco_name = "texcoord$0"
+			else:
+				positions_name = "positions"
+				normals_name = "normals"
+				texco_name = "textureCoordinates"
 			
 			if not smd_type: smd.jobType = REF if dm.root.get("model") else ANIM
 			
 			DmeModel = dm.root["skeleton"]
 			FlexControllers = dm.root.get("combinationOperator")
 			transforms = DmeModel["baseStates"][0]["transforms"] if DmeModel.get("baseStates") and len(DmeModel["baseStates"]) > 0 else None
+
+			DmeAxisSystem = DmeModel.get("axisSystem")
+			if DmeAxisSystem:
+				upAxis = smd.upAxis = list(axes_lookup.keys())[DmeAxisSystem["upAxis"] - 1]
 			
 			def getBlenderQuat(datamodel_quat):
 				return Quaternion([datamodel_quat[3], datamodel_quat[0], datamodel_quat[1], datamodel_quat[2]])
@@ -1411,6 +1424,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 						amod = ob.modifiers.new(name="Armature",type='ARMATURE')
 						amod.object = smd.a
 						amod.use_bone_envelopes = False
+					else:
+						ob.matrix_local = getUpAxisMat(smd.upAxis)
 					
 					print("Importing DMX mesh \"{}\"".format(DmeMesh.name))
 					
@@ -1419,8 +1434,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bm = bmesh.new()
 					bm.from_mesh(ob.data)
 					
-					positions = DmeVertexData["positions"]
-					positionsIndices = DmeVertexData["positionsIndices"]
+					positions = DmeVertexData[positions_name]
+					positionsIndices = DmeVertexData[positions_name + "Indices"]
 					
 					# Vertices
 					for pos in positions:
@@ -1450,7 +1465,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Move from BMesh to Blender
 					bm.to_mesh(ob.data)
 					ob.data.update()
-					ob.matrix_local = matrix
+					ob.matrix_local *= matrix
 					if smd.jobType == PHYS:
 						ob.draw_type = 'SOLID'
 					
@@ -1502,11 +1517,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 						ob.data.vs.flex_stereo_mode = 'VGROUP'
 						ob.data.vs.flex_stereo_vg = vg.name
 					# UV
-					if "textureCoordinates" in DmeVertexData["vertexFormat"]:
+					if texco_name in DmeVertexData["vertexFormat"]:
 						ob.data.uv_textures.new()
 						uv_data = ob.data.uv_layers[0].data
-						textureCoordinatesIndices = DmeVertexData["textureCoordinatesIndices"]
-						textureCoordinates = DmeVertexData["textureCoordinates"]
+						textureCoordinatesIndices = DmeVertexData[texco_name + "Indices"]
+						textureCoordinates = DmeVertexData[texco_name]
 						uv_vert=0
 						dmx_face=0
 						skipping = False
@@ -1530,9 +1545,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 								ob.data.shape_keys.name = DmeMesh.name
 							shape_key = ob.shape_key_add(DmeVertexDeltaData.name)
 							
-							if "positions" in DmeVertexDeltaData["vertexFormat"]:
-								deltaPositions = DmeVertexDeltaData["positions"]
-								for i,posIndex in enumerate(DmeVertexDeltaData["positionsIndices"]):
+							if positions_name in DmeVertexDeltaData["vertexFormat"]:
+								deltaPositions = DmeVertexDeltaData[positions_name]
+								for i,posIndex in enumerate(DmeVertexDeltaData[positions_name + "Indices"]):
 									shape_key.data[posIndex].co += Vector(deltaPositions[i])
 			
 			if smd.jobType in [REF,REF_ADD,PHYS]:

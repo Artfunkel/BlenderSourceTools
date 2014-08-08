@@ -60,7 +60,7 @@ exportable_types = tuple(exportable_types)
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
 
-dmx_model_versions = [1,15,18]
+dmx_model_versions = [1,15,18,22]
 
 dmx_versions = { # [encoding, format]
 'ep1':[0,0],
@@ -79,7 +79,9 @@ dmx_versions = { # [encoding, format]
 # and now back to 2/1 for some reason...
 'Half-Life 2':[2,1],
 'Source SDK Base 2013 Singleplayer':[2,1],
-'Source SDK Base 2013 Multiplayer':[2,1]
+'Source SDK Base 2013 Multiplayer':[2,1],
+# Source 2!
+'Dota 2 (Source 2)':[5,22],
 }
 
 def print(*args, newline=True, debug_only=False):
@@ -152,14 +154,19 @@ def shouldExportDMX():
 	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
 
 def getEngineBranchName():
-	path = bpy.context.scene.vs.engine_path
+	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
+	if not path: return None
+
 	if path.lower().find("sourcefilmmaker") != -1:
 		return "Source Filmmaker" # hack for weird SFM folder structure, add a space too
+	elif "dota2.exe" in os.listdir(path) and "resourcecompiler.exe" in os.listdir(path):
+		return "Dota 2 (Source 2)"
 	elif path.lower().find("dota 2 beta") != -1:
 		return "Dota 2"
 	else:
 		return os.path.basename(os.path.abspath(os.path.join(bpy.path.abspath(path),os.pardir))).title().replace("Sdk","SDK") # why, Python, why
 def getDmxVersionsForSDK():
+	if not bpy.context.scene.vs.engine_path: return
 	path_branch = getEngineBranchName().lower()
 	for branch in dmx_versions.keys():
 		if path_branch == branch.lower(): return dmx_versions[branch]

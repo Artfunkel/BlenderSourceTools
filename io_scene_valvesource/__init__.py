@@ -133,11 +133,21 @@ def group_selected_changed(self,context):
 	context.scene.objects.active = id
 
 def engine_path_changed(self, context):
-	p_cache.enginepath_valid = os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
+	if bpy.context.scene.vs.engine_path:
+		for compiler in ["studiomdl.exe", "resourcecompiler.exe"]:
+			if os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),compiler)):
+				p_cache.enginepath_valid = True
+				return
+	p_cache.enginepath_valid = False
 
 def game_path_changed(self,context):
 	game_path = getGamePath()
-	p_cache.gamepath_valid = game_path and os.path.exists(os.path.join(game_path,"gameinfo.txt"))
+	if game_path:
+		for anchor in ["gameinfo.txt", "addoninfo.txt", "gameinfo.gi"]:
+			if os.path.exists(os.path.join(game_path,anchor)):
+				p_cache.gamepath_valid = True
+				return
+	p_cache.gamepath_valid = False
 #
 # Property Groups
 #

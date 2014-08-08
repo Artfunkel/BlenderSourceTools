@@ -46,7 +46,7 @@ _data = {
 	'ru': "Вставить блок контроллеров лицевой анимации",
 },
 'triangulate_tip': {
-	'en': "Avoids concave DMX faces, which are not supported by studiomdl",
+	'en': "Avoids concave DMX faces, which are not supported by Source",
 	'ru': "Избегать вогнутых полигонов в DMX-файлах (не поддерживается studiomdl)",
 },
 'action_filter': {
@@ -253,6 +253,9 @@ _data = {
 	'en': "Invalid Engine Path",
 	'ru': "Некорректный путь до папки bin",
 },
+'qc_invalid_source2': {
+	'en': "QC files do not exist in Source 2",
+},
 'exportmenu_selected': {
 	'en': "Selected objects ({0} files)",
 	'ru': "Выбранные объекты ({0} файлов)",
@@ -442,7 +445,7 @@ _data = {
 	'ru': "Не удалось создать папку для экспорта. Ошибка Python: {0}",
 },
 'exporter_err_weightlinks': {
-	'en': "{0} verts on \"{1}\" have over 3 weight links. Studiomdl does not support this!",
+	'en': "{0} verts on \"{1}\" have over 3 weight links. Source does not support this!",
 	'ru': "{0} вершин на объекте {1} привязаны к более чем трём костям. Studiomdl не сможет скомпилировать такой файл..",
 },
 'exporter_report_menu': {
@@ -770,7 +773,7 @@ _data = {
 	'ru': "Версия формата модели (DMX-файл)",
 },
 'engine_path_tip': {
-	'en': "Directory containing studiomdl",
+	'en': "Directory containing studiomdl (Source 1) or resourcecompiler (Source 2)",
 	'ru': "Путь до studiomdl",
 },
 'ignore_materials_tip': {
