@@ -101,7 +101,8 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.prop(scene.vs,"engine_path")
 		
 		if scene.vs.export_format == 'DMX':
-			if getDmxVersionsForSDK() == None:
+			version = getDmxVersionsForSDK()
+			if version == None:
 				row = l.split(0.33)
 				row.label(text=get_id("exportpanel_dmxver"))
 				row = row.row(align=True)
@@ -109,9 +110,12 @@ class SMD_PT_Scene(bpy.types.Panel):
 				row.prop(scene.vs,"dmx_format",text="")
 				row.enabled = not row.alert
 			if canExportDMX():
-				row = l.row()
-				row.prop(scene.vs,"material_path")
-				row.enabled = shouldExportDMX()
+				col = l.column()
+				col.prop(scene.vs,"material_path")
+				if version is None or version[1] < 22:
+					pass
+				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
+				col.enabled = shouldExportDMX()
 		
 		col = l.column(align=True)
 		row = col.row(align=True)
@@ -421,7 +425,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 				l.label(icon='INFO',text=get_id("qc_no_enginepath"))
 			return
 
-		if getDmxVersionsForSDK()[1] >= 22:
+		if DatamodelFormatVersion() >= 22:
 			l.enabled = False
 			l.label(icon='INFO',text=get_id("qc_invalid_source2"))
 			return

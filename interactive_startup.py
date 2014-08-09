@@ -1,4 +1,4 @@
-from bpy_git import bpy
+import bpy
 import sys
 
 bpy.ops.wm.read_homefile()

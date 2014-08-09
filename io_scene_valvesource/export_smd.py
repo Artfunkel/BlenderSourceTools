@@ -633,6 +633,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					result.envelope = con.subtarget
 		
 		solidify_fill_rim = None
+		shapes_invalid = False
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
 				if result.envelope:
@@ -644,7 +645,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				solidify_fill_rim = mod.use_rim
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':
 				self.error(get_id("exporter_err_shapes_decimate", True).format(id.name,mod.decimate_type))
-				return result
+				shapes_invalid = True
 		ops.object.mode_set(mode='OBJECT')
 		
 		# Bake reference mesh
@@ -697,7 +698,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for vgroup in id.vertex_groups:
 			baked.vertex_groups.new(name=vgroup.name)
 		
-		if hasShapes(id):
+		if not shapes_invalid and hasShapes(id):
 			# calculate vert balance
 			if shouldExportDMX():
 				if id.data.vs.flex_stereo_mode == 'VGROUP':
@@ -1122,23 +1123,17 @@ skeleton
 		DmeModel_transforms["transforms"] = datamodel.make_array([],datamodel.Element)
 		DmeModel_transforms = DmeModel_transforms["transforms"]
 
-		if DatamodelFormatVersion() >= 22:
+		if dm.format_ver >= 22:
 			DmeAxisSystem = DmeModel["axisSystem"] = dm.add_element("axisSystem","DmeAxisSystem","AxisSys" + armature_name)
 			DmeAxisSystem["upAxis"] = axes_lookup[bpy.context.scene.vs.up_axis] + 1
 			DmeAxisSystem["forwardParity"] = 1 # ??
 			DmeAxisSystem["coordSys"] = 0 # ??
 
-			positions_name = "position$0"
-			normals_name = "normal$0"
-			texco_name = "texcoord$0"
-		else:
-			positions_name = "positions"
-			normals_name = "normals"
-			texco_name = "textureCoordinates"
+		keywords = getDmxKeywords(dm.format_ver)
 				
 		# skeleton
 		root["skeleton"] = DmeModel
-		if DatamodelFormatVersion() >= 11:
+		if dm.format_ver >= 11:
 			jointList = DmeModel["jointList"] = datamodel.make_array([],datamodel.Element)
 		jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)
 		bone_transforms = {} # cache for animation lookup
@@ -1153,7 +1148,7 @@ skeleton
 
 			bone_name = bone.name if bone else implicit_bone_name
 			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
-			if DatamodelFormatVersion() >= 11: jointList.append(bone_elem)
+			if dm.format_ver >= 11: jointList.append(bone_elem)
 			self.bone_ids[bone_name] = len(bone_transforms)
 			
 			if not bone: relMat = Matrix()
@@ -1247,7 +1242,7 @@ skeleton
 			jointTransforms.append(trfm)
 			
 			DmeDag = dm.add_element(bake.name,"DmeDag",id="ob"+bake.name+"dag")
-			if DatamodelFormatVersion() >= 11: jointList.append(DmeDag)
+			if dm.format_ver >= 11: jointList.append(DmeDag)
 			DmeDag["shape"] = DmeMesh
 			DmeDag["transform"] = trfm
 			
@@ -1255,23 +1250,39 @@ skeleton
 			DmeModel_transforms.append(makeTransform(bake.name, ob.matrix_world, "ob_base"+bake.name))
 			
 			jointCount = 0
+			weight_link_limit = 3 if dm.format_ver < 22 else 0
 			badJointCounts = 0
-			if type(bake.envelope) == bpy.types.ArmatureModifier:
+			culled_weight_links = 0
+			cull_threshold = bpy.context.scene.vs.dmx_weightlink_threshold
+
+			if type(bake.envelope) is bpy.types.ArmatureModifier:
 				ob_weights = self.getWeightmap(bake)
+
 				for vert_weights in ob_weights:
 					count = len(vert_weights)
-					if count > 3: badJointCounts += 1
+
+					if weight_link_limit:
+						if count > weight_link_limit and cull_threshold > 0:
+							vert_weights.sort(key=lambda link: link[1],reverse=True)
+							while len(vert_weights) > weight_link_limit and vert_weights[-1][1] <= cull_threshold:
+								vert_weights.pop()
+								culled_weight_links += 1
+							count = len(vert_weights)
+						if count > weight_link_limit: badJointCounts += 1
+
 					jointCount = max(jointCount,count)
 			elif bake.envelope:
 				jointCount = 1
 					
 			if badJointCounts:
-				self.warning("{} verts on \"{}\" have over 3 weight links. Studiomdl does not support this!".format(badJointCounts,bake.src.name))
+				self.warning("{} verts on \"{}\" have over {} weight links. Studiomdl does not support this!".format(badJointCounts,bake.src.name,weight_link_limit))
+			if culled_weight_links:
+				self.warning("{} excess weight links beneath scene threshold of {:0.2} culled on \"{}\".".format(culled_weight_links,cull_threshold,bake.src.name))
 			
-			format = [ positions_name, normals_name, texco_name ]
-			if jointCount: format.extend( [ "jointWeights", "jointIndices" ] )
+			format = [ keywords['pos'], keywords['norm'], keywords['texco'] ]
+			if jointCount: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
 			if len(bake.shapes) and bake.balance_vg:
-				format.append("balance")
+				format.append(keywords["balance"])
 			vertex_data["vertexFormat"] = datamodel.make_array( format, str)
 			
 			vertex_data["flipVCoordinates"] = True
@@ -1333,19 +1344,19 @@ skeleton
 			
 			bench.report("verts")
 			
-			vertex_data[positions_name] = datamodel.make_array(pos,datamodel.Vector3)
-			vertex_data[positions_name + "Indices"] = datamodel.make_array(Indices,int)
+			vertex_data[keywords['pos']] = datamodel.make_array(pos,datamodel.Vector3)
+			vertex_data[keywords['pos'] + "Indices"] = datamodel.make_array(Indices,int)
 			
-			vertex_data[texco_name] = datamodel.make_array(texco,datamodel.Vector2)
-			vertex_data[texco_name + "Indices"] = datamodel.make_array(texcoIndices,int)
+			vertex_data[keywords['texco']] = datamodel.make_array(texco,datamodel.Vector2)
+			vertex_data[keywords['texco'] + "Indices"] = datamodel.make_array(texcoIndices,int)
 			
 			if jointCount:
-				vertex_data["jointWeights"] = datamodel.make_array(jointWeights,float)
-				vertex_data["jointIndices"] = datamodel.make_array(jointIndices,int)
+				vertex_data[keywords["weight"]] = datamodel.make_array(jointWeights,float)
+				vertex_data[keywords["weight_indices"]] = datamodel.make_array(jointIndices,int)
 			
 			if len(bake.shapes):
-				vertex_data["balance"] = datamodel.make_array(balance,float)
-				vertex_data["balanceIndices"] = datamodel.make_array(Indices,int)
+				vertex_data[keywords["balance"]] = datamodel.make_array(balance,float)
+				vertex_data[keywords["balance"] + "Indices"] = datamodel.make_array(Indices,int)
 			
 			bench.report("insert")
 			face_sets = collections.OrderedDict()
@@ -1393,8 +1404,8 @@ skeleton
 			print(debug_only=True)
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
-			vertex_data[normals_name] = datamodel.make_array(norms,datamodel.Vector3)
-			vertex_data[normals_name + "Indices"] = datamodel.make_array(normsIndices,int)
+			vertex_data[keywords['norm']] = datamodel.make_array(norms,datamodel.Vector3)
+			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(normsIndices,int)
 			
 			if bad_face_mats:
 				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
@@ -1439,7 +1450,7 @@ skeleton
 					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)					
 					shape_elems.append(DmeVertexDeltaData)
 					
-					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ positions_name, normals_name ],str)
+					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ keywords['pos'], keywords['norm'] ],str)
 										
 					wrinkle = []
 					wrinkleIndices = []
@@ -1494,15 +1505,15 @@ skeleton
 								for i in range(len(wrinkle)):
 									wrinkle[i] *= wrinkle_mod
 					
-					DmeVertexDeltaData[positions_name] = datamodel.make_array(shape_pos,datamodel.Vector3)
-					DmeVertexDeltaData[positions_name + "Indices"] = datamodel.make_array(shape_posIndices,int)
-					DmeVertexDeltaData[normals_name] = datamodel.make_array(shape_norms,datamodel.Vector3)
-					DmeVertexDeltaData[normals_name + "Indices"] = datamodel.make_array(shape_normIndices,int)
+					DmeVertexDeltaData[keywords['pos']] = datamodel.make_array(shape_pos,datamodel.Vector3)
+					DmeVertexDeltaData[keywords['pos'] + "Indices"] = datamodel.make_array(shape_posIndices,int)
+					DmeVertexDeltaData[keywords['norm']] = datamodel.make_array(shape_norms,datamodel.Vector3)
+					DmeVertexDeltaData[keywords['norm'] + "Indices"] = datamodel.make_array(shape_normIndices,int)
 					if wrinkle_scale:
-						vertexFormat.append("wrinkle")
+						vertexFormat.append(keywords["wrinkle"])
 						num_wrinkles += 1
-						DmeVertexDeltaData["wrinkle"] = datamodel.make_array(wrinkle,float)
-						DmeVertexDeltaData["wrinkleIndices"] = datamodel.make_array(wrinkleIndices,int)
+						DmeVertexDeltaData[keywords["wrinkle"]] = datamodel.make_array(wrinkle,float)
+						DmeVertexDeltaData[keywords["wrinkle"] + "Indices"] = datamodel.make_array(wrinkleIndices,int)
 					
 					bpy.data.meshes.remove(shape)
 					del shape
@@ -1546,7 +1557,7 @@ skeleton
 			
 			DmeTimeFrame = dm.add_element("timeframe","DmeTimeFrame",id=name+"time")
 			duration = anim_len / fps
-			if DatamodelFormatVersion() >= 11:
+			if dm.format_ver >= 11:
 				DmeTimeFrame["duration"] = datamodel.Time(duration)
 			else:
 				DmeTimeFrame["durationTime"] = int(duration * 10000)
@@ -1570,7 +1581,7 @@ skeleton
 					val_arr = dm.add_element(template[2]+" log","Dme"+template[2]+"LogLayer",cur.name+"loglayer")				
 					cur["log"] = dm.add_element(template[2]+" log","Dme"+template[2]+"Log",cur.name+"log")
 					cur["log"]["layers"] = datamodel.make_array([val_arr],datamodel.Element)				
-					val_arr["times"] = datamodel.make_array([],datamodel.Time if DatamodelFormatVersion() > 11 else int)
+					val_arr["times"] = datamodel.make_array([],datamodel.Time if dm.format_ver > 11 else int)
 					val_arr["values"] = datamodel.make_array([],template[3])
 					if bone: bone_channels[bone].append(val_arr)
 					channels.append(cur)
@@ -1590,7 +1601,7 @@ skeleton
 			for frame in range(0,num_frames):
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
-				keyframe_time = datamodel.Time(frame / fps) if DatamodelFormatVersion() > 11 else int(frame/fps * 10000)
+				keyframe_time = datamodel.Time(frame / fps) if dm.format_ver > 11 else int(frame/fps * 10000)
 				for bone in self.exportable_bones:
 					channel = bone_channels[bone]
 

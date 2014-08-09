@@ -1294,14 +1294,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if bpy.context.scene.name.startswith("Scene"):
 				bpy.context.scene.name = smd.jobName
 
-			if dm.format_ver  >= 22:
-				positions_name = "position$0"
-				normals_name = "normal$0"
-				texco_name = "texcoord$0"
-			else:
-				positions_name = "positions"
-				normals_name = "normals"
-				texco_name = "textureCoordinates"
+			keywords = getDmxKeywords(dm.format_ver)
 			
 			if not smd_type: smd.jobType = REF if dm.root.get("model") else ANIM
 			
@@ -1434,8 +1427,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bm = bmesh.new()
 					bm.from_mesh(ob.data)
 					
-					positions = DmeVertexData[positions_name]
-					positionsIndices = DmeVertexData[positions_name + "Indices"]
+					positions = DmeVertexData[keywords['pos']]
+					positionsIndices = DmeVertexData[keywords['pos'] + "Indices"]
 					
 					# Vertices
 					for pos in positions:
@@ -1470,10 +1463,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 						ob.draw_type = 'SOLID'
 					
 					# Weightmap
-					if "jointWeights" in DmeVertexData["vertexFormat"]:
+					if keywords["weight"] in DmeVertexData["vertexFormat"]:
 						jointList = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"]
-						jointWeights = DmeVertexData["jointWeights"]
-						jointIndices = DmeVertexData["jointIndices"]
+						jointWeights = DmeVertexData[keywords["weight"]]
+						jointIndices = DmeVertexData[keywords["weight_indices"]]
 						jointRange = range(DmeVertexData["jointCount"])
 						full_weights = collections.defaultdict(list)
 						joint_index = 0
@@ -1499,10 +1492,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 							vg.add(verts,1,'REPLACE')
 					
 					# Stereo balance
-					if "balance" in DmeVertexData["vertexFormat"]:
+					if keywords['balance'] in DmeVertexData["vertexFormat"]:
 						vg = ob.vertex_groups.new(get_id("importer_balance_group", data=True))
-						balanceIndices = DmeVertexData["balanceIndices"]
-						balance = DmeVertexData["balance"]
+						balanceIndices = DmeVertexData[keywords['balance'] + "Indices"]
+						balance = DmeVertexData[keywords['balance']]
 						ones = []
 						for i in balanceIndices:
 							val = balance[i]
@@ -1517,11 +1510,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 						ob.data.vs.flex_stereo_mode = 'VGROUP'
 						ob.data.vs.flex_stereo_vg = vg.name
 					# UV
-					if texco_name in DmeVertexData["vertexFormat"]:
+					if keywords['texco'] in DmeVertexData["vertexFormat"]:
 						ob.data.uv_textures.new()
 						uv_data = ob.data.uv_layers[0].data
-						textureCoordinatesIndices = DmeVertexData[texco_name + "Indices"]
-						textureCoordinates = DmeVertexData[texco_name]
+						textureCoordinatesIndices = DmeVertexData[keywords['texco'] + "Indices"]
+						textureCoordinates = DmeVertexData[keywords['texco']]
 						uv_vert=0
 						dmx_face=0
 						skipping = False
@@ -1545,9 +1538,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 								ob.data.shape_keys.name = DmeMesh.name
 							shape_key = ob.shape_key_add(DmeVertexDeltaData.name)
 							
-							if positions_name in DmeVertexDeltaData["vertexFormat"]:
-								deltaPositions = DmeVertexDeltaData[positions_name]
-								for i,posIndex in enumerate(DmeVertexDeltaData[positions_name + "Indices"]):
+							if keywords['pos'] in DmeVertexDeltaData["vertexFormat"]:
+								deltaPositions = DmeVertexDeltaData[keywords['pos']]
+								for i,posIndex in enumerate(DmeVertexDeltaData[keywords['pos'] + "Indices"]):
 									shape_key.data[posIndex].co += Vector(deltaPositions[i])
 			
 			if smd.jobType in [REF,REF_ADD,PHYS]:
