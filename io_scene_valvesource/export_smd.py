@@ -171,7 +171,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
-		
+				
 		try:
 			context.tool_settings.use_keyframe_insert_auto = False
 			context.tool_settings.use_keyframe_insert_keyingset = False
@@ -311,58 +311,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else: baked_metaballs.append(ob)
 						
 				bake_results.append(self.bakeObj(ob))
-			bench.report("Group bake", len(bake_results))
-
-			if shouldExportDMX() and id.vs.automerge:
-				bone_parents = collections.defaultdict(list)
-				scene_obs = bpy.context.scene.objects
-				for bake in [bake for bake in bake_results if type(bake.envelope) == str]:
-					bone_parents[bake.envelope].append(bake)
-				
-				for bp, parts in bone_parents.items():
-					if len(parts) <= 1: continue
-					shape_names = set()
-					for key in [key for part in parts for key in part.shapes.keys()]:
-						shape_names.add(key)
-					
-					ops.object.select_all(action='DESELECT')
-					for part in parts:
-						ob = part.object.copy()
-						ob.data = ob.data.copy()
-						ob.data.uv_layers.active.name = "__dmx_uv__"
-						scene_obs.link(ob)
-						ob.select = True
-						scene_obs.active = ob
-						bake_results.remove(part)
-					
-					bpy.ops.object.join()
-					joined = self.BakeResult(bp + "_meshes")
-					joined.object = bpy.context.active_object
-					joined.object.name = joined.object.data.name = joined.name
-					joined.envelope = bp
-					bake_results.append(joined)
-					
-					for shape_name in shape_names:
-						ops.object.select_all(action='DESELECT')
-						
-						for part in parts:
-							mesh = part.shapes[shape_name] if shape_name in part.shapes else part.object.data
-							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh.copy())
-							scene_obs.link(ob)
-							ob.matrix_local = part.matrix
-							ob.select = True
-							scene_obs.active = ob
-						
-						bpy.ops.object.join()
-						joined.shapes[shape_name] = bpy.context.active_object.data
-						bpy.context.active_object.data.name = "{} -> {}".format(joined.object.name,shape_name)
-						
-						scene_obs.unlink(ob)
-						bpy.data.objects.remove(ob)
-						del ob
-						
-					scene_obs.active = joined.object
-				bench.report("Mech merge")
+			bench.report("Group bake", len(bake_results))			
 		elif id.type == 'META':
 			bake_results.append(self.bakeObj(find_basis_metaball(id)))
 			bench.report("Metaball bake")
@@ -373,62 +322,137 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if shouldExportDMX() and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
 			self.flex_controller_source = id.vs.flex_controller_source
-		
+
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
 
 		bpy.ops.object.mode_set(mode='OBJECT')
+		mesh_bakes = [bake for bake in bake_results if bake.object.type == 'MESH']
+		
+		skip_vca = False
+		if type(id) == Group and len(id.vs.vertex_animations) and len(id.objects) > 1:
+			if len(id.objects) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
+				self.error("Skipping vertex animations on Group \"{}\", which could not be merged into a single DMX object due to its envelope. To fix this, ensure that the entire Group has the same bone parent.".format(id.name))
+			elif not id.vs.automerge:
+				id.vs.automerge = True
+			skip_vca = True
+
 		for va in id.vs.vertex_animations:
-			frames = bake_results[0].vertex_animations[va.name]
-			frames.export_sequence = va.export_sequence
-			num_frames = va.end - va.start
-			two_percent = num_frames / 50
+			if skip_vca: break
+			vca = bake_results[0].vertex_animations[va.name] # only the first bake result will ever have a vertex animation defined
+			vca.export_sequence = va.export_sequence
+			vca.num_frames = va.end - va.start
+			two_percent = vca.num_frames * len(bake_results) / 50
 			print("- Generating vertex animation \"{}\"".format(va.name))
 			anim_bench = BenchMarker(1,va.name)
-
-			objects = id.objects if type(id) == bpy.types.Group else [id]
-
+			
 			for f in range(va.start,va.end):
 				bpy.context.scene.frame_set(f)
 				bpy.ops.object.select_all(action='DESELECT')
-				for ob in objects:
-					fob = ob.copy()
-					fob.data = ob.to_mesh(bpy.context.scene, True, 'PREVIEW')
-					bpy.context.scene.objects.link(fob)
-					bpy.context.scene.objects.active = fob
-					fob.select = True
+				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
+					bake.fob = bake.src.copy()
+					bake.fob.data = bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW')
+					bpy.context.scene.objects.link(bake.fob)
+					bpy.context.scene.objects.active = bake.fob
+					bake.fob.select = True
 
-					top_parent = self.getTopParent(ob)
+					top_parent = self.getTopParent(bake.src)
 					bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 					if top_parent:
-						fob.location -= top_parent.location
-						
+						bake.fob.location -= top_parent.location
+					
 					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
 
-				if len(frame_obs) > 1:
-					bpy.context.scene.objects.active = frame_obs[0]
+				if len(bpy.context.selected_objects) > 1 and not shouldExportDMX():
+					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 					ops.object.join()
 
-				del frame_obs
-				frame_ob = bpy.context.active_object
+				vca.append(bpy.context.active_object if len(bpy.context.selected_objects) == 1 else bpy.context.selected_objects)
 				anim_bench.report("bake")
-				frame = []
-				
-				i = 0
-				for poly in frame_ob.data.polygons:
-					for vert in [frame_ob.data.vertices[v] for v in poly.vertices]:
-						frame.append([vert.index, Vector(vert.co), Vector((poly.normal if poly.use_smooth else vert.normal))])
-						i += 1
-				anim_bench.report("record")
-				frames.append(frame)
-				removeObject(frame_ob)
-				frame_ob = None
-				bpy.context.scene.objects.active = bake_results[0].src
 
-				if two_percent and len(frames) % two_percent == 0:
+				for bake in mesh_bakes:
+					bpy.context.scene.objects.unlink(bake.fob)
+					del bake.fob
+				
+				anim_bench.report("record")
+
+				if two_percent and len(vca) / len(bake_results) % two_percent == 0:
 					print(".", debug_only=True, newline=False)
-					bpy.context.window_manager.progress_update(len(frames) / num_frames)
+					bpy.context.window_manager.progress_update(len(vca) / vca.num_frames)
+
 			bench.report("\n" + va.name)
+			bpy.context.scene.objects.active = bake_results[0].src
+
+		if type(id) is Group and shouldExportDMX() and id.vs.automerge:
+			bone_parents = collections.defaultdict(list)
+			scene_obs = bpy.context.scene.objects
+			for bake in [bake for bake in bake_results if type(bake.envelope) is str or bake.envelope is None]:
+				bone_parents[bake.envelope].append(bake)
+				
+			for bp, parts in bone_parents.items():
+				if len(parts) <= 1: continue
+				shape_names = set()
+				for key in [key for part in parts for key in part.shapes.keys()]:
+					shape_names.add(key)
+					
+				ops.object.select_all(action='DESELECT')
+				for part in parts:
+					ob = part.object.copy()
+					ob.data = ob.data.copy()
+					ob.data.uv_layers.active.name = "__dmx_uv__"
+					scene_obs.link(ob)
+					ob.select = True
+					scene_obs.active = ob
+					bake_results.remove(part)
+					
+				bpy.ops.object.join()
+				joined = self.BakeResult(bp + "_meshes" if bp else "loose_meshes")
+				joined.object = bpy.context.active_object
+				joined.object.name = joined.object.data.name = joined.name
+				joined.envelope = bp
+
+				if parts[0].vertex_animations:
+					for src_name,src_vca in parts[0].vertex_animations.items():
+						vca = joined.vertex_animations[src_name] = self.BakedVertexAnimation()
+						vca.bone_id = src_vca.bone_id
+						vca.export_sequence = src_vca.export_sequence
+						vca.num_frames = src_vca.num_frames
+
+						for i,frame in enumerate(src_vca):
+							bpy.ops.object.select_all(action='DESELECT')
+							frame.reverse()
+							for ob in frame:
+								bpy.context.scene.objects.link(ob)
+								ob.select = True
+							bpy.context.scene.objects.active = frame[0]
+							bpy.ops.object.join()
+							bpy.context.active_object.name = "{}-{}".format(src_name,i)
+							bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
+							vca.append(bpy.context.active_object)
+				
+				bake_results.append(joined)
+					
+				for shape_name in shape_names:
+					ops.object.select_all(action='DESELECT')
+						
+					for part in parts:
+						mesh = part.shapes[shape_name] if shape_name in part.shapes else part.object.data
+						ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh.copy())
+						scene_obs.link(ob)
+						ob.matrix_local = part.matrix
+						ob.select = True
+						scene_obs.active = ob
+						
+					bpy.ops.object.join()
+					joined.shapes[shape_name] = bpy.context.active_object.data
+					bpy.context.active_object.data.name = "{} -> {}".format(joined.object.name,shape_name)
+						
+					scene_obs.unlink(ob)
+					bpy.data.objects.remove(ob)
+					del ob
+						
+				scene_obs.active = joined.object
+			bench.report("Mech merge")
 
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
@@ -547,18 +571,25 @@ class SmdExporter(bpy.types.Operator, Logger):
 		return top_parent
 
 	class BakedVertexAnimation(list):
-		export_sequence = False
-		bone_id = -1
+		def __init__(self):
+			self.export_sequence = False
+			self.bone_id = -1
+			self.num_frames = 0
 
-	class BakeResult:
-		object = None
-		matrix = Matrix()
-		envelope = None
-		src = None
-		balance_vg = None
-		
+	class VertexAnimationKey():
+		def __init__(self,vert_index,co,norm):
+			self.vert_index = vert_index
+			self.co = co
+			self.norm = norm
+
+	class BakeResult:		
 		def __init__(self,name):
 			self.name = name
+			self.object = None
+			self.matrix = Matrix()
+			self.envelope = None
+			self.src = None
+			self.balance_vg = None
 			self.shapes = collections.OrderedDict()
 			self.matrix = Matrix()
 			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
@@ -1495,46 +1526,42 @@ skeleton
 				print(debug_only=True)
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
+			
+			vca_matrix = ob.matrix_world.inverted()
+			for vca_name,vca in bake_results[0].vertex_animations.items():
+				frame_shapes = []
 
-		for name,vca in bake_results[0].vertex_animations.items():
-			frame_shapes = []
+				for i, vca_ob in enumerate(vca):
+					DmeVertexDeltaData = dm.add_element("{}-{}".format(vca_name,i),"DmeVertexDeltaData",id=ob.name+vca_name+str(i))
+					delta_states.append(DmeVertexDeltaData)
+					frame_shapes.append(DmeVertexDeltaData)
+					DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
 
-			for i, frame in enumerate(vca):
-				DmeVertexDeltaData = dm.add_element("{}-{}".format(name,i),"DmeVertexDeltaData",id=ob.name+name+str(i))
-				delta_states.append(DmeVertexDeltaData)
-				frame_shapes.append(DmeVertexDeltaData)
-				DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
-
-				shape_pos = []
-				shape_posIndices = []
-				shape_norms = []
-				shape_normIndices = []
+					shape_pos = []
+					shape_posIndices = []
+					shape_norms = []
+					shape_normIndices = []
 				
-				for shape_vert in frame:
-					ob_vert = ob.data.vertices[shape_vert[0]]
+					for shape_vert in vca_ob.data.vertices:
+						ob_vert = ob.data.vertices[shape_vert.index]
 
-					if ob_vert.co != shape_vert[1]:
-						delta = bake.matrix.inverted() * shape_vert[1] - ob_vert.co
+						if ob_vert.co != shape_vert.co:
+							delta = vca_matrix * shape_vert.co - ob_vert.co
 
-						if abs(delta.length) > 1e-5:
-							shape_pos.append(datamodel.Vector3(delta))
-							shape_posIndices.append(ob_vert.index)
+							if abs(delta.length) > 1e-5:
+								shape_pos.append(datamodel.Vector3(delta))
+								shape_posIndices.append(ob_vert.index)
+						if ob_vert.normal != shape_vert.normal:
+							shape_norms.append(datamodel.Vector3(shape_vert.normal))
+							shape_normIndices.append(ob_vert.index)
 
-					if ob_vert.normal != shape_vert[2]:
-						shape_norms.append(datamodel.Vector3(shape_vert[2]))
-						shape_normIndices.append(ob_vert.index)
-				
-				del shape_vert
+					DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
+					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
+					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
+					DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
 
-				DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
-				DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
-				DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
-				DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
-
-			DmeCombinationOperator
-
-			if vca.export_sequence:
-				pass # TODO
+				if vca.export_sequence:
+					pass # TODO
 
 			if len(delta_states):
 				DmeMesh["deltaStates"] = datamodel.make_array(delta_states,datamodel.Element)
