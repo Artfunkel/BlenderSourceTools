@@ -333,9 +333,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if type(id) == Group and len(id.vs.vertex_animations) and len(id.objects) > 1:
 			if len(id.objects) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
 				self.error("Skipping vertex animations on Group \"{}\", which could not be merged into a single DMX object due to its envelope. To fix this, ensure that the entire Group has the same bone parent.".format(id.name))
+				skip_vca = True
 			elif not id.vs.automerge:
 				id.vs.automerge = True
-			skip_vca = True
 
 		for va in id.vs.vertex_animations:
 			if skip_vca: break
@@ -1096,8 +1096,8 @@ skeleton
 		print()
 		return 1
 
-	def writeVCASequence(self,name,vca,filepath):
-		self.smd_file = self.openSMD(filepath,"vcaanim_{}.smd".format(name),"SMD")
+	def writeVCASequence(self,name,vca,dir_path):
+		self.smd_file = self.openSMD(dir_path,"vcaanim_{}.smd".format(name),"SMD")
 		if self.smd_file == None: return 0
 
 		self.smd_file.write(
@@ -1125,9 +1125,9 @@ skeleton
 		self.smd_file.close()
 		return 1
 
-	def writeDMX(self, id, bake_results, name, filepath):
+	def writeDMX(self, id, bake_results, name, dir_path):
 		bench = BenchMarker(1,"DMX")
-		filepath = os.path.realpath(os.path.join(filepath,name + ".dmx"))
+		filepath = os.path.realpath(os.path.join(dir_path,name + ".dmx"))
 		print("-",filepath)
 		armature_name = self.armature_src.name if self.armature_src else name
 		materials = {}
@@ -1159,13 +1159,17 @@ skeleton
 		if self.armature: scale = self.armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
-			if bone and not bone in self.exportable_bones:
-				children = []
-				for child_elems in [writeBone(child) for child in bone.children]:
-					if child_elems: children.extend(child_elems)
-				return children
+			if isinstance(bone,str):
+				bone_name = bone
+				bone = None
+			else:
+				if bone and not bone in self.exportable_bones:
+					children = []
+					for child_elems in [writeBone(child) for child in bone.children]:
+						if child_elems: children.extend(child_elems)
+					return children
+				bone_name = bone.name
 
-			bone_name = bone.name if bone else implicit_bone_name
 			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if DatamodelFormatVersion() >= 11: jointList.append(bone_elem)
 			self.bone_ids[bone_name] = len(bone_transforms)
@@ -1204,11 +1208,14 @@ skeleton
 		if self.armature:
 			num_bones = len(self.exportable_bones)
 			
-			DmeModel_children.extend(writeBone(None))
+			DmeModel_children.extend(writeBone(implicit_bone_name))
 			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
 				if root_elems: DmeModel_children.extend(root_elems)
 
 			bench.report("Bones")
+
+		for vca in bake_results[0].vertex_animations:
+			DmeModel_children.extend(writeBone("vcabone_{}".format(vca)))
 
 		DmeCombinationOperator = None
 		for _ in [bake for bake in bake_results if len(bake.shapes)]:
@@ -1560,8 +1567,23 @@ skeleton
 					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
 					DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
 
-				if vca.export_sequence:
-					pass # TODO
+				if vca.export_sequence: # generate and export a skeletal animation that drives the vertex animation
+					vca_arm = bpy.data.objects.new("vca_arm",bpy.data.armatures.new("vca_arm"))
+					bpy.context.scene.objects.link(vca_arm)
+					bpy.context.scene.objects.active = vca_arm
+					bpy.ops.object.mode_set(mode='EDIT')
+					b = vca_arm.data.edit_bones.new("vcabone_" + vca_name)
+					b.tail.y = 1
+					bpy.ops.object.mode_set(mode='POSE')
+					action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
+					for i in range(2):
+						fc = action.fcurves.new('pose.bones["{}"].location'.format(b.name),index=i)
+						fc.keyframe_points.add(count=2)
+						for key in fc.keyframe_points: key.interpolation = 'LINEAR'
+						if i == 0: fc.keyframe_points[0].co = (0,1.0)
+						fc.keyframe_points[1].co = (vca.num_frames,1.0)
+						fc.update()
+					self.exportId(bpy.context,vca_arm)
 
 			if len(delta_states):
 				DmeMesh["deltaStates"] = datamodel.make_array(delta_states,datamodel.Element)
