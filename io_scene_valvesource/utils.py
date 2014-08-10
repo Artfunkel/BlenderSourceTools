@@ -263,7 +263,8 @@ def removeObject(obj):
 			if child.type == 'EMPTY':
 				removeObject(child)
 
-	bpy.context.scene.objects.unlink(obj)
+	if obj.name in bpy.context.scene.objects:
+		bpy.context.scene.objects.unlink(obj)
 	if obj.users == 0:
 		if type == 'ARMATURE' and obj.animation_data:
 			obj.animation_data.action = None # avoid horrible Blender bug that leads to actions being deleted

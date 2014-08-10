@@ -5,7 +5,7 @@ from os.path import join
 
 src_path = os.path.realpath(join(".."))
 tests_path = join(src_path,"Tests")
-results_path = join(src_path,"TestResults")
+results_path = join(src_path,"..","TestResults")
 if not os.path.exists(results_path): os.makedirs(results_path)
 
 sdk_content_path = os.getenv("SOURCESDK") + "_content\\"
@@ -111,6 +111,9 @@ class Tests:
 	def test_Export_TF2(self):
 		self.runExportTest("scout")
 		self.runExportTest_Single("vsDmxIO Scene")
+
+	def test_Export_VertexAnimation(self):
+		self.runExportTest("VertexAnimation")
 
 	def test_Generate_FlexControllers(self):
 		self.loadBlender()

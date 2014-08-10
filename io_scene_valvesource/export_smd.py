@@ -23,6 +23,7 @@ from bpy import ops
 from mathutils import *
 from math import *
 from bpy.types import Group
+from bpy.props import *
 
 from .utils import *
 from . import datamodel, ordered_set, flex
@@ -36,18 +37,31 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_label = get_id("qc_compile_title")
 	bl_description = get_id("qc_compile_tip")
 
-	filepath = bpy.props.StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
+	files = CollectionProperty(type=bpy.types.OperatorFileListElement)
+	directory = StringProperty(maxlen=1024, default="", subtype='FILE_PATH')
+
+	filepath = StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
+	
+	filter_folder = BoolProperty(default=True, options={'HIDDEN'})
+	filter_glob = StringProperty(default="*.qc;*.qci", options={'HIDDEN'})
 	
 	@classmethod
-	def poll(self,context):
-		return (len(p_cache.qc_paths) or len(self.getQCs())) and p_cache.gamepath_valid and p_cache.enginepath_valid
+	def poll(cls,context):
+		return p_cache.gamepath_valid and p_cache.enginepath_valid
+
+	def invoke(self,context, event):
+		bpy.context.window_manager.fileselect_add(self)
+		return {'RUNNING_MODAL'}
 
 	def execute(self,context):
-		num = self.compileQCs(self.properties.filepath)
+		multi_files = len([file for file in self.properties.files if file.name]) > 0
+		if not multi_files and not (self.properties.filepath == "*" or os.path.isfile(self.properties.filepath)):
+			self.report({'ERROR'},"No QC files selected for compile.")
+			return {'CANCELLED'}
+
+		num = self.compileQCs([os.path.join(self.properties.directory,file.name) for file in self.properties.files] if multi_files else self.properties.filepath)
 		#if num > 1:
 		#	bpy.context.window_manager.progress_begin(0,1)
-		if not self.properties.filepath:
-			self.properties.filepath = "QC"
 		self.errorReport(get_id("qc_compile_complete",True).format(num,getEngineBranchName()))
 		bpy.context.window_manager.progress_end()
 		return {'FINISHED'}
@@ -75,8 +89,10 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 
 		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.engine_path),"studiomdl.exe")
 
-		if path:
+		if isinstance(path,str) and path != "*":
 			paths = [os.path.realpath(bpy.path.abspath(path))]
+		elif hasattr(path,"__getitem__"):
+			paths = path
 		else:
 			paths = p_cache.qc_paths = SMD_OT_Compile.getQCs()
 		num_good_compiles = 0
@@ -331,7 +347,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		skip_vca = False
 		if type(id) == Group and len(id.vs.vertex_animations) and len(id.objects) > 1:
-			if len(id.objects) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
+			if len(mesh_bakes) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
 				self.error("Skipping vertex animations on Group \"{}\", which could not be merged into a single DMX object due to its envelope. To fix this, ensure that the entire Group has the same bone parent.".format(id.name))
 				skip_vca = True
 			elif not id.vs.automerge:
@@ -351,8 +367,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.ops.object.select_all(action='DESELECT')
 				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
 					bake.fob = bake.src.copy()
-					bake.fob.data = bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW')
 					bpy.context.scene.objects.link(bake.fob)
+					bake.fob.data = bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW')
 					bpy.context.scene.objects.active = bake.fob
 					bake.fob.select = True
 
@@ -361,18 +377,25 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if top_parent:
 						bake.fob.location -= top_parent.location
 					
-					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
+					# Blender 2.71 bug: when rigid body world is enabled, apply transforms can change an object's rotation
+					prev = bpy.context.scene.rigidbody_world.enabled
+					bpy.context.scene.rigidbody_world.enabled = False
 
+					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
+					
+					bpy.context.scene.rigidbody_world.enabled = prev
+				
 				if len(bpy.context.selected_objects) > 1 and not shouldExportDMX():
 					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 					ops.object.join()
-
+				
 				vca.append(bpy.context.active_object if len(bpy.context.selected_objects) == 1 else bpy.context.selected_objects)
 				anim_bench.report("bake")
-
-				for bake in mesh_bakes:
-					bpy.context.scene.objects.unlink(bake.fob)
-					del bake.fob
+				
+				if len(bpy.context.selected_objects) != 1:
+					for bake in mesh_bakes:
+						bpy.context.scene.objects.unlink(bake.fob)
+						del bake.fob
 				
 				anim_bench.report("record")
 
@@ -1080,14 +1103,16 @@ skeleton
 		num_frames = len(vca)
 		two_percent = num_frames / 50
 		
-		for i, frame in enumerate(vca):
+		for i, frame_object in enumerate(vca):
 			self.smd_file.write("time {}\n".format(i))
-			self.smd_file.writelines(["{} {} {}\n".format(v[0], getSmdVec(v[1]), getSmdVec(v[2])) for v in frame])
+			self.smd_file.writelines(["{} {} {}\n".format(v.index, getSmdVec(v.co), getSmdVec(v.normal)) for v in frame_object.data.vertices]) # FIXME: use loop normals
 			
 			if two_percent and len(vca) % two_percent == 0:
 				print(".", debug_only=True, newline=False)
 				bpy.context.window_manager.progress_update(len(vca) / num_frames)
-			frame.clear()
+
+			removeObject(frame_object)
+			vca[i] = None
 		
 		self.smd_file.write("end\n")
 		print(debug_only=True)
@@ -1560,7 +1585,7 @@ skeleton
 							if abs(delta.length) > 1e-5:
 								shape_pos.append(datamodel.Vector3(delta))
 								shape_posIndices.append(ob_vert.index)
-						if ob_vert.normal != shape_vert.normal:
+						if ob_vert.normal != shape_vert.normal: # FIXME: use loop normals
 							shape_norms.append(datamodel.Vector3(shape_vert.normal))
 							shape_normIndices.append(ob_vert.index)
 
@@ -1568,6 +1593,9 @@ skeleton
 					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
 					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
 					DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
+
+					removeObject(vca_ob)
+					vca[i] = None
 
 				if vca.export_sequence: # generate and export a skeletal animation that drives the vertex animation
 					vca_arm = bpy.data.objects.new("vca_arm",bpy.data.armatures.new("vca_arm"))

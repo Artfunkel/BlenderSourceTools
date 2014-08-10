@@ -32,6 +32,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 
 	def draw(self, context):
 		l = self.layout
+		l.operator_context = 'EXEC_DEFAULT'
 		
 		exportables = getSelectedExportables()	
 		if len(exportables):
@@ -443,13 +444,15 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 	
 		if have_qcs or isWild(p_cache.qc_lastPath):
 			c = l.column_flow(2)
+			c.operator_context = 'EXEC_DEFAULT'
 			for path in p_cache.qc_paths:
 				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
 		
 		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
-		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT')
+		compile_row.operator_context = 'EXEC_DEFAULT'
+		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT').filepath="*"
 		
 		if not have_qcs:
 			if scene.vs.qc_path:
