@@ -429,6 +429,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 							bpy.context.active_object.name = "{}-{}".format(src_name,i)
 							bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
 							vca.append(bpy.context.active_object)
+							bpy.context.scene.objects.unlink(bpy.context.active_object)
 				
 				bake_results.append(joined)
 					
@@ -1131,6 +1132,7 @@ skeleton
 		print("-",filepath)
 		armature_name = self.armature_src.name if self.armature_src else name
 		materials = {}
+		written = 0
 		
 		def makeTransform(name,matrix,object_name):
 			trfm = dm.add_element(name,"DmeTransform",id=object_name+"transform")
@@ -1222,7 +1224,7 @@ skeleton
 			if self.flex_controller_mode == 'ADVANCED':
 				if not hasFlexControllerSource(self.flex_controller_source):
 					self.error( "Could not find flex controllers for \"{}\"".format(name) )
-					return 0
+					return written
 
 				text = bpy.data.texts.get(self.flex_controller_source)
 				msg = "- Loading flex controllers from "
@@ -1242,7 +1244,7 @@ skeleton
 						DmeCombinationOperator["targets"].remove(elem)
 				except Exception as err:
 					self.error(get_id("exporter_err_flexctrl_loadfail", True).format(err))
-					return 0
+					return written
 			else:
 				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
 
@@ -1571,19 +1573,43 @@ skeleton
 					vca_arm = bpy.data.objects.new("vca_arm",bpy.data.armatures.new("vca_arm"))
 					bpy.context.scene.objects.link(vca_arm)
 					bpy.context.scene.objects.active = vca_arm
+
 					bpy.ops.object.mode_set(mode='EDIT')
-					b = vca_arm.data.edit_bones.new("vcabone_" + vca_name)
-					b.tail.y = 1
+					vca_bone = vca_arm.data.edit_bones.new("vcabone_" + vca_name)
+					vca_bone.tail.y = 1
+					
+					bpy.context.scene.frame_set(0)
+					mat = getUpAxisMat('y').inverted()
+					# DMX animations don't handle missing root bones or meshes, so create bones to represent them
+					if self.armature_src:
+						for bone in [bone for bone in self.armature_src.data.bones if bone.parent is None]:
+							b = vca_arm.data.edit_bones.new(bone.name)
+							b.head = mat * bone.head
+							b.tail = mat * bone.tail
+					else:
+						for bake in bake_results:
+							bake_mat = mat * bake.object.matrix_world
+							b = vca_arm.data.edit_bones.new(bake.name)
+							b.head = bake_mat * b.head
+							b.tail = bake_mat * Vector([0,1,0])
+
 					bpy.ops.object.mode_set(mode='POSE')
+					ops.pose.armature_apply() # refreshes the armature's internal state, required!
+					for i, bake in enumerate(bake_results):
+						vca_arm.pose.bones[i+1].matrix = bake_mat
+					ops.pose.armature_apply()
 					action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
 					for i in range(2):
-						fc = action.fcurves.new('pose.bones["{}"].location'.format(b.name),index=i)
+						fc = action.fcurves.new('pose.bones["{}"].location'.format(vca_bone.name),index=i)
 						fc.keyframe_points.add(count=2)
 						for key in fc.keyframe_points: key.interpolation = 'LINEAR'
 						if i == 0: fc.keyframe_points[0].co = (0,1.0)
 						fc.keyframe_points[1].co = (vca.num_frames,1.0)
 						fc.update()
+
+					# finally, write it out
 					self.exportId(bpy.context,vca_arm)
+					written += 1
 
 			if len(delta_states):
 				DmeMesh["deltaStates"] = datamodel.make_array(delta_states,datamodel.Element)
@@ -1719,6 +1745,7 @@ skeleton
 				dm.write(filepath,"keyvalues2",1)
 			else:
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
+			written += 1
 		except (PermissionError, FileNotFoundError) as err:
 			self.error(get_id("exporter_err_open", True).format("DMX",err))
 
@@ -1726,4 +1753,4 @@ skeleton
 		if bench.quiet:
 			print("- DMX export took",bench.total(),"\n")
 		
-		return 1
+		return written

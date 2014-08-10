@@ -254,16 +254,18 @@ class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
 	def execute(self,c): # FIXME: DMX syntax
 		id = get_active_exportable(c)
 		fps = c.scene.render.fps / c.scene.render.fps_base
-		c.window_manager.clipboard = '$model "merge_me" {0}.smd {{\n{1}\n}}\n{2}'.format(
-			id.name,
-		    "\n".join(["    vcafile {0}.vta".format(vca.name) for vca in id.vs.vertex_animations]),
-		    "\n".join(['''
+		wm = c.window_manager
+		wm.clipboard = '$model "merge_me" {0}{1}'.format(id.name,getFileExt())
+		if c.scene.vs.export_format == 'SMD':
+			wm.clipboard += ' {{\n{0}\n}}\n'.format("\n".join(["\tvcafile {0}.vta".format(vca.name) for vca in id.vs.vertex_animations]))
+		else: wm.clipboard += '\n'
+		wm.clipboard += "\n// vertex animation block begins\n$upaxis Y\n"
+		wm.clipboard += "\n".join(['''
 $boneflexdriver "vcabone_{0}" tx "{0}" 0 1
 $boneflexdriver "vcabone_{0}" ty "multi_{0}" 0 1
-$upaxis Y // always needed!
-$sequence "{0}" "vcaanim_{0}.smd" fps {1}
-'''.format(vca.name, fps) for vca in id.vs.vertex_animations if vca.export_sequence]))
-
+$sequence "{0}" "vcaanim_{0}{1}" fps {2}
+'''.format(vca.name, getFileExt(), fps) for vca in id.vs.vertex_animations if vca.export_sequence])
+		wm.clipboard += "\n// vertex animation block ends\n"
 		self.report({'INFO'},"QC segment copied to clipboard.")
 		return {'FINISHED'}
 
