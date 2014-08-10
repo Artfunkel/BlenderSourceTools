@@ -3,7 +3,9 @@ import os, shutil, unittest
 from importlib import import_module
 from os.path import join
 
-results_path = os.path.realpath("../TestResults")
+src_path = os.path.realpath(join(".."))
+tests_path = join(src_path,"Tests")
+results_path = join(src_path,"..","TestResults")
 if not os.path.exists(results_path): os.makedirs(results_path)
 
 sdk_content_path = os.getenv("SOURCESDK") + "_content\\"
@@ -18,8 +20,12 @@ class Tests:
 
 	def loadBlender(self):
 		global bpy, C, D
-		import_module(self.bpy_version)
-		bpy = import_module(".bpy",self.bpy_version)		
+		if self.bpy_version == "bpy_git":
+			import bpy
+		else:
+			import_module(self.bpy_version)
+			bpy = import_module(".bpy",self.bpy_version)
+
 		C = bpy.context
 		D = bpy.data
 		bpy.ops.wm.read_homefile()
@@ -28,7 +34,7 @@ class Tests:
 
 	def compareResults(self):
 		if self.compare_results:
-			expectedresults_path = join("Tests","ExpectedResults",self.blend)
+			expectedresults_path = join(tests_path,"ExpectedResults",self.blend)
 			if os.path.exists(expectedresults_path):
 				self.maxDiff = None
 				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
@@ -41,7 +47,7 @@ class Tests:
 	def runExportTest(self,blend):
 		self.loadBlender()
 		self.blend = blend
-		bpy.ops.wm.open_mainfile(filepath=join("Tests",blend + ".blend"))
+		bpy.ops.wm.open_mainfile(filepath=join(tests_path,blend + ".blend"))
 		blend_name = os.path.splitext(blend)[0]
 		C.scene.vs.export_path = os.path.realpath(join(results_path,self.bpy_version,blend_name))
 		if os.path.isdir(C.scene.vs.export_path):
@@ -106,13 +112,16 @@ class Tests:
 		self.runExportTest("scout")
 		self.runExportTest_Single("vsDmxIO Scene")
 
+	def test_Export_VertexAnimation(self):
+		self.runExportTest("VertexAnimation")
+
 	def test_Generate_FlexControllers(self):
 		self.loadBlender()
-		bpy.ops.wm.open_mainfile(filepath=join("Tests","scout.blend"))
+		bpy.ops.wm.open_mainfile(filepath=join(tests_path,"scout.blend"))
 		C.scene.objects.active = D.objects['head=zero']
 		bpy.ops.export_scene.dmx_flex_controller()
 
-		with open(join("Tests","flex_scout_morphs_low.dmx"),encoding='ASCII') as f:
+		with open(join(tests_path,"flex_scout_morphs_low.dmx"),encoding='ASCII') as f:
 			target_dmx = f.read()
 
 		self.maxDiff = None

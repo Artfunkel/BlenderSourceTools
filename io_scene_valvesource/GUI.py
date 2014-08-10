@@ -32,6 +32,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 
 	def draw(self, context):
 		l = self.layout
+		l.operator_context = 'EXEC_DEFAULT'
 		
 		exportables = getSelectedExportables()	
 		if len(exportables):
@@ -127,7 +128,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		id = item.get_id()
-		if id == None: return
+		if id is None: return
 
 		enabled = not (type(id) == bpy.types.Group and id.vs.mute)
 		
@@ -200,7 +201,7 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 	bl_options = {'INTERNAL'}
 
 	@classmethod
-	def poll(self,c):
+	def poll(cls,c):
 		return type(get_active_exportable(c)) in [bpy.types.Object, bpy.types.Group]
 	
 	def execute(self,c):
@@ -218,7 +219,7 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 	index = bpy.props.IntProperty(min=0)
 
 	@classmethod
-	def poll(self,c):
+	def poll(cls,c):
 		id = get_active_exportable(c)
 		return type(id) in [bpy.types.Object, bpy.types.Group] and len(id.vs.vertex_animations)
 	
@@ -252,22 +253,24 @@ class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
 	bl_options = {'INTERNAL'}
 
 	@classmethod
-	def poll(self,c):
-		return get_active_exportable(c) != None
+	def poll(cls,c):
+		return get_active_exportable(c) is not None
 	
-	def execute(self,c):
+	def execute(self,c): # FIXME: DMX syntax
 		id = get_active_exportable(c)
 		fps = c.scene.render.fps / c.scene.render.fps_base
-		c.window_manager.clipboard = '$model "merge_me" {0}.smd {{\n{1}\n}}\n{2}'.format(
-			id.name,
-		    "\n".join(["    vcafile {0}.vta".format(vca.name) for vca in id.vs.vertex_animations]),
-		    "\n".join(['''
+		wm = c.window_manager
+		wm.clipboard = '$model "merge_me" {0}{1}'.format(id.name,getFileExt())
+		if c.scene.vs.export_format == 'SMD':
+			wm.clipboard += ' {{\n{0}\n}}\n'.format("\n".join(["\tvcafile {0}.vta".format(vca.name) for vca in id.vs.vertex_animations]))
+		else: wm.clipboard += '\n'
+		wm.clipboard += "\n// vertex animation block begins\n$upaxis Y\n"
+		wm.clipboard += "\n".join(['''
 $boneflexdriver "vcabone_{0}" tx "{0}" 0 1
 $boneflexdriver "vcabone_{0}" ty "multi_{0}" 0 1
-$upaxis Y // always needed!
-$sequence "{0}" "vcaanim_{0}.smd" fps {1}
-'''.format(vca.name, fps) for vca in id.vs.vertex_animations if vca.export_sequence]))
-
+$sequence "{0}" "vcaanim_{0}{1}" fps {2}
+'''.format(vca.name, getFileExt(), fps) for vca in id.vs.vertex_animations if vca.export_sequence])
+		wm.clipboard += "\n// vertex animation block ends\n"
 		self.report({'INFO'},"QC segment copied to clipboard.")
 		return {'FINISHED'}
 
@@ -305,7 +308,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		if not (is_group and item.vs.mute):
 			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
 
-		if bpy.context.scene.vs.export_format == 'SMD' and (is_group or item.type in mesh_compatible):
+		if is_group or item.type in mesh_compatible:
 			col = self.makeSettingsBox(text=get_id("vca_group_props"),icon=vca_icon)
 			
 			r = col.row(align=True)
@@ -382,7 +385,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 					r2 = r.split(0.7,align=True)
 					if ob.data.vs.flex_stereo_mode == 'VGROUP':
-						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) == None
+						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) is None
 						r2.prop_search(ob.data.vs,"flex_stereo_vg",ob,"vertex_groups",text="")
 					else:
 						r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Sharpness")
@@ -450,13 +453,15 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 	
 		if have_qcs or isWild(p_cache.qc_lastPath):
 			c = l.column_flow(2)
+			c.operator_context = 'EXEC_DEFAULT'
 			for path in p_cache.qc_paths:
 				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
 		
 		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
-		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT')
+		compile_row.operator_context = 'EXEC_DEFAULT'
+		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT').filepath="*"
 		
 		if not have_qcs:
 			if scene.vs.qc_path:

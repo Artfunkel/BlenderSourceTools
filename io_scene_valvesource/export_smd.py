@@ -23,6 +23,7 @@ from bpy import ops
 from mathutils import *
 from math import *
 from bpy.types import Group
+from bpy.props import *
 
 from .utils import *
 from . import datamodel, ordered_set, flex
@@ -36,18 +37,31 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_label = get_id("qc_compile_title")
 	bl_description = get_id("qc_compile_tip")
 
-	filepath = bpy.props.StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
+	files = CollectionProperty(type=bpy.types.OperatorFileListElement)
+	directory = StringProperty(maxlen=1024, default="", subtype='FILE_PATH')
+
+	filepath = StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
+	
+	filter_folder = BoolProperty(default=True, options={'HIDDEN'})
+	filter_glob = StringProperty(default="*.qc;*.qci", options={'HIDDEN'})
 	
 	@classmethod
-	def poll(self,context):
-		return (len(p_cache.qc_paths) or len(self.getQCs())) and p_cache.gamepath_valid and p_cache.enginepath_valid
+	def poll(cls,context):
+		return p_cache.gamepath_valid and p_cache.enginepath_valid
+
+	def invoke(self,context, event):
+		bpy.context.window_manager.fileselect_add(self)
+		return {'RUNNING_MODAL'}
 
 	def execute(self,context):
-		num = self.compileQCs(self.properties.filepath)
+		multi_files = len([file for file in self.properties.files if file.name]) > 0
+		if not multi_files and not (self.properties.filepath == "*" or os.path.isfile(self.properties.filepath)):
+			self.report({'ERROR'},"No QC files selected for compile.")
+			return {'CANCELLED'}
+
+		num = self.compileQCs([os.path.join(self.properties.directory,file.name) for file in self.properties.files] if multi_files else self.properties.filepath)
 		#if num > 1:
 		#	bpy.context.window_manager.progress_begin(0,1)
-		if not self.properties.filepath:
-			self.properties.filepath = "QC"
 		self.errorReport(get_id("qc_compile_complete",True).format(num,getEngineBranchName()))
 		bpy.context.window_manager.progress_end()
 		return {'FINISHED'}
@@ -75,8 +89,10 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 
 		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.engine_path),"studiomdl.exe")
 
-		if path:
+		if isinstance(path,str) and path != "*":
 			paths = [os.path.realpath(bpy.path.abspath(path))]
+		elif hasattr(path,"__getitem__"):
+			paths = path
 		else:
 			paths = p_cache.qc_paths = SMD_OT_Compile.getQCs()
 		num_good_compiles = 0
@@ -171,7 +187,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ob.vs.subdir = "anims"
 		
 		ops.ed.undo_push(message=self.bl_label)
-		
+				
 		try:
 			context.tool_settings.use_keyframe_insert_auto = False
 			context.tool_settings.use_keyframe_insert_keyingset = False
@@ -311,58 +327,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else: baked_metaballs.append(ob)
 						
 				bake_results.append(self.bakeObj(ob))
-			bench.report("Group bake", len(bake_results))
-
-			if shouldExportDMX() and id.vs.automerge:
-				bone_parents = collections.defaultdict(list)
-				scene_obs = bpy.context.scene.objects
-				for bake in [bake for bake in bake_results if type(bake.envelope) == str]:
-					bone_parents[bake.envelope].append(bake)
-				
-				for bp, parts in bone_parents.items():
-					if len(parts) <= 1: continue
-					shape_names = set()
-					for key in [key for part in parts for key in part.shapes.keys()]:
-						shape_names.add(key)
-					
-					ops.object.select_all(action='DESELECT')
-					for part in parts:
-						ob = part.object.copy()
-						ob.data = ob.data.copy()
-						ob.data.uv_layers.active.name = "__dmx_uv__"
-						scene_obs.link(ob)
-						ob.select = True
-						scene_obs.active = ob
-						bake_results.remove(part)
-					
-					bpy.ops.object.join()
-					joined = self.BakeResult(bp + "_meshes")
-					joined.object = bpy.context.active_object
-					joined.object.name = joined.object.data.name = joined.name
-					joined.envelope = bp
-					bake_results.append(joined)
-					
-					for shape_name in shape_names:
-						ops.object.select_all(action='DESELECT')
-						
-						for part in parts:
-							mesh = part.shapes[shape_name] if shape_name in part.shapes else part.object.data
-							ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh.copy())
-							scene_obs.link(ob)
-							ob.matrix_local = part.matrix
-							ob.select = True
-							scene_obs.active = ob
-						
-						bpy.ops.object.join()
-						joined.shapes[shape_name] = bpy.context.active_object.data
-						bpy.context.active_object.data.name = "{} -> {}".format(joined.object.name,shape_name)
-						
-						scene_obs.unlink(ob)
-						bpy.data.objects.remove(ob)
-						del ob
-						
-					scene_obs.active = joined.object
-				bench.report("Mech merge")
+			bench.report("Group bake", len(bake_results))			
 		elif id.type == 'META':
 			bake_results.append(self.bakeObj(find_basis_metaball(id)))
 			bench.report("Metaball bake")
@@ -373,65 +338,145 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if shouldExportDMX() and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
 			self.flex_controller_source = id.vs.flex_controller_source
-		
+
 		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
 			bake.object.data.pose_position = 'POSE'
 
 		bpy.ops.object.mode_set(mode='OBJECT')
+		mesh_bakes = [bake for bake in bake_results if bake.object.type == 'MESH']
+		
+		skip_vca = False
+		if type(id) == Group and len(id.vs.vertex_animations) and len(id.objects) > 1:
+			if len(mesh_bakes) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
+				self.error("Skipping vertex animations on Group \"{}\", which could not be merged into a single DMX object due to its envelope. To fix this, ensure that the entire Group has the same bone parent.".format(id.name))
+				skip_vca = True
+			elif not id.vs.automerge:
+				id.vs.automerge = True
+
 		for va in id.vs.vertex_animations:
-			frames = bake_results[0].vertex_animations[va.name]
-			frames.export_sequence = va.export_sequence
-			num_frames = va.end - va.start
-			two_percent = num_frames / 50
+			if skip_vca: break
+			vca = bake_results[0].vertex_animations[va.name] # only the first bake result will ever have a vertex animation defined
+			vca.export_sequence = va.export_sequence
+			vca.num_frames = va.end - va.start
+			two_percent = vca.num_frames * len(bake_results) / 50
 			print("- Generating vertex animation \"{}\"".format(va.name))
 			anim_bench = BenchMarker(1,va.name)
-
-			objects = id.objects if type(id) == bpy.types.Group else [id]
-
+			
 			for f in range(va.start,va.end):
 				bpy.context.scene.frame_set(f)
-				frame_obs = []
 				bpy.ops.object.select_all(action='DESELECT')
-				for ob in objects:
-					fob = ob.copy()
-					fob.data = ob.to_mesh(bpy.context.scene, True, 'PREVIEW')
-					frame_obs.append(fob)
-				for fob in frame_obs:
-					bpy.context.scene.objects.link(fob)
-					bpy.context.scene.objects.active = fob
-					fob.select = True
+				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
+					bake.fob = bake.src.copy()
+					bpy.context.scene.objects.link(bake.fob)
+					bake.fob.data = bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW')
+					bpy.context.scene.objects.active = bake.fob
+					bake.fob.select = True
 
-					top_parent = self.getTopParent(ob)
+					top_parent = self.getTopParent(bake.src)
 					bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 					if top_parent:
-						fob.location -= top_parent.location
-					bpy.ops.object.transform_apply()
+						bake.fob.location -= top_parent.location
+					
+					# Blender 2.71 bug: when rigid body world is enabled, apply transforms can change an object's rotation
+					prev = bpy.context.scene.rigidbody_world.enabled
+					bpy.context.scene.rigidbody_world.enabled = False
 
-				if len(frame_obs) > 1:
-					bpy.context.scene.objects.active = frame_obs[0]
-					ops.object.join()
-				ops.object.transform_apply(location=True,scale=not shouldExportDMX(),rotation=not shouldExportDMX())
-
-				del frame_obs
-				frame_ob = bpy.context.active_object
-				anim_bench.report("bake")
-				frame = []
+					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
+					
+					bpy.context.scene.rigidbody_world.enabled = prev
 				
-				i = 0
-				for poly in frame_ob.data.polygons:
-					for vert in [frame_ob.data.vertices[v] for v in poly.vertices]:
-						frame.append([i,vert.co[:],(poly.normal if poly.use_smooth else vert.normal)[:]])
-						i += 1
+				if len(bpy.context.selected_objects) > 1 and not shouldExportDMX():
+					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
+					ops.object.join()
+				
+				vca.append(bpy.context.active_object if len(bpy.context.selected_objects) == 1 else bpy.context.selected_objects)
+				anim_bench.report("bake")
+				
+				if len(bpy.context.selected_objects) != 1:
+					for bake in mesh_bakes:
+						bpy.context.scene.objects.unlink(bake.fob)
+						del bake.fob
+				
 				anim_bench.report("record")
-				frames.append(frame)
-				removeObject(frame_ob)
-				frame_ob = None
-				bpy.context.scene.objects.active = bake_results[0].src
 
-				if two_percent and len(frames) % two_percent == 0:
+				if two_percent and len(vca) / len(bake_results) % two_percent == 0:
 					print(".", debug_only=True, newline=False)
-					bpy.context.window_manager.progress_update(len(frames) / num_frames)
+					bpy.context.window_manager.progress_update(len(vca) / vca.num_frames)
+
 			bench.report("\n" + va.name)
+			bpy.context.scene.objects.active = bake_results[0].src
+
+		if type(id) is Group and shouldExportDMX() and id.vs.automerge:
+			bone_parents = collections.defaultdict(list)
+			scene_obs = bpy.context.scene.objects
+			for bake in [bake for bake in bake_results if type(bake.envelope) is str or bake.envelope is None]:
+				bone_parents[bake.envelope].append(bake)
+				
+			for bp, parts in bone_parents.items():
+				if len(parts) <= 1: continue
+				shape_names = set()
+				for key in [key for part in parts for key in part.shapes.keys()]:
+					shape_names.add(key)
+					
+				ops.object.select_all(action='DESELECT')
+				for part in parts:
+					ob = part.object.copy()
+					ob.data = ob.data.copy()
+					ob.data.uv_layers.active.name = "__dmx_uv__"
+					scene_obs.link(ob)
+					ob.select = True
+					scene_obs.active = ob
+					bake_results.remove(part)
+					
+				bpy.ops.object.join()
+				joined = self.BakeResult(bp + "_meshes" if bp else "loose_meshes")
+				joined.object = bpy.context.active_object
+				joined.object.name = joined.object.data.name = joined.name
+				joined.envelope = bp
+
+				if parts[0].vertex_animations:
+					for src_name,src_vca in parts[0].vertex_animations.items():
+						vca = joined.vertex_animations[src_name] = self.BakedVertexAnimation()
+						vca.bone_id = src_vca.bone_id
+						vca.export_sequence = src_vca.export_sequence
+						vca.num_frames = src_vca.num_frames
+
+						for i,frame in enumerate(src_vca):
+							bpy.ops.object.select_all(action='DESELECT')
+							frame.reverse()
+							for ob in frame:
+								bpy.context.scene.objects.link(ob)
+								ob.select = True
+							bpy.context.scene.objects.active = frame[0]
+							bpy.ops.object.join()
+							bpy.context.active_object.name = "{}-{}".format(src_name,i)
+							bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
+							vca.append(bpy.context.active_object)
+							bpy.context.scene.objects.unlink(bpy.context.active_object)
+				
+				bake_results.append(joined)
+					
+				for shape_name in shape_names:
+					ops.object.select_all(action='DESELECT')
+						
+					for part in parts:
+						mesh = part.shapes[shape_name] if shape_name in part.shapes else part.object.data
+						ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh.copy())
+						scene_obs.link(ob)
+						ob.matrix_local = part.matrix
+						ob.select = True
+						scene_obs.active = ob
+						
+					bpy.ops.object.join()
+					joined.shapes[shape_name] = bpy.context.active_object.data
+					bpy.context.active_object.data.name = "{} -> {}".format(joined.object.name,shape_name)
+						
+					scene_obs.unlink(ob)
+					bpy.data.objects.remove(ob)
+					del ob
+						
+				scene_obs.active = joined.object
+			bench.report("Mech merge")
 
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
@@ -550,18 +595,25 @@ class SmdExporter(bpy.types.Operator, Logger):
 		return top_parent
 
 	class BakedVertexAnimation(list):
-		export_sequence = False
-		bone_id = -1
+		def __init__(self):
+			self.export_sequence = False
+			self.bone_id = -1
+			self.num_frames = 0
 
-	class BakeResult:
-		object = None
-		matrix = Matrix()
-		envelope = None
-		src = None
-		balance_vg = None
-		
+	class VertexAnimationKey():
+		def __init__(self,vert_index,co,norm):
+			self.vert_index = vert_index
+			self.co = co
+			self.norm = norm
+
+	class BakeResult:		
 		def __init__(self,name):
 			self.name = name
+			self.object = None
+			self.matrix = Matrix()
+			self.envelope = None
+			self.src = None
+			self.balance_vg = None
 			self.shapes = collections.OrderedDict()
 			self.matrix = Matrix()
 			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
@@ -1052,14 +1104,16 @@ skeleton
 		num_frames = len(vca)
 		two_percent = num_frames / 50
 		
-		for i, frame in enumerate(vca):
+		for i, frame_object in enumerate(vca):
 			self.smd_file.write("time {}\n".format(i))
-			self.smd_file.writelines(["{} {} {}\n".format(v[0], getSmdVec(v[1]), getSmdVec(v[2])) for v in frame])
+			self.smd_file.writelines(["{} {} {}\n".format(v.index, getSmdVec(v.co), getSmdVec(v.normal)) for v in frame_object.data.vertices]) # FIXME: use loop normals
 			
 			if two_percent and len(vca) % two_percent == 0:
 				print(".", debug_only=True, newline=False)
 				bpy.context.window_manager.progress_update(len(vca) / num_frames)
-			frame.clear()
+
+			removeObject(frame_object)
+			vca[i] = None
 		
 		self.smd_file.write("end\n")
 		print(debug_only=True)
@@ -1069,8 +1123,8 @@ skeleton
 		print()
 		return 1
 
-	def writeVCASequence(self,name,vca,filepath):
-		self.smd_file = self.openSMD(filepath,"vcaanim_{}.smd".format(name),"SMD")
+	def writeVCASequence(self,name,vca,dir_path):
+		self.smd_file = self.openSMD(dir_path,"vcaanim_{}.smd".format(name),"SMD")
 		if self.smd_file == None: return 0
 
 		self.smd_file.write(
@@ -1098,12 +1152,13 @@ skeleton
 		self.smd_file.close()
 		return 1
 
-	def writeDMX(self, id, bake_results, name, filepath):
+	def writeDMX(self, id, bake_results, name, dir_path):
 		bench = BenchMarker(1,"DMX")
-		filepath = os.path.realpath(os.path.join(filepath,name + ".dmx"))
+		filepath = os.path.realpath(os.path.join(dir_path,name + ".dmx"))
 		print("-",filepath)
 		armature_name = self.armature_src.name if self.armature_src else name
 		materials = {}
+		written = 0
 		
 		def makeTransform(name,matrix,object_name):
 			trfm = dm.add_element(name,"DmeTransform",id=object_name+"transform")
@@ -1140,13 +1195,17 @@ skeleton
 		if self.armature: scale = self.armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
-			if bone and not bone in self.exportable_bones:
-				children = []
-				for child_elems in [writeBone(child) for child in bone.children]:
-					if child_elems: children.extend(child_elems)
-				return children
+			if isinstance(bone,str):
+				bone_name = bone
+				bone = None
+			else:
+				if bone and not bone in self.exportable_bones:
+					children = []
+					for child_elems in [writeBone(child) for child in bone.children]:
+						if child_elems: children.extend(child_elems)
+					return children
+				bone_name = bone.name
 
-			bone_name = bone.name if bone else implicit_bone_name
 			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if dm.format_ver >= 11: jointList.append(bone_elem)
 			self.bone_ids[bone_name] = len(bone_transforms)
@@ -1185,17 +1244,21 @@ skeleton
 		if self.armature:
 			num_bones = len(self.exportable_bones)
 			
-			DmeModel_children.extend(writeBone(None))
+			DmeModel_children.extend(writeBone(implicit_bone_name))
 			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
 				if root_elems: DmeModel_children.extend(root_elems)
 
 			bench.report("Bones")
 
+		for vca in bake_results[0].vertex_animations:
+			DmeModel_children.extend(writeBone("vcabone_{}".format(vca)))
+
+		DmeCombinationOperator = None
 		for _ in [bake for bake in bake_results if len(bake.shapes)]:
 			if self.flex_controller_mode == 'ADVANCED':
 				if not hasFlexControllerSource(self.flex_controller_source):
 					self.error( "Could not find flex controllers for \"{}\"".format(name) )
-					return 0
+					return written
 
 				text = bpy.data.texts.get(self.flex_controller_source)
 				msg = "- Loading flex controllers from "
@@ -1215,14 +1278,17 @@ skeleton
 						DmeCombinationOperator["targets"].remove(elem)
 				except Exception as err:
 					self.error(get_id("exporter_err_flexctrl_loadfail", True).format(err))
-					return 0
+					return written
 			else:
 				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
-				
-			root["combinationOperator"] = DmeCombinationOperator
+
 			break
 
-		if root.get("combinationOperator"):
+		if not DmeCombinationOperator and len(bake_results[0].vertex_animations):
+			DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
+
+		if DmeCombinationOperator:
+			root["combinationOperator"] = DmeCombinationOperator
 			bench.report("Flex setup")
 
 		for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
@@ -1411,15 +1477,12 @@ skeleton
 				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
 				self.warning(format_str.format(bad_face_mats, bake.name))
 			bench.report("polys")
-			
-			
+
 			two_percent = int(len(bake.shapes) / 50)
 			print("Shapes: ",debug_only=True,newline=False)
-			# shapes
+			delta_states = []
 			if len(bake.shapes):
-				shape_elems = []
 				shape_names = []
-				delta_state_weights = []
 				num_shapes = len(bake.shapes)
 				num_correctives = 0
 				num_wrinkles = 0
@@ -1444,43 +1507,41 @@ skeleton
 							except ValueError:
 								self.warning(get_id("exporter_err_flexctrl_missing", True).format(shape_name))
 							pass
-					
-					delta_state_weights.append(datamodel.Vector2([0.0,0.0])) # ??
-					
-					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)					
-					shape_elems.append(DmeVertexDeltaData)
-					
+
+					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)
+					delta_states.append(DmeVertexDeltaData)
+
 					vertexFormat = DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ keywords['pos'], keywords['norm'] ],str)
-										
+					
 					wrinkle = []
 					wrinkleIndices = []
-					
+
 					# what do these do?
 					#DmeVertexDeltaData["flipVCoordinates"] = False
 					#DmeVertexDeltaData["corrected"] = True
-					
+
 					shape_pos = []
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
 					if wrinkle_scale: delta_lengths = [None] * len(ob.data.vertices)
-					
+
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
-						
+
 						if ob_vert.co != shape_vert.co:
 							delta = shape_vert.co - ob_vert.co
 							delta_length = delta.length
-						
+
 							if abs(delta_length) > 1e-5:
 								if wrinkle_scale: delta_lengths[ob_vert.index] = delta_length
 								shape_pos.append(datamodel.Vector3(delta))
 								shape_posIndices.append(ob_vert.index)
-						
+
 						if ob_vert.normal != shape_vert.normal:
 							shape_norms.append(datamodel.Vector3(shape_vert.normal))
 							shape_normIndices.append(ob_vert.index)
-					
+
 					del shape_vert
 
 					if wrinkle_scale or len(flat_polys):
@@ -1488,7 +1549,7 @@ skeleton
 						for poly in ob.data.polygons:
 							if wrinkle_scale:
 								for loop in [ob.data.loops[l_i] for l_i in poly.loop_indices]:
-									delta_len = delta_lengths[loop.vertex_index];
+									delta_len = delta_lengths[loop.vertex_index]
 									if delta_len:
 										max_delta = max(max_delta,delta_len)
 										wrinkle.append(delta_len)
@@ -1498,13 +1559,12 @@ skeleton
 								if poly.normal != shape_norm:
 									shape_norms.append(shape_norm)
 									shape_normIndices.append(flat_polys[poly])
-				
+
 						if wrinkle_scale and max_delta:
 							wrinkle_mod = wrinkle_scale / max_delta
-							if (wrinkle_mod != 1):
+							if wrinkle_mod != 1:
 								for i in range(len(wrinkle)):
 									wrinkle[i] *= wrinkle_mod
-					
 					DmeVertexDeltaData[keywords['pos']] = datamodel.make_array(shape_pos,datamodel.Vector3)
 					DmeVertexDeltaData[keywords['pos'] + "Indices"] = datamodel.make_array(shape_posIndices,int)
 					DmeVertexDeltaData[keywords['norm']] = datamodel.make_array(shape_norms,datamodel.Vector3)
@@ -1521,10 +1581,93 @@ skeleton
 					if two_percent and len(shape_names) % two_percent == 0:
 						print(".",debug_only=True,newline=False)
 
-				DmeMesh["deltaStates"] = datamodel.make_array(shape_elems,datamodel.Element)
-				DmeMesh["deltaStateWeights"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
-				DmeMesh["deltaStateWeightsLagged"] = datamodel.make_array(delta_state_weights,datamodel.Vector2)
+				print(debug_only=True)
+				bench.report("shapes")
+				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
+			
+			vca_matrix = ob.matrix_world.inverted()
+			for vca_name,vca in bake_results[0].vertex_animations.items():
+				frame_shapes = []
+
+				for i, vca_ob in enumerate(vca):
+					DmeVertexDeltaData = dm.add_element("{}-{}".format(vca_name,i),"DmeVertexDeltaData",id=ob.name+vca_name+str(i))
+					delta_states.append(DmeVertexDeltaData)
+					frame_shapes.append(DmeVertexDeltaData)
+					DmeVertexDeltaData["vertexFormat"] = datamodel.make_array([ "positions", "normals" ],str)
+
+					shape_pos = []
+					shape_posIndices = []
+					shape_norms = []
+					shape_normIndices = []
 				
+					for shape_vert in vca_ob.data.vertices:
+						ob_vert = ob.data.vertices[shape_vert.index]
+
+						if ob_vert.co != shape_vert.co:
+							delta = vca_matrix * shape_vert.co - ob_vert.co
+
+							if abs(delta.length) > 1e-5:
+								shape_pos.append(datamodel.Vector3(delta))
+								shape_posIndices.append(ob_vert.index)
+						if ob_vert.normal != shape_vert.normal: # FIXME: use loop normals
+							shape_norms.append(datamodel.Vector3(shape_vert.normal))
+							shape_normIndices.append(ob_vert.index)
+
+					DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
+					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)
+					DmeVertexDeltaData["normals"] = datamodel.make_array(shape_norms,datamodel.Vector3)
+					DmeVertexDeltaData["normalsIndices"] = datamodel.make_array(shape_normIndices,int)
+
+					removeObject(vca_ob)
+					vca[i] = None
+
+				if vca.export_sequence: # generate and export a skeletal animation that drives the vertex animation
+					vca_arm = bpy.data.objects.new("vca_arm",bpy.data.armatures.new("vca_arm"))
+					bpy.context.scene.objects.link(vca_arm)
+					bpy.context.scene.objects.active = vca_arm
+
+					bpy.ops.object.mode_set(mode='EDIT')
+					vca_bone = vca_arm.data.edit_bones.new("vcabone_" + vca_name)
+					vca_bone.tail.y = 1
+					
+					bpy.context.scene.frame_set(0)
+					mat = getUpAxisMat('y').inverted()
+					# DMX animations don't handle missing root bones or meshes, so create bones to represent them
+					if self.armature_src:
+						for bone in [bone for bone in self.armature_src.data.bones if bone.parent is None]:
+							b = vca_arm.data.edit_bones.new(bone.name)
+							b.head = mat * bone.head
+							b.tail = mat * bone.tail
+					else:
+						for bake in bake_results:
+							bake_mat = mat * bake.object.matrix_world
+							b = vca_arm.data.edit_bones.new(bake.name)
+							b.head = bake_mat * b.head
+							b.tail = bake_mat * Vector([0,1,0])
+
+					bpy.ops.object.mode_set(mode='POSE')
+					ops.pose.armature_apply() # refreshes the armature's internal state, required!
+					for i, bake in enumerate(bake_results):
+						vca_arm.pose.bones[i+1].matrix = bake_mat
+					ops.pose.armature_apply()
+					action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
+					for i in range(2):
+						fc = action.fcurves.new('pose.bones["{}"].location'.format(vca_bone.name),index=i)
+						fc.keyframe_points.add(count=2)
+						for key in fc.keyframe_points: key.interpolation = 'LINEAR'
+						if i == 0: fc.keyframe_points[0].co = (0,1.0)
+						fc.keyframe_points[1].co = (vca.num_frames,1.0)
+						fc.update()
+
+					# finally, write it out
+					self.exportId(bpy.context,vca_arm)
+					written += 1
+
+			if len(delta_states):
+				DmeMesh["deltaStates"] = datamodel.make_array(delta_states,datamodel.Element)
+				DmeMesh["deltaStateWeights"] = DmeMesh["deltaStateWeightsLagged"] = \
+					datamodel.make_array([datamodel.Vector2([0.0,0.0])] * len(delta_states),datamodel.Vector2)
+
 				targets = DmeCombinationOperator["targets"]
 				added = False
 				for elem in targets:
@@ -1534,17 +1677,13 @@ skeleton
 							added = True
 				if not added:
 					targets.append(DmeMesh)
-				
-				print(debug_only=True)
-				bench.report("shapes")
-				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
 			ad = self.armature.animation_data
 						
 			anim_len = animationLength(ad)
 			
-			if ad.action and ('fps') in dir(ad.action):
+			if ad.action and 'fps' in dir(ad.action):
 				fps = bpy.context.scene.render.fps = ad.action.fps
 				bpy.context.scene.render.fps_base = 1
 			else:
@@ -1658,6 +1797,7 @@ skeleton
 				dm.write(filepath,"keyvalues2",1)
 			else:
 				dm.write(filepath,"binary",DatamodelEncodingVersion())
+			written += 1
 		except (PermissionError, FileNotFoundError) as err:
 			self.error(get_id("exporter_err_open", True).format("DMX",err))
 
@@ -1665,4 +1805,4 @@ skeleton
 		if bench.quiet:
 			print("- DMX export took",bench.total(),"\n")
 		
-		return 1
+		return written
