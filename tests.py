@@ -153,8 +153,8 @@ class Tests:
 		self.assertEqual(len(bpy.data.meshes["head=zero"].shape_keys.key_blocks), 43)
 		
 
-class bpy_266a(unittest.TestCase,Tests):
-	bpy_version = "bpy_266a"
+class bpy_271(unittest.TestCase,Tests):
+	bpy_version = "bpy_271"
 
 class bpy_git(unittest.TestCase,Tests):
 	bpy_version = "bpy_git"

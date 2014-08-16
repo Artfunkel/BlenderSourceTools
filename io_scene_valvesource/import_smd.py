@@ -23,6 +23,7 @@ from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import *
 from .utils import *
+from . import datamodel
 
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
@@ -556,23 +557,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if not bone.parent:					
 					ApplyRecursive(bone)
 			
-			if len(action.fcurves) > 0 and 'update' in dir(action.fcurves[0]):
-				for fc in action.fcurves:
-					fc.update()
-			elif bpy.context.area != None:
-				# Handle updates can only be done via operators which depend on certain UI conditions
-				for bone in smd.a.data.bones:
-					bone.select = True		
-				oldType = bpy.context.area.type
-				bpy.context.area.type = 'GRAPH_EDITOR'
-				smd.a.select = True
-				if ops.graph.clean.poll():
-					ops.graph.handle_type(type='AUTO')
-				bpy.context.area.type = oldType # in Blender 2.59 this leaves context.region blank, making some future ops calls (e.g. view3d.view_all) fail!
-				for bone in smd.a.data.bones:
-					bone.select = False
-			else: # Blender is probably in background mode
-				self.warning(get_id("importer_err_cleancurves"))
+			for fc in action.fcurves:
+				fc.update()
 
 		# clear any unkeyed poses
 		for bone in smd.a.pose.bones:
@@ -1280,7 +1266,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		print( "\nDMX IMPORTER: now working on",os.path.basename(filepath) )	
 		
-		from . import datamodel
 		error = None
 		try:
 			print("- Loading DMX...")

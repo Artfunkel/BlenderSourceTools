@@ -28,10 +28,6 @@ from bpy.props import *
 from .utils import *
 from . import datamodel, ordered_set, flex
 
-wm = bpy.types.WindowManager
-if not 'progress_begin' in dir(wm): # instead of requiring 2.67
-	wm.progress_begin = wm.progress_update = wm.progress_end = lambda *args: None
-
 class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_idname = "smd.compile_qc"
 	bl_label = get_id("qc_compile_title")

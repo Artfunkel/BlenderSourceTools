@@ -172,8 +172,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		fname = self.filter_name.lower()
 		cache = gui_cache.get(data)
 
-		# the length check below avoids Blender 2.6x crash bug: https://developer.blender.org/T38356
-		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version and len(cache.filter) == len(data.objects)):
+		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version):
 			cache = FilterCache(p_cache.validObs_version)
 			cache.filter = [self.bitflag_filter_item if ob in p_cache.validObs and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)

@@ -1,6 +1,6 @@
 #  The MIT License (MIT)
 #  
-#  Copyright (c) 2013 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #  
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -20,15 +20,8 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 #  THE SOFTWARE.
 
-import struct, array, io, binascii, collections
+import struct, array, io, binascii, collections, uuid
 from struct import unpack,calcsize
-try:
-	from . import uuid_fixed as uuid
-except:
-	try:
-		import uuid_fixed as uuid
-	except:
-		import uuid
 
 header_format = "<!-- dmx encoding {:s} {:d} format {:s} {:d} -->"
 header_format_regex = header_format.replace("{:d}","([0-9]+)").replace("{:s}","(\S+)")

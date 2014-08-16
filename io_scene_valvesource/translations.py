@@ -324,10 +324,6 @@ _data = {
 	'en': "Armature \"{0}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.",
 	'ru': "Скелет {0} масштабирован непропорционально. В движке Source скелет будет работать неправильно.",
 },
-'exporter_err_vtadist': {
-	'en': "Shape \"{0}\" has {1} vertex movements that exceed eight units. Source does not support this!",
-	'ru': "Ключ формы \"{0}\" содержит слишком большие перемещения вершин (не больше восмьи единиц!)",
-},
 'exporter_err_facesnotex_ormat': {
 	'en': "{0} faces on {1} did not have a Material or Texture assigned",
 	'ru': "{0} полигонам на {1} не присвоен ни материал, ни текстура",
@@ -571,10 +567,6 @@ _data = {
 'importer_err_smd_ver': {
 	'en': "Unrecognised/invalid SMD file. Import will proceed, but may fail!",
 	'ru': "Не удалось распознать SMD-файл. Импорт будет продолжен до первой ошибки.",
-},
-'importer_err_cleancurves': {
-	'en': "Unable to clean keyframe handles, animations might be jittery.",
-	'ru': "Не удалось очистить ручки ключевых кадров, анимации могут содержать \"тряску\"",
 },
 'importer_append': {
 	'en': "Append To Existing Model",

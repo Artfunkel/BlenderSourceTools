@@ -1,3 +1,5 @@
+#! python3
+
 import zipfile, os, re
 
 script_dir = os.path.join("io_scene_valvesource")
