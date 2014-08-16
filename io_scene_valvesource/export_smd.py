@@ -377,14 +377,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if top_parent:
 						bake.fob.location -= top_parent.location
 					
-					# Blender 2.71 bug: when rigid body world is enabled, apply transforms can change an object's rotation
+					# Blender 2.71 bug: https://developer.blender.org/T41388
 					prev = bpy.context.scene.rigidbody_world.enabled
 					bpy.context.scene.rigidbody_world.enabled = False
 
 					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
-					
-					bpy.context.scene.rigidbody_world.enabled = prev
 				
+					bpy.context.scene.rigidbody_world.enabled = prev
+
 				if len(bpy.context.selected_objects) > 1 and not shouldExportDMX():
 					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 					ops.object.join()
@@ -661,7 +661,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			ops.mesh.select_all(action="DESELECT")
 			ops.object.mode_set(mode='OBJECT')
-		
+					
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # avoids a few Blender bugs (as of 2.69)
 		bpy.context.scene.update()
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
@@ -747,6 +747,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.mesh.select_all(action='SELECT')
 			ops.mesh.quads_convert_to_tris()
 
+		if id.type == 'MESH':
+			data.use_auto_smooth = id.data.use_auto_smooth
+			data.auto_smooth_angle = id.data.auto_smooth_angle
+
 		for vgroup in id.vertex_groups:
 			baked.vertex_groups.new(name=vgroup.name)
 		
@@ -788,7 +792,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 				shape_ob = put_in_object(id,baked_shape, quiet = True)
 				result.shapes[shape.name] = shape_ob.data
-
+				
+				if not shouldExportDMX():
+					ops.object.mode_set(mode='EDIT')
+					ops.mesh.select_all(action='SELECT')
+					ops.mesh.quads_convert_to_tris()
+					ops.object.mode_set(mode='OBJECT')
 				bpy.context.scene.objects.unlink(shape_ob)
 				bpy.data.objects.remove(shape_ob)
 				del shape_ob
@@ -941,10 +950,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 				face_index = 0
 				ob = bake.object
 				data = ob.data
+				
+				calc_norms(data)
 
 				uv_loop = data.uv_layers.active.data
 				uv_tex = data.uv_textures.active.data
-				
+
 				weights = self.getWeightmap(bake)
 				
 				ob_weight_str = None
@@ -963,15 +974,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 					
 					self.smd_file.write(mat_name + "\n")
 					
-					for i in range(len(poly.vertices)):
+					for loop in [data.loops[l] for l in poly.loop_indices]:
 						# Vertex locations, normal directions
-						v = data.vertices[poly.vertices[i]]
-						pos_norm = "  {}  {}  ".format(getSmdVec(v.co),getSmdVec(v.normal if poly.use_smooth else poly.normal))
+						v = data.vertices[loop.vertex_index]
+						pos_norm = "  {}  {}  ".format(getSmdVec(v.co),getSmdVec(loop.normal))
 
 						# UVs
-						uv = ""
-						for j in range(2):
-							uv += " " + getSmdFloat(uv_loop[poly.loop_start + i].uv[j])
+						uv = " ".join([getSmdFloat(j) for j in uv_loop[loop.index].uv])
 
 						# Weightmaps
 						weight_string = ""
@@ -1024,17 +1033,18 @@ class SmdExporter(bpy.types.Operator, Logger):
 			vert_id = 0
 			shape_id = 1
 			
-			def _makeVertLine(i,vert,poly):
-				return "{} {} {}\n".format(i, " ".join([str(getSmdFloat(val)) for val in vert.co]), " ".join([str(getSmdFloat(val)) for val in (vert.normal if poly.use_smooth else poly.normal)]))
+			def _makeVertLine(i,co,norm):
+				return "{} {} {}\n".format(i, getSmdVec(co), getSmdVec(norm))
 			
+			calc_norms(bake.object.data)
+
 			_writeTime(0)
 			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 				bake.offset = vert_id
 				verts = bake.object.data.vertices
-				for poly in bake.object.data.polygons:
-					for vi in poly.vertices:
-						self.smd_file.write(_makeVertLine(vert_id,verts[vi],poly))
-						vert_id += 1
+				for loop in [bake.object.data.loops[l] for poly in bake.object.data.polygons for l in poly.loop_indices]:
+					self.smd_file.write(_makeVertLine(vert_id,verts[loop.vertex_index].co,loop.normal))
+					vert_id += 1
 			
 			for i, shape_name in enumerate(shape_names):
 				bpy.context.window_manager.progress_update(i / len(shape_names))
@@ -1042,30 +1052,33 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 					shape = bake.shapes.get(shape_name)
 					if not shape: continue
+
+					calc_norms(shape)
 					
+					vert_index = 0
 					num_bad_verts = 0
 					vert_id = bake.offset
 					mesh_verts = bake.object.data.vertices
 					shape_verts = shape.vertices
-					for poly in bake.object.data.polygons:
-						for vert in poly.vertices:
-							shape_vert = shape_verts[vert]
-							mesh_vert = mesh_verts[vert]
+
+					for mesh_loop in [bake.object.data.loops[l] for poly in bake.object.data.polygons for l in poly.loop_indices]:
+						shape_vert = shape_verts[mesh_loop.vertex_index]
+						shape_loop = shape.loops[mesh_loop.index]
+						mesh_vert = mesh_verts[mesh_loop.vertex_index]
 							
-							diff_vec = shape_vert.co - mesh_vert.co
-							for ordinate in diff_vec:
-								if ordinate > 8:
-									num_bad_verts += 1
-									break
+						diff_vec = shape_vert.co - mesh_vert.co
+						for ordinate in diff_vec:
+							if ordinate > 8:
+								num_bad_verts += 1
+								break
 							
-							if diff_vec > epsilon or (poly.use_smooth and shape_vert.normal - mesh_vert.normal > epsilon):
-								self.smd_file.write(_makeVertLine(vert_id,shape_vert,poly))
-								total_verts += 1
-							vert_id +=1
+						if diff_vec > epsilon or shape_loop.normal - mesh_loop.normal > epsilon:
+							self.smd_file.write(_makeVertLine(vert_index,shape_vert.co,shape_loop.normal))
+							total_verts += 1
+						vert_index += 1
 						
 					if num_bad_verts:
 						self.error("Shape \"{}\" has {} vertex movements that exceed eight units. Source does not support this!".format(shape_name,num_bad_verts))		
-					#bpy.data.meshes.remove(shape)
 				
 			self.smd_file.write("end\n")
 			print("- Exported {} flex shapes ({} verts)".format(i,total_verts))
@@ -1104,16 +1117,18 @@ skeleton
 		num_frames = len(vca)
 		two_percent = num_frames / 50
 		
-		for i, frame_object in enumerate(vca):
-			self.smd_file.write("time {}\n".format(i))
-			self.smd_file.writelines(["{} {} {}\n".format(v.index, getSmdVec(v.co), getSmdVec(v.normal)) for v in frame_object.data.vertices]) # FIXME: use loop normals
-			
-			if two_percent and len(vca) % two_percent == 0:
-				print(".", debug_only=True, newline=False)
-				bpy.context.window_manager.progress_update(len(vca) / num_frames)
+		for frame, vca_ob in enumerate(vca):
+			self.smd_file.write("time {}\n".format(frame))
 
-			removeObject(frame_object)
-			vca[i] = None
+			calc_norms(vca_ob.data)
+			self.smd_file.writelines(["{} {} {}\n".format(loop.index, getSmdVec(vca_ob.data.vertices[loop.vertex_index].co), getSmdVec(loop.normal)) for loop in vca_ob.data.loops])
+			
+			if two_percent and frame % two_percent == 0:
+				print(".", debug_only=True, newline=False)
+				bpy.context.window_manager.progress_update(frame / num_frames)
+
+			removeObject(vca_ob)
+			vca[frame] = None
 		
 		self.smd_file.write("end\n")
 		print(debug_only=True)
@@ -1355,18 +1370,19 @@ skeleton
 			vertex_data["jointCount"] = jointCount
 			
 			num_verts = len(ob.data.vertices)
-			
+			num_loops = len(ob.data.loops)
 			pos = [None] * num_verts
-			norms = [None] * num_verts
+			norms = [None] * num_loops
 			texco = ordered_set.OrderedSet()
-			texcoIndices = []
+			texcoIndices = [None] * num_loops
 			jointWeights = []
 			jointIndices = []
 			balance = [0.0] * num_verts
 			
-			Indices = []
-			normsIndices = []
+			Indices = [None] * num_loops
 			
+			calc_norms(ob.data)
+
 			uv_layer = ob.data.uv_layers.active.data
 			
 			bench.report("object setup")
@@ -1380,7 +1396,6 @@ skeleton
 			
 			for vert in ob.data.vertices:
 				pos[vert.index] = datamodel.Vector3(vert.co)
-				norms[vert.index] = datamodel.Vector3(vert.normal)
 				vert.select = False
 				
 				if len(bake.shapes) and bake.balance_vg:
@@ -1404,9 +1419,12 @@ skeleton
 				if len(pos) % 50 == 0:
 					bpy.context.window_manager.progress_update(len(pos) / num_verts)
 
-			for loop in [ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]:
-				texcoIndices.append(texco.add(datamodel.Vector2(uv_layer[loop.index].uv)))
-				Indices.append(loop.vertex_index)
+			calc_norms(ob.data)
+
+			for i,loop in enumerate([ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]):
+				texcoIndices[loop.index] = texco.add(datamodel.Vector2(uv_layer[loop.index].uv))
+				norms[loop.index] = datamodel.Vector3(loop.normal)
+				Indices[i] = loop.vertex_index
 			
 			bench.report("verts")
 			
@@ -1430,7 +1448,6 @@ skeleton
 			v = 0
 			p = 0
 			num_polys = len(ob.data.polygons)
-			flat_polys = {}
 			
 			two_percent = int(num_polys / 50)
 			print("Polygons: ",debug_only=True,newline=False)
@@ -1453,14 +1470,7 @@ skeleton
 				
 				face_list = face_sets[mat_name]["faces"]
 				face_list.extend(poly.loop_indices)
-				face_list.append(-1)
-				
-				if (poly.use_smooth):
-					normsIndices.extend([ob.data.loops[i].vertex_index for i in poly.loop_indices])
-				else:
-					norms.append(poly.normal)
-					flat_polys[poly] = len(norms)-1
-					normsIndices.extend([len(norms) -1 ] * poly.loop_total)
+				face_list.append(-1)				
 				
 				p+=1
 				if two_percent and p % two_percent == 0:
@@ -1471,7 +1481,7 @@ skeleton
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
 			vertex_data[keywords['norm']] = datamodel.make_array(norms,datamodel.Vector3)
-			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(normsIndices,int)
+			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(range(len(norms)),int)
 			
 			if bad_face_mats:
 				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
@@ -1524,7 +1534,11 @@ skeleton
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
-					if wrinkle_scale: delta_lengths = [None] * len(ob.data.vertices)
+					if wrinkle_scale:
+						delta_lengths = [None] * len(ob.data.vertices)
+						max_delta = 0
+
+					calc_norms(shape)
 
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
@@ -1538,43 +1552,41 @@ skeleton
 								shape_pos.append(datamodel.Vector3(delta))
 								shape_posIndices.append(ob_vert.index)
 
-						if ob_vert.normal != shape_vert.normal:
-							shape_norms.append(datamodel.Vector3(shape_vert.normal))
-							shape_normIndices.append(ob_vert.index)
+					for ob_loop in ob.data.loops:
+						shape_loop = shape.loops[ob_loop.index]
+
+						norm = Vector(shape_loop.normal)
+						if abs(1.0 - norm.dot(ob_loop.normal)) > epsilon[0]:
+							shape_norms.append(datamodel.Vector3(norm - ob_loop.normal))
+							shape_normIndices.append(shape_loop.index)
+
+						if wrinkle_scale:
+							delta_len = delta_lengths[loop.vertex_index]
+							if delta_len:
+								max_delta = max(max_delta,delta_len)
+								wrinkle.append(delta_len)
+								wrinkleIndices.append(texcoIndices[loop.index])
 
 					del shape_vert
 
-					if wrinkle_scale or len(flat_polys):
-						max_delta = 0
-						for poly in ob.data.polygons:
-							if wrinkle_scale:
-								for loop in [ob.data.loops[l_i] for l_i in poly.loop_indices]:
-									delta_len = delta_lengths[loop.vertex_index]
-									if delta_len:
-										max_delta = max(max_delta,delta_len)
-										wrinkle.append(delta_len)
-										wrinkleIndices.append(texcoIndices[loop.index])
-							if not poly.use_smooth:
-								shape_norm = shape.polygons[poly.index].normal
-								if poly.normal != shape_norm:
-									shape_norms.append(shape_norm)
-									shape_normIndices.append(flat_polys[poly])
+					if wrinkle_scale and max_delta:
+						wrinkle_mod = wrinkle_scale / max_delta
+						if wrinkle_mod != 1:
+							for i in range(len(wrinkle)):
+								wrinkle[i] *= wrinkle_mod
 
-						if wrinkle_scale and max_delta:
-							wrinkle_mod = wrinkle_scale / max_delta
-							if wrinkle_mod != 1:
-								for i in range(len(wrinkle)):
-									wrinkle[i] *= wrinkle_mod
 					DmeVertexDeltaData[keywords['pos']] = datamodel.make_array(shape_pos,datamodel.Vector3)
 					DmeVertexDeltaData[keywords['pos'] + "Indices"] = datamodel.make_array(shape_posIndices,int)
 					DmeVertexDeltaData[keywords['norm']] = datamodel.make_array(shape_norms,datamodel.Vector3)
 					DmeVertexDeltaData[keywords['norm'] + "Indices"] = datamodel.make_array(shape_normIndices,int)
+
 					if wrinkle_scale:
 						vertexFormat.append(keywords["wrinkle"])
 						num_wrinkles += 1
 						DmeVertexDeltaData[keywords["wrinkle"]] = datamodel.make_array(wrinkle,float)
 						DmeVertexDeltaData[keywords["wrinkle"] + "Indices"] = datamodel.make_array(wrinkleIndices,int)
 					
+					del bake.shapes[shape_name]
 					bpy.data.meshes.remove(shape)
 					del shape
 					bpy.context.window_manager.progress_update(len(shape_names) / num_shapes)
@@ -1585,6 +1597,7 @@ skeleton
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 			
+			calc_norms(ob.data)
 			vca_matrix = ob.matrix_world.inverted()
 			for vca_name,vca in bake_results[0].vertex_animations.items():
 				frame_shapes = []
@@ -1599,9 +1612,13 @@ skeleton
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
-				
-					for shape_vert in vca_ob.data.vertices:
-						ob_vert = ob.data.vertices[shape_vert.index]
+
+					calc_norms(vca_ob.data)
+
+					for shape_loop in vca_ob.data.loops:
+						shape_vert = vca_ob.data.vertices[shape_loop.vertex_index]
+						ob_loop = ob.data.loops[shape_loop.index]
+						ob_vert = ob.data.vertices[ob_loop.vertex_index]
 
 						if ob_vert.co != shape_vert.co:
 							delta = vca_matrix * shape_vert.co - ob_vert.co
@@ -1609,9 +1626,12 @@ skeleton
 							if abs(delta.length) > 1e-5:
 								shape_pos.append(datamodel.Vector3(delta))
 								shape_posIndices.append(ob_vert.index)
-						if ob_vert.normal != shape_vert.normal: # FIXME: use loop normals
-							shape_norms.append(datamodel.Vector3(shape_vert.normal))
-							shape_normIndices.append(ob_vert.index)
+						
+						norm = Vector(shape_loop.normal)
+						norm.rotate(vca_matrix)
+						if abs(1.0 - norm.dot(ob_loop.normal)) > epsilon[0]:
+							shape_norms.append(datamodel.Vector3(norm - ob_loop.normal))
+							shape_normIndices.append(shape_loop.index)
 
 					DmeVertexDeltaData["positions"] = datamodel.make_array(shape_pos,datamodel.Vector3)
 					DmeVertexDeltaData["positionsIndices"] = datamodel.make_array(shape_posIndices,int)

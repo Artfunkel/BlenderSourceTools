@@ -162,14 +162,12 @@ class bpy_git(unittest.TestCase,Tests):
 
 
 class Datamodel():
-	@staticmethod
-	def load_datamodel():
+	def __init__(self):
 		os.curdir = "io_scene_valvesource"
 		global datamodel
 		import datamodel
 
 	def create(self,name):
-		self.load_datamodel()
 		self.dm = datamodel.DataModel(name,1)
 		self.dm.add_element("root")
 
@@ -204,8 +202,20 @@ class Datamodel():
 class Datamodel_KV2(unittest.TestCase,Datamodel):
 	format= ("keyvalues2",1)
 
+	def __init__(self, methodName = 'runTest'):
+		Datamodel().__init__()
+		return super().__init__(methodName)
+
+	def test_Read(self):
+		dm = datamodel.load(os.path.join(tests_path,"flex_scout_morphs_low.dmx"))
+		print(dm.root["combinationOperator"])
+
 class Datamodel_Binary5(unittest.TestCase,Datamodel):
 	format= ("binary",5)
+
+	def __init__(self, methodName = 'runTest'):
+		Datamodel().__init__()
+		return super().__init__(methodName)
 
 if __name__ == '__main__':
     unittest.main()

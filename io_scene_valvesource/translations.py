@@ -353,7 +353,7 @@ _data = {
 	'ru': "Нет QC-файлов, нечего компилировать. Blender Source Tools не генерируют QC-файлы.",
 },
 'qc_compile_complete': {
-	'en': "\"Compiled {0} {1} QCs\"",
+	'en': "Compiled {0} {1} QCs",
 	'ru': "Скомпилировано {0} QC для движка {1}.",
 },
 'exporter_err_shapes_decimate': {

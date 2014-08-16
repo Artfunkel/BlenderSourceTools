@@ -303,7 +303,10 @@ class Element(collections.OrderedDict):
 		super().__init__()
 		
 	def __eq__(self,other):
-		return other and hash(self) == hash(other)
+		return isinstance(other,Element) and self.id == other.id
+
+	def __bool__(self):
+		return True
 
 	def __repr__(self):
 		return "<Datamodel element \"{}\" ({})>".format(self.name,self.type)
@@ -320,6 +323,8 @@ class Element(collections.OrderedDict):
 			
 	def __setitem__(self,key,item):
 		if type(key) != str: raise TypeError("Attribute name must be string, not {}".format(type(key)))
+		if key == "name" or key == "id":
+			raise KeyError("\"{}\" is a reserved name".format(key))
 		
 		def import_element(elem):
 			for dm in [dm for dm in self._datamodels if not dm in elem._datamodels]:
@@ -787,9 +792,11 @@ def load(path = None, in_file = None, element_path = None):
 					if line[0] == 'id':						
 						new_elem = dm.add_element(name,elem_type,uuid.UUID(hex=line[2]))
 						element_chain.append(new_elem)
+						continue
 					elif line[0] == 'name':
 						if new_elem: new_elem.name = line[2]
 						else: name = line[2]
+						continue
 					
 					# don't read elements outside the element path
 					if max_elem_path and name and len(dm.elements):

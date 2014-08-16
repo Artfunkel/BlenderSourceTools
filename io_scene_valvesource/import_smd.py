@@ -1304,7 +1304,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			DmeAxisSystem = DmeModel.get("axisSystem")
 			if DmeAxisSystem:
-				upAxis = smd.upAxis = list(axes_lookup.keys())[DmeAxisSystem["upAxis"] - 1]
+				for axis in axes_lookup.items():
+					if axis[1] == DmeAxisSystem["upAxis"] - 1:
+						upAxis = smd.upAxis = axis[0]
+						break
 			
 			def getBlenderQuat(datamodel_quat):
 				return Quaternion([datamodel_quat[3], datamodel_quat[0], datamodel_quat[1], datamodel_quat[2]])
@@ -1458,7 +1461,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Move from BMesh to Blender
 					bm.to_mesh(ob.data)
 					ob.data.update()
-					ob.matrix_local *= matrix
+					ob.matrix_world *= matrix
+					if ob.parent:
+						ob.matrix_world = ob.parent.matrix_world * ob.matrix_world
 					if smd.jobType == PHYS:
 						ob.draw_type = 'SOLID'
 					

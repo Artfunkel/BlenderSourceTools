@@ -291,6 +291,9 @@ def removeObject(obj):
 
 	return None if d else type
 
+def calc_norms(mesh):
+	mesh.calc_normals_split(split_angle=mesh.auto_smooth_angle if mesh.use_auto_smooth else pi)
+
 def hasShapes(id, valid_only = True):
 	def _test(id_):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
