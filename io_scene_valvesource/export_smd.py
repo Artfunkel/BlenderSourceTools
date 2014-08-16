@@ -1067,18 +1067,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 						mesh_vert = mesh_verts[mesh_loop.vertex_index]
 							
 						diff_vec = shape_vert.co - mesh_vert.co
-						for ordinate in diff_vec:
-							if ordinate > 8:
-								num_bad_verts += 1
-								break
 							
 						if diff_vec > epsilon or shape_loop.normal - mesh_loop.normal > epsilon:
 							self.smd_file.write(_makeVertLine(vert_index,shape_vert.co,shape_loop.normal))
 							total_verts += 1
 						vert_index += 1
-						
-					if num_bad_verts:
-						self.error("Shape \"{}\" has {} vertex movements that exceed eight units. Source does not support this!".format(shape_name,num_bad_verts))		
 				
 			self.smd_file.write("end\n")
 			print("- Exported {} flex shapes ({} verts)".format(i,total_verts))
