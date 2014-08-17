@@ -65,7 +65,7 @@ _data = {
 	'ru': "Насколько резко будет осуществляться переход между левой и правой частью объекта",
 },
 'vca_sequence_tip': {
-	'en': "On export, generate a $sequence that drives this Vertex Animation",
+	'en': "On export, generate an animation sequence that drives this Vertex Animation",
 },
 'shape_stereo_mode': {
 	'en': "DMX stereo split mode",
@@ -340,6 +340,9 @@ _data = {
 	'en': "Exported {0} bones, but SMD only supports {1}!",
 	'ru': "Экспортировано {0} костей, но SMD поддерживает только {1}!",
 },
+'exporter_err_unmergable': {
+	'en': "Skipping vertex animations on Group \"{0}\", which could not be merged into a single DMX object due to its envelope. To fix this, either ensure that the entire Group has the same bone parent or remove all envelopes.",
+},
 'exporter_err_flexctrl_loadfail': {
 	'en': "Could not load flex controllers. Python reports: {0}",
 	'ru': "Загрузить контроллеры из указанного DMX-файла не удалось. Ошибка Python: {0}",
@@ -392,6 +395,9 @@ _data = {
 	'en': "Export and compile Source Engine models",
 	'ru': "Экспортирует и компилирует модели для движка Source",
 },
+'exporter_warn_weightlinks_culled': {
+	'en': "{0} excess weight links beneath scene threshold of {1:0.2} culled on \"{2}\".",
+},
 'exporter_prop_scene_tip': {
 	'en': "Export all items selected in the Source Engine Exportables panel",
 	'ru': "Экспортировать все объекты, заданные в панели \"Объекты для Source\"",
@@ -440,8 +446,8 @@ _data = {
 	'en': "Could not create export folder. Python reports: {0}",
 	'ru': "Не удалось создать папку для экспорта. Ошибка Python: {0}",
 },
-'exporter_err_weightlinks': {
-	'en': "{0} verts on \"{1}\" have over 3 weight links. Source does not support this!",
+'exporter_warn_weightlinks_excess': {
+	'en': "{0} verts on \"{1}\" have over {2} weight links. Source does not support this!",
 	'ru': "{0} вершин на объекте {1} привязаны к более чем трём костям. Studiomdl не сможет скомпилировать такой файл..",
 },
 'exporter_report_menu': {
@@ -755,6 +761,12 @@ _data = {
 'qc_compileall': {
 	'en': "Compile all on export",
 	'ru': "Компилировать QC-файлы после экспорта",
+},
+'dmx_weightlinkcull': {
+	'en': "Weight Link Cull Threshold",
+},
+'dmx_weightlinkcull_tip': {
+	'en': "The maximum strength at which a weight link can be removed to comply with Source's per-vertex link limit.",
 },
 'dmx_encoding_tip': {
 	'en': "Manual override for binary DMX encoding version",

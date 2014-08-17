@@ -353,7 +353,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if smd.jobType == ANIM_SOLO and num_frames == 1:
 						ops.pose.armature_apply()
 					if smd.jobType == REF:
-						self.warning("Found animation in reference mesh \"{}\", ignoring!".format(smd.jobName))
+						self.warning(get_id("importer_err_refanim",True).format(smd.jobName))
 						for line in smd.file: # skip to end of block						
 							if smdBreak(line):
 								break

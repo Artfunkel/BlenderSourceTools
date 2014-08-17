@@ -175,7 +175,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	export_list = CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path = StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=game_path_changed)
-	dmx_weightlink_threshold = FloatProperty(name="Weight Link Cull Threshold",description="During DMX export, weight links with strength equal or less than this value will be culled to keep vertices within the weight link limit",max=1,min=0)
+	dmx_weightlink_threshold = FloatProperty(name=get_id("dmx_weightlinkcull"),description=get_id("dmx_weightlinkcull_tip"),max=1,min=0)
 
 class ValveSource_VertexAnimation(PropertyGroup):
 	name = StringProperty(name="Name",default="VertexAnim")

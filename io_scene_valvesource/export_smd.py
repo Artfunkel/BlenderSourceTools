@@ -344,7 +344,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		skip_vca = False
 		if type(id) == Group and len(id.vs.vertex_animations) and len(id.objects) > 1:
 			if len(mesh_bakes) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
-				self.error("Skipping vertex animations on Group \"{}\", which could not be merged into a single DMX object due to its envelope. To fix this, ensure that the entire Group has the same bone parent.".format(id.name))
+				self.error(get_id("exporter_err_unmergable",true).format(id.name))
 				skip_vca = True
 			elif not id.vs.automerge:
 				id.vs.automerge = True
@@ -476,7 +476,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
-				self.warning("Armature \"{}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.".format(self.armature_src.name))
+				self.warning(get_id("exporter_err_arm_nonuniform",True).format(self.armature_src.name))
 			if not self.armature:
 				self.armature = self.bakeObj(self.armature_src).object
 			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (type(id) == bpy.types.Object and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
@@ -499,7 +499,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			elif len(ad.nla_tracks):
 				export_name = id.name
 			else:
-				self.error("Couldn't find any animation for Armature \"{}\"".format(id.name))
+				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
 			bench.report("Animation export")
 		else:
 			export_name = id.name
@@ -675,7 +675,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			con.mute = True
 			if con.type in ['CHILD_OF','COPY_TRANSFORMS'] and con.target.type == 'ARMATURE' and con.subtarget:
 				if result.envelope:
-					self.warning("Bone constraint \"{}\" found on \"{}\", which already has a bone parent. Ignoring.".format(con.name,id.name))
+					self.warning(get_id("exporter_err_dupeenv_con",True).format(con.name,id.name))
 				else:
 					self.armature_src = con.target
 					result.envelope = con.subtarget
@@ -685,7 +685,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
 				if result.envelope:
-					self.warning("Armature modifier \"{}\" found on \"{}\", which already has a bone parent or constraint. Ignoring.".format(mod.name,id.name))
+					self.warning(get_id("exporter_err_dupeenv_arm",True).format(mod.name,id.name))
 				else:
 					self.armature_src = mod.object
 					result.envelope = mod
@@ -755,7 +755,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if shouldExportDMX():
 				if id.data.vs.flex_stereo_mode == 'VGROUP':
 					if id.data.vs.flex_stereo_vg == "":
-						self.warning("Object \"{}\" uses Vertex Group stereo split, but does not define a Vertex Group to use.".format(id.name))
+						self.warning(get_id("exporter_err_splitvgroup_undefined",True).format(id.name))
 					else:
 						result.balance_vg = baked.vertex_groups.get(id.data.vs.flex_stereo_vg)
 						if not result.balance_vg:
@@ -1261,7 +1261,7 @@ skeleton
 		for _ in [bake for bake in bake_results if len(bake.shapes)]:
 			if self.flex_controller_mode == 'ADVANCED':
 				if not hasFlexControllerSource(self.flex_controller_source):
-					self.error( "Could not find flex controllers for \"{}\"".format(name) )
+					self.error(get_id("exporter_err_flexctrl_undefined",True).format(name) )
 					return written
 
 				text = bpy.data.texts.get(self.flex_controller_source)
@@ -1320,7 +1320,7 @@ skeleton
 			DmeModel_transforms.append(makeTransform(bake.name, ob.matrix_world, "ob_base"+bake.name))
 			
 			jointCount = 0
-			weight_link_limit = 3 if dm.format_ver < 22 else 0
+			weight_link_limit = 3 if dm.format_ver < 22 else 4
 			badJointCounts = 0
 			culled_weight_links = 0
 			cull_threshold = bpy.context.scene.vs.dmx_weightlink_threshold
@@ -1345,9 +1345,9 @@ skeleton
 				jointCount = 1
 					
 			if badJointCounts:
-				self.warning("{} verts on \"{}\" have over {} weight links. Studiomdl does not support this!".format(badJointCounts,bake.src.name,weight_link_limit))
+				self.warning(get_id("exporter_warn_weightlinks_excess",True).format(badJointCounts,bake.src.name,weight_link_limit))
 			if culled_weight_links:
-				self.warning("{} excess weight links beneath scene threshold of {:0.2} culled on \"{}\".".format(culled_weight_links,cull_threshold,bake.src.name))
+				self.warning(get_id("exporter_warn_weightlinks_culled",True).format(culled_weight_links,cull_threshold,bake.src.name))
 			
 			format = [ keywords['pos'], keywords['norm'], keywords['texco'] ]
 			if jointCount: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )

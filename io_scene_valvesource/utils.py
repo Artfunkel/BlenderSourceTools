@@ -89,7 +89,6 @@ def print(*args, newline=True, debug_only=False):
 		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
 
 def get_id(id, format_string = False, data = False):
-	from . import translations
 	out = p_cache.ids[id]
 	if format_string or (data and bpy.context.user_preferences.system.use_translate_new_dataname):
 		return pgettext(out)
