@@ -4,6 +4,7 @@ _languages = ['ru']
 _data = {
 'vca_sequence': {
 	'en': "Generate Sequence",
+	'ru': "Создать анимацию",
 },
 'controllers_simple_tip': {
 	'en': "Generate one flex controller per shape key",
@@ -55,6 +56,7 @@ _data = {
 },
 'vca_start_tip': {
 	'en': "Scene frame at which to start recording Vertex Animation",
+	'ru': "Кадр в сцене, с которого следует начать запись вершинной анимации",
 },
 'action_filter_tip': {
 	'en': "Actions with names matching this filter pattern and have users will be exported",
@@ -66,6 +68,7 @@ _data = {
 },
 'vca_sequence_tip': {
 	'en': "On export, generate an animation sequence that drives this Vertex Animation",
+	'ru': "При экспорте автоматически создать sequence, управляющий этой вершинной анимацией",
 },
 'shape_stereo_mode': {
 	'en': "DMX stereo split mode",
@@ -77,6 +80,7 @@ _data = {
 },
 'vca_group_props': {
 	'en': "Vertex Animation",
+	'ru': "Вершинная анимация",
 },
 'curve_poly_side': {
 	'en': "Polygon Generation",
@@ -160,6 +164,7 @@ _data = {
 },
 'vca_end_tip': {
 	'en': "Scene frame at which to stop recording Vertex Animation",
+	'ru': "Кадр в сцене, которым следует закончить запись вершинной анимации",
 },
 'controllers_mode_tip': {
 	'en': "How flex controllers are defined",
@@ -255,6 +260,7 @@ _data = {
 },
 'qc_invalid_source2': {
 	'en': "QC files do not exist in Source 2",
+	'ru': "QC-файлы движком Source 2 не используются",
 },
 'exportmenu_selected': {
 	'en': "Selected objects ({0} files)",
@@ -342,6 +348,7 @@ _data = {
 },
 'exporter_err_unmergable': {
 	'en': "Skipping vertex animations on Group \"{0}\", which could not be merged into a single DMX object due to its envelope. To fix this, either ensure that the entire Group has the same bone parent or remove all envelopes.",
+	'ru': "Пропуск вершинной анимации для группы «{0}», которую не удаётся слить в DMX-модель из-за огибающих. Проверьте, что у всей группы одна и та же кость-родитель или удалите все огибающие.",
 },
 'exporter_err_flexctrl_loadfail': {
 	'en': "Could not load flex controllers. Python reports: {0}",
@@ -397,6 +404,7 @@ _data = {
 },
 'exporter_warn_weightlinks_culled': {
 	'en': "{0} excess weight links beneath scene threshold of {1:0.2} culled on \"{2}\".",
+	'ru': "На «{2}» удалено {0} излишних привязок к костям: предел веса, заданный для сцены, {1:0.2}",
 },
 'exporter_prop_scene_tip': {
 	'en': "Export all items selected in the Source Engine Exportables panel",
@@ -448,7 +456,7 @@ _data = {
 },
 'exporter_warn_weightlinks_excess': {
 	'en': "{0} verts on \"{1}\" have over {2} weight links. Source does not support this!",
-	'ru': "{0} вершин на объекте {1} привязаны к более чем трём костям. Studiomdl не сможет скомпилировать такой файл..",
+	'ru': "На «{1}» {0} вершин имеют привязку к более {2} костей. Source не поддерживает такое коилчество привязок.",
 },
 'exporter_report_menu': {
 	'en': "Source Tools Error Report",
@@ -612,6 +620,7 @@ _data = {
 },
 'vca_add_tip': {
 	'en': "Add a Vertex Animation to the active Source Tools exportable",
+	'ru': "Добавить к текущему экспортируемому объекту Source Tools вершинную анимацию",
 },
 'insert_uuid': {
 	'en': "Insert UUID",
@@ -627,15 +636,19 @@ _data = {
 },
 'vca_qcgen_tip': {
 	'en': "Copies a QC segment for this object's Vertex Animations to the clipboard",
+	'ru': "Создать в буфере обмена фрагмент QC-файла для управления текущей вершинной анимацией",
 },
 'vca_remove_tip': {
 	'en': "Remove the active Vertex Animation from the active Source Tools exportable",
+	'ru': "Удалить текущую вершинную анимацию с экспортируемого объекта Source Tools",
 },
 'vca_add': {
 	'en': "Add Vertex Animation",
+	'ru': "Добавить вершинную анимацию",
 },
 'vca_preview': {
 	'en': "Preview Vertex Animation",
+	'ru': "Предпросмотр вершинной анимации",
 },
 'activate_dep_shapes_success': {
 	'en': "Activated {0} dependency shapes",
@@ -663,12 +676,15 @@ _data = {
 },
 'vca_qcgen': {
 	'en': "Generate QC Segment",
+	'ru': "Создать фрагмент QC-файла",
 },
 'vca_preview_tip': {
 	'en': "Plays the active Source Tools Vertex Animation using scene preview settings",
+	'ru': "Проигрывает текущую вершинную анимацию для предпросмотра",
 },
 'vca_remove': {
 	'en': "Remove Vertex Animation",
+	'ru': "Удалить текущую вершинную анимацию с экспортируемого объекта Source Tools",
 },
 'gen_drivers_tip': {
 	'en': "Adds Blender animation drivers to corrective Source engine shapes",
@@ -764,9 +780,11 @@ _data = {
 },
 'dmx_weightlinkcull': {
 	'en': "Weight Link Cull Threshold",
+	'ru': "Порог веса привязки вершины к кости",
 },
 'dmx_weightlinkcull_tip': {
 	'en': "The maximum strength at which a weight link can be removed to comply with Source's per-vertex link limit.",
+	'ru': "Если вершина связана с некоторой костью, и её вес меньше здесь указанного, то связь с этой костью будет удалена при экспорте, чтобы вписаться в ограничение движка Source. («Source не поддерживает такое количество привязок»)",
 },
 'dmx_encoding_tip': {
 	'en': "Manual override for binary DMX encoding version",
@@ -778,7 +796,7 @@ _data = {
 },
 'engine_path_tip': {
 	'en': "Directory containing studiomdl (Source 1) or resourcecompiler (Source 2)",
-	'ru': "Путь до studiomdl",
+	'ru': "Путь до папки с studiomdl (Source 1) или resourcecompiler (Source 2)",
 },
 'ignore_materials_tip': {
 	'en': "Only export face-assigned image filenames",
@@ -794,7 +812,7 @@ _data = {
 },
 'offerchangelog_offer': {
 	'en': "Restart Blender to complete the update. Click to view the changelog.",
-	'ru': "Список изменений",
+	'ru': "Перезапустите Blender для завершения обновления. Нажмите для просмотра списка изменений.",
 },
 'update_err_outdated': {
 	'en': "The latest Source Tools require Blender {0}. Please upgrade.",
@@ -814,7 +832,7 @@ _data = {
 },
 'update_done': {
 	'en': "Installed Source Tools {0}!",
-	'ru': "Успешно обновлено до Blender Source Tools {0}",
+	'ru': "Обновлено до Source Tools {0}!",
 },
 'updater_title_tip': {
 	'en': "Connects to http://steamreview.org/BlenderSourceTools/latest.php",
