@@ -351,6 +351,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		for va in id.vs.vertex_animations:
 			if skip_vca: break
+
+			if shouldExportDMX():
+				va.name = va.name.replace("_","-")
+
 			vca = bake_results[0].vertex_animations[va.name] # only the first bake result will ever have a vertex animation defined
 			vca.export_sequence = va.export_sequence
 			vca.num_frames = va.end - va.start
@@ -362,14 +366,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.scene.frame_set(f)
 				bpy.ops.object.select_all(action='DESELECT')
 				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
-					bake.fob = bake.src.copy()
+					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW'))
+					bake.fob.matrix_world = bake.src.matrix_world
 					bpy.context.scene.objects.link(bake.fob)
-					bake.fob.data = bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW')
 					bpy.context.scene.objects.active = bake.fob
 					bake.fob.select = True
 
 					top_parent = self.getTopParent(bake.src)
-					bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 					if top_parent:
 						bake.fob.location -= top_parent.location
 					
