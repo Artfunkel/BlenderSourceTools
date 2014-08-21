@@ -510,6 +510,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bpy.context.scene.update()
 		self.files_exported += write_func(id, bake_results, export_name, path)
 		bench.report(write_func.__name__)
+		self.armature = None
 		
 	def getWeightmap(self,bake_result):
 		out = []

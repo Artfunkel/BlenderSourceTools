@@ -165,7 +165,7 @@ def getEngineBranchName():
 	else:
 		return os.path.basename(os.path.abspath(os.path.join(bpy.path.abspath(path),os.pardir))).title().replace("Sdk","SDK") # why, Python, why
 def getDmxVersionsForSDK():
-	if not bpy.context.scene.vs.engine_path: return
+	if not p_cache.enginepath_valid: return
 	path_branch = getEngineBranchName().lower()
 	for branch in dmx_versions.keys():
 		if path_branch == branch.lower(): return dmx_versions[branch]
