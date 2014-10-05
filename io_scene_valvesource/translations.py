@@ -530,6 +530,9 @@ _data = {
 	'en': "Determines the type of rotation Keyframes created when importing bones or animation",
 	'ru': "Задаёт тип создаваемых при экспорте ключевых кадров с вращением",
 },
+'importer_skipremdoubles_tip': {
+	'en': "Skips the \"Remove Doubles\" step; use this if your SMD has overlapping elements",
+},
 'importer_balance_group': {
 	'en': "DMX Stereo Balance",
 	'ru': "Разделение стерео-контроллеров",
@@ -537,6 +540,9 @@ _data = {
 'importer_rotmode': {
 	'en': "Rotation mode",
 	'ru': "Способ задания вращения",
+},
+'importer_skipremdoubles': {
+	'en': "Preserve SMD polygons",
 },
 'importer_bonemode_tip': {
 	'en': "How bones in new Armatures should be displayed",

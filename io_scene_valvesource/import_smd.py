@@ -42,8 +42,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 	# Custom properties
 	append = BoolProperty(name=get_id("importer_append"), description=get_id("importer_append_tip"), default=True)
 	doAnim = BoolProperty(name=get_id("importer_doanims"), default=True)
-	upAxis = EnumProperty(name="Up Axis",items=axes,default='Z',description=get_id("importer_up_tip"))
+	skipRemDoubles = BoolProperty(name=get_id("importer_skipremdoubles"),description=get_id("importer_skipremdoubles_tip"),default=False)
 	makeCamera = BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
+	upAxis = EnumProperty(name="Up Axis",items=axes,default='Z',description=get_id("importer_up_tip"))
 	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
 	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
 	boneMode = EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
@@ -805,8 +806,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 			
 			for poly in smd.m.data.polygons:
 				poly.select = True		
-			
-			self.removeDoublesPreserveFaces()
+
+			if not self.skipRemDoubles:
+				self.removeDoublesPreserveFaces()
 			
 			smd.m.show_wire = smd.jobType == PHYS
 
