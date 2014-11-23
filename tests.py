@@ -1,5 +1,5 @@
 # see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
-import os, shutil, unittest
+import os, shutil, unittest, sys
 from importlib import import_module
 from os.path import join
 
@@ -28,7 +28,9 @@ class Tests:
 
 		C = bpy.context
 		D = bpy.data
-		bpy.ops.wm.read_homefile()
+		sys.path.append('.')
+		bpy.ops.wm.addon_enable(module='io_scene_valvesource')
+		sys.path.remove('.')
 		bpy.app.debug_value = 1
 		print("Blender version",bpy.app.version)
 

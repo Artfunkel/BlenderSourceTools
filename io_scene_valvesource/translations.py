@@ -502,6 +502,9 @@ _data = {
 	'en': "Skipping macro in QC {0}",
 	'ru': "Пропуск QC-команды в файле {0}",
 },
+'importer_bones_validate_desc': {
+	'en': "Report new bones as missing without making any changes to the target Armature",
+},
 'importer_tip': {
 	'en': "Imports uncompiled Source Engine model data",
 	'ru': "Импортирует промежуточные файлы Source",
@@ -537,6 +540,9 @@ _data = {
 	'en': "DMX Stereo Balance",
 	'ru': "Разделение стерео-контроллеров",
 },
+'importer_bones_mode_desc': {
+	'en': "How to behave when a reference mesh import introduces new bones to the target Armature (ignored for QCs)",
+},
 'importer_rotmode': {
 	'en': "Rotation mode",
 	'ru': "Способ задания вращения",
@@ -548,6 +554,9 @@ _data = {
 	'en': "How bones in new Armatures should be displayed",
 	'ru': "Как будут выглядеть кости в импортированном скелете?",
 },
+'importer_bones_append': {
+	'en': "Append to Target",
+},
 'importer_err_qci': {
 	'en': "Could not open QC $include file \"{0}\" - skipping!",
 	'ru': "Пропуск файла \"{0}\" из команды $include: не удалсь открыть.",
@@ -556,21 +565,29 @@ _data = {
 	'en': "Which axis represents 'up' (ignored for QCs)",
 	'ru': "Какая из осей соответствует направлению \"вврех\"?",
 },
+'importer_bones_append_desc': {
+	'en': "Add new bones to the target Armature",
+},
 'importer_err_unmatched_mesh': {
 	'en': "{0} VTA vertices ({1}%) were not matched to a mesh vertex! An object with a vertex group has been created to show where the VTA file's vertices are.",
 	'ru': "{0} вершин ({1}%) не удалось привязать к объекту при импорте VTA. Создан объект с группой вершин, показывающей, где заданные в VTA вершины.",
+},
+'importer_bones_validate': {
+	'en': "Validate Against Target",
 },
 'importer_name_nomat': {
 	'en': "UndefinedMaterial",
 	'ru': "UndefinedMaterial",
 },
-'importer_append_tip': {
-	'en': "Whether imports will latch onto an existing armature or create their own",
-	'ru': "Будут ли импортируемые модели добавляться к существующему скелету или будет создан новый скелет?",
+'importer_bones_newarm_desc': {
+	'en': "Make a new Armature for this import",
 },
 'importer_err_refanim': {
 	'en': "Found animation in reference mesh \"{0}\", ignoring!",
 	'ru': "Пропуск анимации в файле с позой по умолчанию (\"{0}\")",
+},
+'importer_bones_mode': {
+	'en': "Bone Append Mode",
 },
 'importer_err_badweights': {
 	'en': "{0} vertices weighted to invalid bones on {1}",
@@ -588,21 +605,20 @@ _data = {
 	'en': "Unrecognised/invalid SMD file. Import will proceed, but may fail!",
 	'ru': "Не удалось распознать SMD-файл. Импорт будет продолжен до первой ошибки.",
 },
-'importer_append': {
-	'en': "Append To Existing Model",
-	'ru': "Дополнять существующую модель",
-},
 'importer_doanims': {
 	'en': "Import Animations",
 	'ru': "Импортировать анимации",
 },
 'importer_err_missingbones': {
-	'en': "{0} contains {1} bones not present in {2}: {3}",
-	'ru': "{1} костей из {0} не найдены в {2}: {3}",
+	'en': "{0} contains {1} bones not present in {2}. Check the console for a list.",
+	'ru': "{1} костей из {0} не найдены в {2}.",
 },
 'importer_name_unmatchedvta': {
 	'en': "Unmatched VTA",
 	'ru': "Несопоставленные вершины VTA",
+},
+'importer_bones_newarm': {
+	'en': "Make New Armature",
 },
 'exportstate_pattern_tip': {
 	'en': "Visible objects with this string in their name will be affected",

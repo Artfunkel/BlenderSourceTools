@@ -213,7 +213,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				else:
 					group = bpy.data.groups[self.group]
 					if group.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(group.name))
-					elif len(group.objects) == 0: self.error(get_id("exporter_err_groupempty", True).format(group.name))
+					elif not any(group.objects): self.error(get_id("exporter_err_groupempty", True).format(group.name))
 					else: self.exportId(context, group)
 			
 			num_good_compiles = None
@@ -384,7 +384,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 					bpy.context.scene.rigidbody_world.enabled = prev
 
-				if len(bpy.context.selected_objects) > 1 and not shouldExportDMX():
+				if any(bpy.context.selected_objects) and not shouldExportDMX():
 					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 					ops.object.join()
 				
@@ -499,7 +499,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				return
 			elif ad.action:
 				export_name = ad.action.name
-			elif len(ad.nla_tracks):
+			elif any(ad.nla_tracks):
 				export_name = id.name
 			else:
 				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
@@ -704,7 +704,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
 		data.name = id.name + "_baked"
 		
-		if len(data.polygons) == 0:
+		if not any(data.polygons):
 			self.error(get_id("exporter_err_nopolys", True).format(id.name))
 			return
 
@@ -809,7 +809,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		baked.select = True
 
 		# project a UV map
-		if len(baked.data.uv_textures) == 0:
+		if not any(baked.data.uv_textures):
 			if len(result.object.data.vertices) < 2000:
 				ops.object.mode_set(mode='OBJECT')
 				ops.uv.smart_project()
@@ -900,7 +900,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					ad = self.armature.animation_data
 					anim_len = animationLength(ad) + 1
 					
-					if ad.action and 'fps' in dir(ad.action):
+					if ad.action and hasattr(ad.action,'fps'):
 						bpy.context.scene.render.fps = ad.action.fps
 						bpy.context.scene.render.fps_base = 1
 				else:
@@ -961,7 +961,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				ob_weight_str = None
 				if type(bake.envelope) == str:
 					ob_weight_str = " 1 {} 1".format(self.bone_ids[bake.envelope])
-				elif len(weights) == 0:
+				elif not any(weights):
 					ob_weight_str = " 0"
 				
 				bad_face_mats = 0
@@ -1084,7 +1084,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		written = 1
 		if filetype == 'smd':
-			for bake in [bake for bake in bake_results if len(bake.shapes)]:
+			for bake in [bake for bake in bake_results if any(bake.shapes)]:
 				written += self.writeSMD(id,bake_results,name,filepath,filetype='vta')
 			for name,vca in bake_results[0].vertex_animations.items():
 				written += self.writeVCA(name,vca,filepath)
@@ -1198,6 +1198,7 @@ skeleton
 		root["skeleton"] = DmeModel
 		if dm.format_ver >= 11:
 			jointList = DmeModel["jointList"] = datamodel.make_array([],datamodel.Element)
+		jointDict = {}
 		jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)
 		bone_transforms = {} # cache for animation lookup
 		if self.armature: scale = self.armature.matrix_world.to_scale()
@@ -1216,6 +1217,7 @@ skeleton
 
 			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if dm.format_ver >= 11: jointList.append(bone_elem)
+			jointDict[bone_name] = bone_elem
 			self.bone_ids[bone_name] = len(bone_transforms)
 			
 			if not bone: relMat = Matrix()
@@ -1262,7 +1264,7 @@ skeleton
 			DmeModel_children.extend(writeBone("vcabone_{}".format(vca)))
 
 		DmeCombinationOperator = None
-		for _ in [bake for bake in bake_results if len(bake.shapes)]:
+		for _ in [bake for bake in bake_results if any(bake.shapes)]:
 			if self.flex_controller_mode == 'ADVANCED':
 				if not hasFlexControllerSource(self.flex_controller_source):
 					self.error(get_id("exporter_err_flexctrl_undefined",True).format(name) )
@@ -1311,17 +1313,23 @@ skeleton
 			DmeMesh["bindState"] = vertex_data
 			DmeMesh["currentState"] = vertex_data
 			DmeMesh["baseStates"] = datamodel.make_array([vertex_data],datamodel.Element)
-			
-			trfm = makeTransform(bake.name, ob.matrix_world, "ob"+bake.name)
-			jointTransforms.append(trfm)
-			
+						
 			DmeDag = dm.add_element(bake.name,"DmeDag",id="ob"+bake.name+"dag")
 			if dm.format_ver >= 11: jointList.append(DmeDag)
 			DmeDag["shape"] = DmeMesh
-			DmeDag["transform"] = trfm
 			
-			DmeModel_children.append(DmeDag)
-			DmeModel_transforms.append(makeTransform(bake.name, ob.matrix_world, "ob_base"+bake.name))
+			if type(bake.envelope) == str: # bone child?
+				jointDict[bake.envelope]["children"].append(DmeDag)
+				# bone.matrix_local is local to the armature, not the bone's parent
+				trfm_mat = (self.armature_src.matrix_world * self.armature_src.data.bones[bake.envelope].matrix_local).inverted() * ob.matrix_local
+			else:
+				DmeModel_children.append(DmeDag)
+				trfm_mat = ob.matrix_world
+
+			trfm = makeTransform(bake.name, trfm_mat, "ob"+bake.name)
+			jointTransforms.append(trfm)
+			DmeDag["transform"] = trfm
+			DmeModel_transforms.append(makeTransform(bake.name, trfm_mat, "ob_base"+bake.name))
 			
 			jointCount = 0
 			weight_link_limit = 3 if dm.format_ver < 22 else 4
@@ -1355,7 +1363,7 @@ skeleton
 			
 			format = [ keywords['pos'], keywords['norm'], keywords['texco'] ]
 			if jointCount: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
-			if len(bake.shapes) and bake.balance_vg:
+			if any(bake.shapes) and bake.balance_vg:
 				format.append(keywords["balance"])
 			vertex_data["vertexFormat"] = datamodel.make_array( format, str)
 			
@@ -1378,20 +1386,13 @@ skeleton
 
 			uv_layer = ob.data.uv_layers.active.data
 			
-			bench.report("object setup")
-			
-			if type(bake.envelope) == str:
-				jointWeights = [ 1.0 ] * len(ob.data.vertices)
-				bone = self.armature.pose.bones[bake.envelope]
-				while bone and not bone in self.exportable_bones: bone = bone.parent
-				bone_id = self.bone_ids[bone.name] if bone else 0
-				jointIndices = [ bone_id ] * len(ob.data.vertices)
+			bench.report("object setup")			
 			
 			for vert in ob.data.vertices:
 				pos[vert.index] = datamodel.Vector3(vert.co)
 				vert.select = False
 				
-				if len(bake.shapes) and bake.balance_vg:
+				if any(bake.shapes) and bake.balance_vg:
 					try: balance[vert.index] = bake.balance_vg.weight(vert.index)
 					except: pass
 				
@@ -1431,7 +1432,7 @@ skeleton
 				vertex_data[keywords["weight"]] = datamodel.make_array(jointWeights,float)
 				vertex_data[keywords["weight_indices"]] = datamodel.make_array(jointIndices,int)
 			
-			if len(bake.shapes):
+			if any(bake.shapes):
 				vertex_data[keywords["balance"]] = datamodel.make_array(balance,float)
 				vertex_data[keywords["balance"] + "Indices"] = datamodel.make_array(Indices,int)
 			
@@ -1484,7 +1485,7 @@ skeleton
 			two_percent = int(len(bake.shapes) / 50)
 			print("Shapes: ",debug_only=True,newline=False)
 			delta_states = []
-			if len(bake.shapes):
+			if any(bake.shapes):
 				shape_names = []
 				num_shapes = len(bake.shapes)
 				num_correctives = 0
@@ -1676,7 +1677,7 @@ skeleton
 					self.exportId(bpy.context,vca_arm)
 					written += 1
 
-			if len(delta_states):
+			if any(delta_states):
 				DmeMesh["deltaStates"] = datamodel.make_array(delta_states,datamodel.Element)
 				DmeMesh["deltaStateWeights"] = DmeMesh["deltaStateWeightsLagged"] = \
 					datamodel.make_array([datamodel.Vector2([0.0,0.0])] * len(delta_states),datamodel.Vector2)
@@ -1696,7 +1697,7 @@ skeleton
 						
 			anim_len = animationLength(ad)
 			
-			if ad.action and 'fps' in dir(ad.action):
+			if ad.action and hasattr(ad.action,'fps'):
 				fps = bpy.context.scene.render.fps = ad.action.fps
 				bpy.context.scene.render.fps_base = 1
 			else:

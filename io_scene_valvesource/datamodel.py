@@ -858,7 +858,7 @@ def load(path = None, in_file = None, element_path = None):
 
 				raise IOError("Unexpected EOF")
 			
-			if ('mode' in dir(in_file) and 'b' in in_file.mode): in_file = io.TextIOWrapper(in_file)
+			if hasattr(in_file,'mode') and 'b' in in_file.mode: in_file = io.TextIOWrapper(in_file)
 			in_file.seek(len(header))
 			
 			element_chain = []
