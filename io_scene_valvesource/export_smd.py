@@ -1321,7 +1321,7 @@ skeleton
 			if type(bake.envelope) == str: # bone child?
 				jointDict[bake.envelope]["children"].append(DmeDag)
 				# bone.matrix_local is local to the armature, not the bone's parent
-				trfm_mat = (self.armature_src.matrix_world * self.armature_src.data.bones[bake.envelope].matrix_local).inverted() * ob.matrix_local
+				trfm_mat = self.armature_src.data.bones[bake.envelope].matrix_local.inverted() * ob.matrix_world
 			else:
 				DmeModel_children.append(DmeDag)
 				trfm_mat = ob.matrix_world
@@ -1336,6 +1336,7 @@ skeleton
 			badJointCounts = 0
 			culled_weight_links = 0
 			cull_threshold = bpy.context.scene.vs.dmx_weightlink_threshold
+			have_weightmap = False
 
 			if type(bake.envelope) is bpy.types.ArmatureModifier:
 				ob_weights = self.getWeightmap(bake)
@@ -1353,6 +1354,7 @@ skeleton
 						if count > weight_link_limit: badJointCounts += 1
 
 					jointCount = max(jointCount,count)
+				if jointCount: have_weightmap = True
 			elif bake.envelope:
 				jointCount = 1
 					
@@ -1362,7 +1364,7 @@ skeleton
 				self.warning(get_id("exporter_warn_weightlinks_culled",True).format(culled_weight_links,cull_threshold,bake.src.name))
 			
 			format = [ keywords['pos'], keywords['norm'], keywords['texco'] ]
-			if jointCount: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
+			if have_weightmap: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
 			if any(bake.shapes) and bake.balance_vg:
 				format.append(keywords["balance"])
 			vertex_data["vertexFormat"] = datamodel.make_array( format, str)
@@ -1396,7 +1398,7 @@ skeleton
 					try: balance[vert.index] = bake.balance_vg.weight(vert.index)
 					except: pass
 				
-				if type(bake.envelope) == bpy.types.ArmatureModifier:
+				if have_weightmap:
 					weights = [0.0] * jointCount
 					indices = [0] * jointCount
 					i = 0
@@ -1428,7 +1430,7 @@ skeleton
 			vertex_data[keywords['texco']] = datamodel.make_array(texco,datamodel.Vector2)
 			vertex_data[keywords['texco'] + "Indices"] = datamodel.make_array(texcoIndices,int)
 			
-			if jointCount:
+			if have_weightmap:
 				vertex_data[keywords["weight"]] = datamodel.make_array(jointWeights,float)
 				vertex_data[keywords["weight_indices"]] = datamodel.make_array(jointIndices,int)
 			

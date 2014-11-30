@@ -1228,7 +1228,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		while True:
 			header = self.parseQuoteBlockedLine(file.readline())
-			if len(header): break
+			if any(header): break
 		
 		if header != ["version" ,"1"]:
 			self.warning (get_id("importer_err_smd_ver"))
@@ -1400,11 +1400,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if elem.type in ["DmeModel","DmeDag", "DmeJoint"]:
 					if elem.type == "DmeDag":
 						matrix *= get_transform_matrix(elem)
-					if elem.get("children") and len(elem["children"]):
+					if elem.get("children") and any(elem["children"]):
 						if elem.type == "DmeJoint":
 							last_bone = elem
 						subelems = elem["children"]
-					elif elem["shape"]:
+					elif elem.get("shape"):
 						subelems = [elem["shape"]]
 					else:
 						return
