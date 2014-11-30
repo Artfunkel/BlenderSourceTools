@@ -1,8 +1,9 @@
 #coding=utf-8
-_languages = ['ru']
+_languages = ['ru', 'ja']
 
 _data = {
 'vca_sequence': {
+	'ja': "シクウェンスを生成します",
 	'en': "Generate Sequence",
 	'ru': "Создать анимацию",
 },
@@ -27,10 +28,12 @@ _data = {
 	'ru': "Куда экспортировать? (Необязательно; по умолчанию экспортируется в ту же папку, где находится .blend-файл) ",
 },
 'controllers_mode': {
+	'ja': "DMXフレックスのコントローラー生成",
 	'en': "DMX Flex Controller generation",
 	'ru': "Генерация контроллеров лицевой анимации (DMX)",
 },
 'scene_export': {
+	'ja': "シーンをエクスポート",
 	'en': "Scene Export",
 	'ru': "Экспорт всей сцены",
 },
@@ -51,6 +54,7 @@ _data = {
 	'ru': "Избегать вогнутых полигонов в DMX-файлах (не поддерживается studiomdl)",
 },
 'action_filter': {
+	'ja': "アクションフィルター",
 	'en': "Action Filter",
 	'ru': "Фильтр действий",
 },
@@ -59,7 +63,7 @@ _data = {
 	'ru': "Кадр в сцене, с которого следует начать запись вершинной анимации",
 },
 'action_filter_tip': {
-	'en': "Actions with names matching this filter pattern and have users will be exported",
+	'en': "Actions with names matching this filter pattern and which have users will be exported",
 	'ru': "Будут эксортированы только те действия, имена которых подходят под этот фильтр, и которые где-либо используются",
 },
 'shape_stereo_sharpness_tip': {
@@ -79,14 +83,17 @@ _data = {
 	'ru': "\"Пустая\" недвижимая кость",
 },
 'vca_group_props': {
+	'ja': "頂点アニメーション",
 	'en': "Vertex Animation",
 	'ru': "Вершинная анимация",
 },
 'curve_poly_side': {
+	'ja': "ポリゴン生成",
 	'en': "Polygon Generation",
 	'ru': "Генерация геометрии",
 },
 'group_merge_mech': {
+	'ja': "メカニカルな局部は結合",
 	'en': "Merge mechanical parts",
 	'ru': "Слить вместе механические части",
 },
@@ -107,6 +114,7 @@ _data = {
 	'ru': "Переназначить Y-ось всех костей в Z-ось для обратной совместимости с старыми импортами",
 },
 'controller_source': {
+	'ja': "DMXフレックスのコントローラーのソースファイル ",
 	'en': "DMX Flex Controller source",
 	'ru': "Файл контроллеров лицевой анимации (DMX)",
 },
@@ -115,6 +123,7 @@ _data = {
 	'ru': "Экспортировать объекты этой группы по отдельности",
 },
 'action_selection_current': {
+	'ja': "現在 / NLA",
 	'en': "Current / NLA",
 	'ru': "Текущее действие / Нелинейная анимация",
 },
@@ -123,6 +132,7 @@ _data = {
 	'ru': "Резкость разделения в стерео-контроллерах",
 },
 'group_suppress': {
+	'ja': "ミュート",
 	'en': "Suppress",
 	'ru': "\"Пересиливание\"",
 },
@@ -143,6 +153,7 @@ _data = {
 	'ru': "Указывает, какая сторона (стороны) выделенной кривой будет использоваться для генерации геометрии",
 },
 'triangulate': {
+	'ja': "三角測量",
 	'en': "Triangulate",
 	'ru': "Преобразовывать все многоугольники в треугольники",
 },
@@ -179,34 +190,42 @@ _data = {
 	'ru': "Создать кость и привязать к ней вершины, которые не двигаются. (Только SMD.)",
 },
 'exportpanel_steam': {
+	'ja': "Steam コミュニティ",
 	'en': "Steam Community",
 	'ru': "Сообщество Steam",
 },
 'exportables_arm_filter_result': {
+	'ja': "「{0}」ものアクション：{1}",
 	'en': "\"{0}\" actions ({1})",
 	'ru': "Фильтр имён действий \"{0}\" на скелете {1}",
 },
 'exportables_flex_count_corrective': {
+	'ja': "是正シェイプ：{0}",
 	'en': "Corrective Shapes: {0}",
 	'ru': "Ключей форм коррекции: {0}",
 },
 'exportables_curve_polyside': {
+	'ja': "ポリゴン生成：",
 	'en': "Polygon Generation:",
 	'ru': "Генерация геометрии:",
 },
 'exportmenu_title': {
+	'ja': "Source Tools エクスポート",
 	'en': "Source Tools Export",
 	'ru': "Экспорт в Source",
 },
 'exportables_flex_help': {
+	'ja': "フレックス・コントローラーのヘレプ",
 	'en': "Flex Controller Help",
 	'ru': "Помощь по контроллерам лицевой анимации",
 },
 'exportpanel_title': {
+	'ja': "Source Engine エクスポート",
 	'en': "Source Engine Export",
 	'ru': "Экспорт в Source",
 },
 'exportables_flex_src': {
+	'ja': "コントローラーのソースファイル ",
 	'en': "Controller Source",
 	'ru': "Файл настроек контроллеров",
 },
@@ -215,50 +234,62 @@ _data = {
 	'ru': "Выделенный объект невозможно экспортировать",
 },
 'qc_title': {
+	'ja': "Source Engine QCのコンパイル",
 	'en': "Source Engine QC Complies",
 	'ru': "Компиляция QC",
 },
 'exportables_flex_props': {
+	'ja': "フレックスのプロパティ",
 	'en': "Flex Properties",
 	'ru': "Свойства контроллеров лицевой анимации",
 },
 'exportables_flex_generate': {
+	'ja': "コントローラーを生成します",
 	'en': "Generate Controllers",
 	'ru': "Сгенерировать контроллеры",
 },
 'exportables_flex_split': {
+	'ja': "ステレオフルックスの差額：",
 	'en': "Stereo Flex Balance:",
 	'ru': "Разделение на правую и левую часть:",
 },
 'exportables_group_mute_suffix': {
+	'ja': "(ミユト)",
 	'en': "(suppressed)",
 	'ru': "(игнорируется)",
 },
 'exportmenu_scene': {
+	'ja': "シーンをエクスポート ({0}つファイル)",
 	'en': "Scene export ({0} files)",
 	'ru': "Экспорт {0} файлов",
 },
 'exportpanel_dmxver': {
+	'ja': "DMXのバージョン：",
 	'en': "DMX Version:",
 	'ru': "Версия DMX:",
 },
 'exportpanel_update': {
+	'ja': "更新アドオンの確認",
 	'en': "Check for updates",
 	'ru': "Проверить обновления",
 },
 'exportables_title': {
+	'ja': "Source Engineのエクスポート可能",
 	'en': "Source Engine Exportables",
 	'ru': "Объекты для Source",
 },
 'exportables_armature_props': {
+	'ja': "アーマティアのプロパティ",
 	'en': "Armature Properties ({0})",
 	'ru': "Свойства скелета ({0})",
 },
 'qc_bad_enginepath': {
+	'ja': "エンジンのパスが無効です",
 	'en': "Invalid Engine Path",
 	'ru': "Некорректный путь до папки bin",
 },
 'qc_invalid_source2': {
+	'ja': "Source Engine 2はQCファイルが使いません",
 	'en': "QC files do not exist in Source 2",
 	'ru': "QC-файлы движком Source 2 не используются",
 },
@@ -267,22 +298,27 @@ _data = {
 	'ru': "Выбранные объекты ({0} файлов)",
 },
 'exportables_group_props': {
+	'ja': "グループのプロパティ",
 	'en': "Group Properties",
 	'ru': "Свойства групп",
 },
 'qc_no_enginepath': {
+	'ja': "エンジンのパスはありません",
 	'en': "No Engine Path provided",
 	'ru': "Не указан путь до папки bin",
 },
 'exportables_curve_props': {
+	'ja': "カーブのプロパティ",
 	'en': "Curve Properties",
 	'ru': "Свойства сплайна",
 },
 'exportables_flex_count': {
+	'ja': "シェイプ：{0}",
 	'en': "Shapes: {0}",
 	'ru': "Ключей формы: {0}",
 },
 'bl_info_author': {
+	'ja': "トム・エドワーズ～グリゴリ・レヴジン",
 	'en': "Tom Edwards (translators: Grigory Revzin)",
 	'ru': "Том Эдвардс (переводили: Григорий Ревзин)",
 },
@@ -303,10 +339,12 @@ _data = {
 	'ru': "Движок Source (.smd, .vta, .dmx)",
 },
 'help': {
+	'ja': "ヘレプ",
 	'en': "Help",
 	'ru': "Помощь",
 },
 'bl_info_location': {
+	'ja': "ファイル > インポート / エクスポート、シーンのプロパティ",
 	'en': "File > Import/Export, Scene properties",
 	'ru': "Файл > Импортировать/Экспортировать, свойства сцены",
 },
@@ -359,6 +397,7 @@ _data = {
 	'ru': "Нет QC-файлов, нечего компилировать. Blender Source Tools не генерируют QC-файлы.",
 },
 'qc_compile_complete': {
+	'ja': "{0}つQC「{1}」のものはコンパイルしました",
 	'en': "Compiled {0} {1} QCs",
 	'ru': "Скомпилировано {0} QC для движка {1}.",
 },
@@ -375,6 +414,7 @@ _data = {
 	'ru': "Не удалось создать файл {0}. Ошибка Python: {1}",
 },
 'qc_compile_title': {
+	'ja': "QCコンパイル",
 	'en': "Compile QC",
 	'ru': "Скомпилировать QC-файл",
 },
@@ -415,6 +455,7 @@ _data = {
 	'ru': "Формат DMX-файла \"Model {0}\" требует структуру DMX-файла не более старую, чем \"Binary 3\".",
 },
 'exporter_prop_group': {
+	'ja': "グループの名前",
 	'en': "Group Name",
 	'ru': "Имя группы",
 },
@@ -435,6 +476,7 @@ _data = {
 	'ru': "Невозможно экспортировать DMX-файлы. Проверьте панель \"Экспорт в Source\"",
 },
 'exporter_prop_group_tip': {
+	'ja': "エクスポートにグループの名前",
 	'en': "Name of the Group to export",
 	'ru': "Имя группы для экспорта",
 },
@@ -459,18 +501,22 @@ _data = {
 	'ru': "На «{1}» {0} вершин имеют привязку к более {2} костей. Source не поддерживает такое коилчество привязок.",
 },
 'exporter_report_menu': {
+	'ja': "レポート：Source Tools エラー",
 	'en': "Source Tools Error Report",
 	'ru': "Отчёт о ошибках Source Tools",
 },
 'exporter_report': {
+	'ja': "{0}つファイルは{1}秒エクスポート",
 	'en': "{0} files exported in {1} seconds",
 	'ru': "Файлов экспортировано: {0}. Прошло секунд: {1};",
 },
 'exporter_err_groupmuted': {
+	'ja': "ゲルーポ「{0}」はミュートです",
 	'en': "Group {0} is suppressed",
 	'ru': "Свойства группы {0} \"пересилены\"",
 },
 'exporter_title': {
+	'ja': "SMD/VTA/DMXをエクスポート",
 	'en': "Export SMD/VTA/DMX",
 	'ru': "Экспорт SMD/VTA/DMX",
 },
@@ -487,10 +533,12 @@ _data = {
 	'ru': "Импортировано файлов: {0}. Прошло секунд: {1}.",
 },
 'importer_bonemode': {
+	'ja': "ボーンカスタムシェイプ",
 	'en': "Bone shapes",
 	'ru': "Отображение костей",
 },
 'importer_err_nofile': {
+	'ja': "選択ファイルはありません",
 	'en': "No file selected",
 	'ru': "Файл не выбран",
 },
@@ -510,10 +558,12 @@ _data = {
 	'ru': "Импортирует промежуточные файлы Source",
 },
 'importer_title': {
+	'ja': "インポート SMD/VTA, DMX, QC",
 	'en': "Import SMD/VTA, DMX, QC",
 	'ru': "Импорт SMD/VTA, DMX, QC",
 },
 'importer_makecamera': {
+	'ja': "$originにカメラを生成",
 	'en': "Make Camera At $origin",
 	'ru': "Создать камеру по координатам, указанным в $origin",
 },
@@ -544,10 +594,12 @@ _data = {
 	'en': "How to behave when a reference mesh import introduces new bones to the target Armature (ignored for QCs)",
 },
 'importer_rotmode': {
+	'ja': "回転モード",
 	'en': "Rotation mode",
 	'ru': "Способ задания вращения",
 },
 'importer_skipremdoubles': {
+	'ja': "SMDのポリゴンを保持",
 	'en': "Preserve SMD polygons",
 },
 'importer_bonemode_tip': {
@@ -555,6 +607,7 @@ _data = {
 	'ru': "Как будут выглядеть кости в импортированном скелете?",
 },
 'importer_bones_append': {
+	'ja': "対象で追加",
 	'en': "Append to Target",
 },
 'importer_err_qci': {
@@ -573,9 +626,11 @@ _data = {
 	'ru': "{0} вершин ({1}%) не удалось привязать к объекту при импорте VTA. Создан объект с группой вершин, показывающей, где заданные в VTA вершины.",
 },
 'importer_bones_validate': {
+	'ja': "対象で確認",
 	'en': "Validate Against Target",
 },
 'importer_name_nomat': {
+	'ja': "UndefinedMaterial",
 	'en': "UndefinedMaterial",
 	'ru': "UndefinedMaterial",
 },
@@ -587,6 +642,7 @@ _data = {
 	'ru': "Пропуск анимации в файле с позой по умолчанию (\"{0}\")",
 },
 'importer_bones_mode': {
+	'ja': "ボーンの追加がモード",
 	'en': "Bone Append Mode",
 },
 'importer_err_badweights': {
@@ -606,6 +662,7 @@ _data = {
 	'ru': "Не удалось распознать SMD-файл. Импорт будет продолжен до первой ошибки.",
 },
 'importer_doanims': {
+	'ja': "アニメーションをインポート",
 	'en': "Import Animations",
 	'ru': "Импортировать анимации",
 },
@@ -618,6 +675,7 @@ _data = {
 	'ru': "Несопоставленные вершины VTA",
 },
 'importer_bones_newarm': {
+	'ja': "アーマティアを生成",
 	'en': "Make New Armature",
 },
 'exportstate_pattern_tip': {
@@ -637,6 +695,7 @@ _data = {
 	'ru': "Настройки контроллеров лицевой анимации записаны в {0}",
 },
 'gen_block': {
+	'ja': "DMXフレックスのコントローラーの抜粋を生成します",
 	'en': "Generate DMX Flex Controller block",
 	'ru': "Сгенерировать настройки контроллеров лицевой анимации",
 },
@@ -669,6 +728,7 @@ _data = {
 	'ru': "Добавить вершинную анимацию",
 },
 'vca_preview': {
+	'ja': "頂点アニメーションを再生します",
 	'en': "Preview Vertex Animation",
 	'ru': "Предпросмотр вершинной анимации",
 },
@@ -677,6 +737,7 @@ _data = {
 	'ru': "Активировано {0} зависимых ключей формы",
 },
 'launch_hlmv': {
+	'ja': "HLMVを開始",
 	'en': "Launch HLMV",
 	'ru': "Запустить HLMV",
 },
@@ -693,10 +754,12 @@ _data = {
 	'ru': "Генерирует простой блок контроллеров лицевой анимации, по контроллеру на один ключ формы",
 },
 'gen_drivers': {
+	'ja': "是正シェイプキーのドライバーを生成します",
 	'en': "Generate Corrective Shape Key Drivers",
 	'ru': "Создать драйверы для ключей форм коррекции",
 },
 'vca_qcgen': {
+	'ja': "QCの抜粋を生成します",
 	'en': "Generate QC Segment",
 	'ru': "Создать фрагмент QC-файла",
 },
@@ -713,10 +776,12 @@ _data = {
 	'ru': "Создаёт драйверы для ключей форм коррекции, использующихся в Source",
 },
 'qc_path': {
+	'ja': "QCのパス",
 	'en': "QC Path",
 	'ru': "Путь до QC-файлов",
 },
 'engine_path': {
+	'ja': "エンジンのパス",
 	'en': "Engine Path",
 	'ru': "Путь до папки bin движка",
 },
@@ -725,26 +790,32 @@ _data = {
 	'ru': "Путь до мода (где gameinfo.txt). Если не задано, то будет использована переменная среды VPROJECT",
 },
 'visible_only': {
+	'ja': "たった可視のレイヤー",
 	'en': "Visible layers only",
 	'ru': "Только видимые слои",
 },
 'dmx_encoding': {
+	'ja': "DMXの符号化",
 	'en': "DMX encoding",
 	'ru': "Способ кодирования DMX-файла",
 },
 'game_path': {
+	'ja': "ゲームのパス",
 	'en': "Game Path",
 	'ru': "Путь до мода",
 },
 'up_axis': {
+	'ja': "対象の前方",
 	'en': "Target Up Axis",
 	'ru': "Направление \"Вверх\"",
 },
 'dmx_format': {
+	'ja': "DMXのフォーマット",
 	'en': "DMX format",
 	'ru': "Формат DMX-файла",
 },
 'ignore_materials': {
+	'ja': "Blenderのマテリアルを軽視",
 	'en': "Ignore Blender Materials",
 	'ru': "Игнорировать материалы Blender",
 },
@@ -753,6 +824,7 @@ _data = {
 	'ru': "Не экспортировать объекты, расположенные на выключенных слоях",
 },
 'active_exportable': {
+	'ja': "アクティブ・エクスポート可能",
 	'en': "Active exportable",
 	'ru': "Активный объект для экспорта",
 },
@@ -761,6 +833,7 @@ _data = {
 	'ru': "Папка, куда будут экспортироваться SMD и DMX из текущей сцены",
 },
 'qc_compilenow': {
+	'ja': "今みんあはコンパイル",
 	'en': "Compile All Now",
 	'ru': "Скомпилировать все QC",
 },
@@ -785,22 +858,27 @@ _data = {
 	'ru': "Не указан путь до мода; переменная VPROJECT содержит ошибочные данные",
 },
 'dmx_mat_path': {
+	'ja': "マテリアルのパス",
 	'en': "Material Path",
 	'ru': "Путь до материалов",
 },
 'exportroot': {
+	'ja': "エクスポートのパス",
 	'en': "Export Path",
 	'ru': "Куда экспортировать",
 },
 'export_format': {
+	'ja': "エクスポートのフォーマット",
 	'en': "Export Format",
 	'ru': "Формат файла экспорта",
 },
 'qc_compileall': {
+	'ja': "エクスポートから、みんあがコンパイル",
 	'en': "Compile all on export",
 	'ru': "Компилировать QC-файлы после экспорта",
 },
 'dmx_weightlinkcull': {
+	'ja': "ウェイト・リンクの間引きのしきい値",
 	'en': "Weight Link Cull Threshold",
 	'ru': "Порог веса привязки вершины к кости",
 },
@@ -825,6 +903,7 @@ _data = {
 	'ru': "Называть материалы в экспортированной модели по именам текстур, а не Blender-материалов",
 },
 'updater_title': {
+	'ja': "更新Source Toolsの確認",
 	'en': "Check for Source Tools updates",
 	'ru': "Проверить обновления Source Tools",
 },
