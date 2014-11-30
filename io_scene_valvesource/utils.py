@@ -185,7 +185,14 @@ def count_exports(context):
 	return num
 
 def animationLength(ad):
-	return int(ad.action.frame_range[1] if ad.action else max([strip.frame_end for track in ad.nla_tracks if not track.mute for strip in track.strips]))
+	if ad.action:
+		return int(ad.action.frame_range[1])
+	else:
+		strips = [strip.frame_end for track in ad.nla_tracks if not track.mute for strip in track.strips]
+		if any(strips):
+			return int(max(strips))
+		else:
+			return 0
 	
 def getFileExt(flex=False):
 	if allowDMX() and bpy.context.scene.vs.export_format == 'DMX':

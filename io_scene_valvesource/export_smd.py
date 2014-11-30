@@ -898,7 +898,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				is_anim = len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE'
 				if is_anim:
 					ad = self.armature.animation_data
-					anim_len = animationLength(ad) + 1
+					anim_len = animationLength(ad) + 1 # frame 0 is a frame too...
+					if anim_len == 1:
+						self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
 					
 					if ad.action and hasattr(ad.action,'fps'):
 						bpy.context.scene.render.fps = ad.action.fps
@@ -1698,6 +1700,8 @@ skeleton
 			ad = self.armature.animation_data
 						
 			anim_len = animationLength(ad)
+			if anim_len == 0:
+				self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
 			
 			if ad.action and hasattr(ad.action,'fps'):
 				fps = bpy.context.scene.render.fps = ad.action.fps

@@ -500,6 +500,9 @@ _data = {
 	'en': "{0} verts on \"{1}\" have over {2} weight links. Source does not support this!",
 	'ru': "На «{1}» {0} вершин имеют привязку к более {2} костей. Source не поддерживает такое коилчество привязок.",
 },
+'exporter_err_noframes': {
+	'en': "Armature {0} has no animation frames to export.",
+},
 'exporter_report_menu': {
 	'ja': "レポート：Source Tools エラー",
 	'en': "Source Tools Error Report",
