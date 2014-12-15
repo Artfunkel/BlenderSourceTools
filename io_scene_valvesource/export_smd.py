@@ -376,13 +376,15 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if top_parent:
 						bake.fob.location -= top_parent.location
 					
-					# Blender 2.71 bug: https://developer.blender.org/T41388
-					prev = bpy.context.scene.rigidbody_world.enabled
-					bpy.context.scene.rigidbody_world.enabled = False
+					if context.scene.rigidbody_world:
+						# Blender 2.71 bug: https://developer.blender.org/T41388
+						prev_rbw = bpy.context.scene.rigidbody_world.enabled
+						bpy.context.scene.rigidbody_world.enabled = False
 
 					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
 				
-					bpy.context.scene.rigidbody_world.enabled = prev
+					if context.scene.rigidbody_world:
+						bpy.context.scene.rigidbody_world.enabled = prev_rbw
 
 				if any(bpy.context.selected_objects) and not shouldExportDMX():
 					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
