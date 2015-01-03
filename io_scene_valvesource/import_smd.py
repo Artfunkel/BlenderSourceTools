@@ -1321,7 +1321,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 						if not bone:
 							if append == 'APPEND' and smd.jobType == REF_ADD:
 								bone = smd.a.data.edit_bones.new(elem.name)
-								bone.parent = smd.a.data.edit_bones[parent_elem.name]
+								if parent_elem:
+									bone.parent = smd.a.data.edit_bones[parent_elem.name]
 								bone.tail = (0,5,0)
 								bone_matrices[bone.name] = get_transform_matrix(elem)
 								smd.boneIDs[elem.id] = bone.name
