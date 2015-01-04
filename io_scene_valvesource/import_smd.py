@@ -1386,16 +1386,17 @@ class SmdImporter(bpy.types.Operator, Logger):
 								parseSkeleton(elem["children"], bone)
 				
 				parseSkeleton(DmeModel["children"], None)
-					
-			ops.object.mode_set(mode='POSE')
-			for bone in smd.a.pose.bones:
-				mat = bone_matrices.get(bone.name)
-				if mat:
-					keyframe = KeyFrame()
-					keyframe.matrix = mat
-					restData[bone] = {0:keyframe}
-			if any(restData):
-				self.applyFrames(restData,1,None)
+			
+			if smd.a:		
+				ops.object.mode_set(mode='POSE')
+				for bone in smd.a.pose.bones:
+					mat = bone_matrices.get(bone.name)
+					if mat:
+						keyframe = KeyFrame()
+						keyframe.matrix = mat
+						restData[bone] = {0:keyframe}
+				if any(restData):
+					self.applyFrames(restData,1,None)
 			
 			def parseModel(elem,matrix=Matrix(), last_bone = None):
 				if elem.type in ["DmeModel","DmeDag", "DmeJoint"]:
@@ -1622,10 +1623,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
 				self.applyFrames(keyframes,total_frames,frameRate)
 		except datamodel.AttributeError as e:
-			e.args = ["Invalid DMX model: {}".format(e.args[0])]
-			raise e
-		except Exception as e:
-			raise e
+			e.args = ["Invalid DMX file: {}".format(e.args[0] if any(e.args) else "Unknown error")]
+			raise
 		
 		new_obs = set(bpy.context.scene.objects).difference(starting_objects)
 		if any(new_obs):
