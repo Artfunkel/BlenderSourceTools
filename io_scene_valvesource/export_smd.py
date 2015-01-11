@@ -1051,31 +1051,35 @@ class SmdExporter(bpy.types.Operator, Logger):
 					vert_id += 1
 			
 			for i, shape_name in enumerate(shape_names):
+				i += 1
 				bpy.context.window_manager.progress_update(i / len(shape_names))
-				_writeTime(i+1,shape_name)
+				_writeTime(i,shape_name)
 				for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 					shape = bake.shapes.get(shape_name)
 					if not shape: continue
 
 					calc_norms(shape)
 					
-					vert_index = 0
+					vert_index = bake.offset
 					num_bad_verts = 0
-					vert_id = bake.offset
 					mesh_verts = bake.object.data.vertices
 					shape_verts = shape.vertices
 
-					for mesh_loop in [bake.object.data.loops[l] for poly in bake.object.data.polygons for l in poly.loop_indices]:
-						shape_vert = shape_verts[mesh_loop.vertex_index]
-						shape_loop = shape.loops[mesh_loop.index]
-						mesh_vert = mesh_verts[mesh_loop.vertex_index]
+					for p in range(len(bake.object.data.polygons)):
+						mesh_poly = bake.object.data.polygons[p]
+						shape_poly = shape.polygons[p]
+						for l in range(len(mesh_poly.loop_indices)):
+							shape_loop = shape.loops[shape_poly.loop_indices[l]]
+							mesh_loop = bake.object.data.loops[mesh_poly.loop_indices[l]]
+
+							shape_vert = shape_verts[shape_loop.vertex_index]
+							mesh_vert = mesh_verts[mesh_loop.vertex_index]		
+							diff_vec = shape_vert.co - mesh_vert.co
 							
-						diff_vec = shape_vert.co - mesh_vert.co
-							
-						if diff_vec > epsilon or shape_loop.normal - mesh_loop.normal > epsilon:
-							self.smd_file.write(_makeVertLine(vert_index,shape_vert.co,shape_loop.normal))
-							total_verts += 1
-						vert_index += 1
+							if diff_vec > epsilon or shape_loop.normal - mesh_loop.normal > epsilon:
+								self.smd_file.write(_makeVertLine(vert_index,shape_vert.co,shape_loop.normal))
+								total_verts += 1
+							vert_index += 1
 				
 			self.smd_file.write("end\n")
 			print("- Exported {} flex shapes ({} verts)".format(i,total_verts))
