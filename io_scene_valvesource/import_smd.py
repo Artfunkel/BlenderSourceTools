@@ -218,6 +218,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				append = smd.append == 'APPEND' and smd.jobType == REF_ADD
 
 				if append:
+					bpy.context.scene.objects.active = smd.a
 					ops.object.mode_set(mode='EDIT',toggle=False)
 				
 				missing = validated = 0
