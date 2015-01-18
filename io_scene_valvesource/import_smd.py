@@ -712,7 +712,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		md = smd.m.data
 		lastWindowUpdate = time.time()
 		# Vertex values
-		cos = []
 		norms = []
 		weights = []
 		# Face values
@@ -750,16 +749,17 @@ class SmdImporter(bpy.types.Operator, Logger):
 				values = line.split()
 
 				vertexCount+= 1
-				co = []
-				#norm = []
+				co = [0,0,0]
+				norm = [0,0,0]
 
 				# Read co-ordinates and normals
 				for i in range(1,4): # 0 is the deprecated bone weight value
-					co.append( float(values[i]) )
-					#norm.append( float(values[i+3]) ) # Blender currenty ignores this data!
+					co[i-1] = float(values[i])
+					norm[i-1] = float(values[i+3])
 				
 				faceVerts.append( bm.verts.new(co) )
-				
+				norms.append(norm)
+
 				# Can't do these in the above for loop since there's only two
 				uvs.append( ( float(values[7]), float(values[8]) ) )
 
@@ -790,6 +790,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		bm.to_mesh(md)
 		bm.free()
 		md.update()
+		
+		if hasattr(md,'define_normals_split_custom'):
+			md.create_normals_split()
+			md.use_auto_smooth = True
+			md.define_normals_split_custom(norms)
 		
 		if countPolys:	
 			md.polygons.foreach_set("material_index", mats)
@@ -1481,6 +1486,23 @@ class SmdImporter(bpy.types.Operator, Logger):
 						ob.matrix_world = ob.parent.matrix_world * ob.matrix_world
 					if smd.jobType == PHYS:
 						ob.draw_type = 'SOLID'
+
+					# Normals
+					if hasattr(ob.data,'define_normals_split_custom'):
+						ob.data.create_normals_split()
+						ob.data.use_auto_smooth = True
+
+						normals = DmeVertexData[keywords['norm']]
+						normalsIndices = DmeVertexData[keywords['norm'] + "Indices"]
+
+						normals_ordered = [None] * len(normalsIndices)
+						i = 0
+						for vert in [vert for faceset in DmeMesh["faceSets"] for vert in faceset["faces"]]:
+							if vert == -1: continue
+							normals_ordered[i] = normals[normalsIndices[vert]]
+							i += 1
+
+						ob.data.define_normals_split_custom(normals_ordered)
 					
 					# Weightmap
 					if have_weightmap:
