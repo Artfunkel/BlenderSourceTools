@@ -501,7 +501,7 @@ _data = {
 	'ru': "На «{1}» {0} вершин имеют привязку к более {2} костей. Source не поддерживает такое коилчество привязок.",
 },
 'exporter_err_noframes': {
-	'en': "Armature {0} has no animation frames to export.",
+	'en': "Armature {0} has no animation frames to export",
 },
 'exporter_report_menu': {
 	'ja': "レポート：Source Tools エラー",
@@ -653,8 +653,8 @@ _data = {
 	'ru': "{0} вершин привязаны к неверным костям на объекте {1}",
 },
 'importer_err_bonelimit_smd': {
-	'en': "Source only supports 128 bones!",
-	'ru': "Движок Source не поддерживает больше 128 костей!",
+	'en': "SMD only supports 128 bones!",
+	'ru': "Движок SMD не поддерживает больше 128 костей!",
 },
 'importer_err_badfile': {
 	'en': "Format of {0} not recognised",
