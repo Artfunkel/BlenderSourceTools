@@ -617,29 +617,53 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.src = None
 			self.balance_vg = None
 			self.shapes = collections.OrderedDict()
-			self.matrix = Matrix()
 			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
 			
 	# Creates a mesh with object transformations and modifiers applied
-	def bakeObj(self,id):
+	def bakeObj(self,id, generate_uvs = True):
 		for bake in [bake for bake in self.bake_results if bake.src == id or bake.object == id]:
 			return bake
 		
 		result = self.BakeResult(id.name)
 		result.src = id
 		self.bake_results.append(result)
-		
+
+		ops.object.mode_set(mode='OBJECT')
+
+		should_triangulate = not shouldExportDMX() or id.vs.triangulate
+
+		def triangulate():
+			ops.object.mode_set(mode='EDIT')
+			ops.mesh.select_all(action='SELECT')
+			ops.mesh.quads_convert_to_tris(quad_method='FIXED')
+			ops.object.mode_set(mode='OBJECT')
+				
+		duplis = []
+		select_only(id)
+		bpy.ops.object.duplicates_make_real()
+		id.select=False
+		for dupli in bpy.context.selected_objects[:]:
+			dupli.parent = id
+			duplis.append(self.bakeObj(dupli, generate_uvs = False))
+		if any(duplis):
+			for bake in duplis: bake.object.select=True
+			del duplis
+			bpy.ops.object.join()
+			if should_triangulate: triangulate()
+			duplis = bpy.context.active_object
+		else:
+			duplis = None
+
 		if id.type != 'META': # eek, what about lib data?
 			id = id.copy()
 			bpy.context.scene.objects.link(id)
-		id.data = id.data.copy()
+		if id.data:
+			id.data = id.data.copy()
 		
 		if bpy.context.active_object:
 			ops.object.mode_set(mode='OBJECT')
-		bpy.context.scene.objects.active = id
-		ops.object.select_all(action='DESELECT')
-		id.select = True
-		
+		select_only(id)
+				
 		if hasShapes(id):
 			id.active_shape_key_index = 0
 		
@@ -701,54 +725,60 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_shapes_decimate", True).format(id.name,mod.decimate_type))
 				shapes_invalid = True
 		ops.object.mode_set(mode='OBJECT')
+				
 		
-		# Bake reference mesh
-		data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
-		data.name = id.name + "_baked"
+		if id.type in exportable_types:
+			# Bake reference mesh
+			data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
+			data.name = id.name + "_baked"			
 		
+			def put_in_object(id, data, quiet=False):
+				if bpy.context.scene.objects.active:
+					ops.object.mode_set(mode='OBJECT')
+
+				ob = bpy.data.objects.new(name=id.name,object_data=data)
+				ob.matrix_world = id.matrix_world
+
+				bpy.context.scene.objects.link(ob)
+		
+				select_only(ob)
+
+				ops.object.transform_apply(scale=True, location=not shouldExportDMX(), rotation=not shouldExportDMX())
+
+				if hasCurves(id):
+					ops.object.mode_set(mode='EDIT')
+					ops.mesh.select_all(action='SELECT')
+					if id.data.vs.faces == 'BOTH':
+						ops.mesh.duplicate()
+						if solidify_fill_rim and not quiet:
+							self.warning(get_id("exporter_err_solidifyinside", True).format(id.name))
+					if id.data.vs.faces != 'FORWARD':
+						ops.mesh.flip_normals()
+					ops.object.mode_set(mode='OBJECT')
+
+				return ob
+
+			baked = put_in_object(id,data)
+
+			if should_triangulate: triangulate()
+
+		if duplis:
+			if not id.type in exportable_types:
+				id.select = False
+				bpy.context.scene.objects.active = duplis
+			duplis.select = True
+			bpy.ops.object.join()
+			baked = bpy.context.active_object
+
+		result.object = baked
+		data = baked.data
+
 		if not any(data.polygons):
 			self.error(get_id("exporter_err_nopolys", True).format(id.name))
 			return
-
-		def put_in_object(id, data, quiet=False):
-			if bpy.context.scene.objects.active:
-				ops.object.mode_set(mode='OBJECT')
-
-			ob = bpy.data.objects.new(name=id.name,object_data=data)
-			ob.matrix_world = id.matrix_world
-
-			bpy.context.scene.objects.link(ob)
 		
-			bpy.context.scene.objects.active = ob
-			ops.object.select_all(action='DESELECT')
-			ob.select = True
-
-			ops.object.transform_apply(scale=True, location=not shouldExportDMX(), rotation=not shouldExportDMX())
-
-			if hasCurves(id):
-				ops.object.mode_set(mode='EDIT')
-				ops.mesh.select_all(action='SELECT')
-				if id.data.vs.faces == 'BOTH':
-					ops.mesh.duplicate()
-					if solidify_fill_rim and not quiet:
-						self.warning(get_id("exporter_err_solidifyinside", True).format(id.name))
-				if id.data.vs.faces != 'FORWARD':
-					ops.mesh.flip_normals()
-				ops.object.mode_set(mode='OBJECT')
-
-			return ob
-
-		baked = result.object = put_in_object(id,data)
 		result.matrix = baked.matrix_world
 		
-		bpy.context.scene.objects.active = baked
-		baked.select = True
-
-		if id.vs.triangulate or not shouldExportDMX():
-			ops.object.mode_set(mode='EDIT')
-			ops.mesh.select_all(action='SELECT')
-			ops.mesh.quads_convert_to_tris()
-
 		if id.type == 'MESH':
 			data.use_auto_smooth = id.data.use_auto_smooth
 			data.auto_smooth_angle = id.data.auto_smooth_angle
@@ -793,13 +823,19 @@ class SmdExporter(bpy.types.Operator, Logger):
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 
 				shape_ob = put_in_object(id,baked_shape, quiet = True)
+
+				if duplis:
+					select_only(shape_ob)
+					duplis.select = True
+					bpy.ops.object.join()
+					shape_ob = bpy.context.active_object
+
 				result.shapes[shape.name] = shape_ob.data
+
+				if should_triangulate:
+					bpy.context.scene.objects.active = shape_ob
+					triangulate()
 				
-				if not shouldExportDMX():
-					ops.object.mode_set(mode='EDIT')
-					ops.mesh.select_all(action='SELECT')
-					ops.mesh.quads_convert_to_tris()
-					ops.object.mode_set(mode='OBJECT')
 				bpy.context.scene.objects.unlink(shape_ob)
 				bpy.data.objects.remove(shape_ob)
 				del shape_ob
@@ -811,7 +847,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		baked.select = True
 
 		# project a UV map
-		if not any(baked.data.uv_textures):
+		if generate_uvs and not any(baked.data.uv_textures):
 			if len(result.object.data.vertices) < 2000:
 				ops.object.mode_set(mode='OBJECT')
 				ops.uv.smart_project()
@@ -820,10 +856,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				ops.mesh.select_all(action='SELECT')
 				ops.uv.unwrap()
 				ops.object.mode_set(mode='OBJECT')
-		
-		for mod in [mod for mod in result.object.modifiers if mod.type == 'ARMATURE']:
-			mod.show_viewport = False # performance boost?
-		
+				
 		return result
 
 	def openSMD(self,path,name,description):

@@ -399,11 +399,11 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
 		
-		if item.vs.export and hasCurves(item):
+		if hasCurves(item):
 			col = self.makeSettingsBox(text=get_id("exportables_curve_props"),icon='OUTLINER_OB_CURVE')
 			col.label(text=get_id("exportables_curve_polyside"))
 			done = set()
-			for ob in [ob for ob in objects if ob.vs.export and hasCurves(ob) and not ob.data in done]:
+			for ob in [ob for ob in objects if hasCurves(ob) and not ob.data in done]:
 				row = col.split(0.33)
 				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 				row.prop(ob.data.vs,"faces",text="")

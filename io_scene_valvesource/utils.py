@@ -43,11 +43,9 @@ epsilon = Vector([0.0001] * 3)
 implicit_bone_name = "blender_implicit"
 
 # SMD types
-REF = 0x1 # $body, $model, $bodygroup->studio (if before a $body or $model)
-REF_ADD = 0x2 # $bodygroup, $lod->replacemodel
+REF = 0x1 # $body, $model, $bodygroup->studio (if before a $body or $model), $bodygroup, $lod->replacemodel
 PHYS = 0x3 # $collisionmesh, $collisionjoints
 ANIM = 0x4 # $sequence, $animation
-ANIM_SOLO = 0x5 # for importing animations to scenes without an existing armature
 FLEX = 0x6 # $model VTA
 
 mesh_compatible = ('MESH', 'TEXT', 'FONT', 'SURFACE', 'META', 'CURVE')
@@ -299,6 +297,11 @@ def removeObject(obj):
 
 def calc_norms(mesh):
 	mesh.calc_normals_split(split_angle=mesh.auto_smooth_angle if mesh.use_auto_smooth else pi)
+	
+def select_only(ob):
+	bpy.context.scene.objects.active = ob
+	bpy.ops.object.select_all(action='DESELECT')
+	ob.select = True
 
 def hasShapes(id, valid_only = True):
 	def _test(id_):
@@ -440,9 +443,14 @@ def scene_update(scene, immediate=False):
 	if not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
 
+	# "real" objects
 	p_cache.validObs = set([ob for ob in scene.objects if ob.type in exportable_types
 						 and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)
 						 and not (scene.vs.layer_filter and len([i for i in range(20) if ob.layers[i] and scene.layers[i]]) == 0)])
+
+	# dupli groups etc.
+	p_cache.validObs = p_cache.validObs.union(set([ob for ob in scene.objects if (ob.type == 'MESH' and ob.dupli_type in ['VERTS','FACES'] and any(ob.children)) or (ob.dupli_type == 'GROUP' and ob.dupli_group)]))
+	
 	p_cache.validObs_version += 1
 
 	need_export_refresh = True
@@ -513,9 +521,7 @@ class SmdInfo:
 	jobName = None
 	jobType = None
 	startTime = 0
-	uiTime = 0
 	started_in_editmode = None
-	append = False
 	in_block_comment = False
 	upAxis = 'Z'
 	rotMode = 'EULER' # for creating keyframes during import
