@@ -406,13 +406,16 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if self.append != 'VALIDATE' and smd.jobType in [REF,ANIM] and not self.appliedReferencePose:
 			self.appliedReferencePose = True
 
+			for bone in smd.a.pose.bones:
+				bone.matrix_basis.identity()
 			for bone,kf in keyframes.items():
-				if bone.name in self.existingBones: continue
-				if bone.parent and not keyframes.get(bone.parent):
+				if bone.name in self.existingBones:
+					continue
+				elif bone.parent and not keyframes.get(bone.parent):
 					bone.matrix = bone.parent.matrix * kf[0].matrix
 				else:
 					bone.matrix = kf[0].matrix
-			ops.pose.armature_apply() # NB: this applies to ALL bones, not just newly-imported ones!
+			ops.pose.armature_apply()
 
 			bone_vis = None if self.properties.boneMode == 'NONE' else bpy.data.objects.get("smd_bone_vis")
 			
