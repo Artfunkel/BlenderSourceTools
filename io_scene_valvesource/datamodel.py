@@ -72,7 +72,7 @@ def get_byte(file):
 	return int(unpack("B",file.read(1))[0])
 def get_char(file):
 	c = file.read(1)
-	if type(c) == str: return c
+	if isinstance(c, str): return c
 	return unpack("c",c)[0].decode('ASCII')
 def get_int(file):
 	return int( unpack("i",file.read(intsize))[0] )
@@ -268,17 +268,21 @@ class Element(collections.OrderedDict):
 	'''Effectively a dictionary, but keys must be str. Also contains a name (str), type (str) and ID (uuid.UUID, can be generated from str).'''
 	_datamodels = None
 	_users = 0
+
+	@property
+	def name(self): return self._name
+	@name.setter
+	def name(self,value): self._name = str(value)
+
+	@property
+	def type(self): return self._type
+	@type.setter
+	def type(self,value): self._type = str(value)
+
+	@property
+	def id(self): return self._id
 	
-	def __init__(self,datamodel,name,elemtype="DmElement",id=None,_is_placeholder=False):
-		if name is not None and type(name) != str:
-			raise TypeError("name must be a string")
-		
-		if elemtype and type(elemtype) != str:
-			raise TypeError("elemtype must be a string")
-		
-		if id and type(id) not in [uuid.UUID, str]:
-			raise TypeError("id must be a UUID or a string")
-			
+	def __init__(self,datamodel,name,elemtype="DmElement",id=None,_is_placeholder=False):			
 		self.name = name
 		self.type = elemtype
 		self._is_placeholder = _is_placeholder
@@ -286,12 +290,11 @@ class Element(collections.OrderedDict):
 		self._datamodels.add(datamodel)
 		
 		if id:
-			if type(id) == uuid.UUID:
-				self.id = id
-			else:
-				self.id = uuid.uuid3(uuid.UUID('20ba94f8-59f0-4579-9e01-50aac4567d3b'),str(id))
+			if isinstance(id,uuid.UUID): self._id = id
+			elif isinstance(id,str): self._id = uuid.uuid3(uuid.UUID('20ba94f8-59f0-4579-9e01-50aac4567d3b'),id)
+			else: raise ValueError("id must be uuid.UUID or str")
 		else:
-			self.id = uuid.uuid4()
+			self._id = uuid.uuid4()
 		
 		super().__init__()
 		
@@ -315,9 +318,8 @@ class Element(collections.OrderedDict):
 			raise AttributeError("No attribute \"{}\" on {}".format(item,self))
 			
 	def __setitem__(self,key,item):
-		if type(key) != str: raise TypeError("Attribute name must be string, not {}".format(type(key)))
-		if key == "name" or key == "id":
-			raise KeyError("\"{}\" is a reserved name".format(key))
+		key = str(key)
+		if key in ["name", "id"]: raise KeyError("\"{}\" is a reserved name".format(key))
 		
 		def import_element(elem):
 			for dm in [dm for dm in self._datamodels if not dm in elem._datamodels]:
@@ -490,8 +492,8 @@ class _StringDictionary(list):
 				for name in elem:
 					attr = elem[name]
 					string_set.add(name)
-					if type(attr) == str: string_set.add(attr)
-					elif type(attr) == Element:
+					if isinstance(attr, str): string_set.add(attr)
+					elif isinstance(attr, Element):
 						if attr not in checked: process_element(attr)
 					elif type(attr) == _ElementArray:
 						for item in [item for item in attr if item and item not in checked]:
@@ -522,14 +524,29 @@ class _StringDictionary(list):
 class DataModel:
 	'''Container for Element objects. Has a format name (str) and format version (int). Can write itself to a string object or a file.'''
 	
-	def __init__(self,format,format_ver):
-		if (format and type(format) != str) or (format_ver and type(format_ver) != int):
-			raise TypeError("Expected str, int")
-		
+	@property
+	def format(self): return self._format
+	@format.setter
+	def format(self,value): self._format = str(value)
+	@property
+	def format_ver(self): return self._format_ver
+	@format_ver.setter
+	def format_ver(self,value): self._format_ver = int(value)
+
+	@property
+	def root(self): return self._root
+	@root.setter
+	def root(self,value):
+		if not value or isinstance(value, Element): self._root = value
+		else: raise ValueError("Root must be an Element object")
+	@property
+	def elements(self): return self._elements
+
+	def __init__(self,format,format_ver):		
 		self.format = format
 		self.format_ver = format_ver
 		
-		self.elements = []
+		self._elements = []
 		self.root = None
 		self.allow_random_ids = True
 		
@@ -551,7 +568,7 @@ class DataModel:
 		
 	def find_elements(self,name=None,id=None,elemtype=None):
 		out = []
-		if type(id) == str: id = uuid.UUID(id)
+		if isinstance(id, str): id = uuid.UUID(id)
 		for elem in self.elements:
 			if elem.id == id: return elem
 			if elem.name == name: out.append(elem)

@@ -258,6 +258,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.group = ""
 		self.export_scene = False
 		return {'FINISHED'}
+
+	def sanitiseFilename(self,name):
+		new_name = name
+		for badchar in "/?<>\:*|\"":
+			new_name = new_name.replace(badchar,"_")
+		if new_name != name:
+			self.warning(get_id("exporter_warn_sanitised_filename",True).format(name,new_name))
+		return new_name
 	
 	def exportId(self,context,id):
 		self.attemptedExports += 1
@@ -266,10 +274,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		subdir = id.vs.subdir
 		
 		print( "\nBlender Source Tools: exporting {}".format(id.name) )
-		
-		if type(id) == bpy.types.Object and id.type == 'ARMATURE':
-			if not id.animation_data: return # otherwise we create a folder but put nothing in it
-		
+				
 		subdir = subdir.lstrip("/") # don't want //s here!
 		
 		path = os.path.join(bpy.path.abspath(context.scene.vs.export_path), subdir)
@@ -280,13 +285,29 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_makedirs", True).format(err))
 				return
 		
+		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE':
+			ad = id.animation_data
+			if not ad: return # otherwise we create a folder but put nothing in it
+			if id.data.vs.action_selection == 'FILTERED':
+				pass
+			elif ad.action:
+				export_name = ad.action.name
+			elif any(ad.nla_tracks):
+				export_name = id.name
+			else:
+				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
+		else:
+			export_name = id.name
+
+		export_name = self.sanitiseFilename(export_name)
+		
 		# We don't want to bake any meshes with poses applied
 		# NOTE: this won't change the posebone values, but it will remove deformations
 		for ob in [ob for ob in context.scene.objects if ob.type == 'ARMATURE' and ob.data.pose_position == 'POSE']:
 			ob.data.pose_position = 'REST'
 			
 		# hide all metaballs that we don't want
-		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (type(id) == Group and not ob.name in id.objects))]:
+		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Group) and not ob.name in id.objects))]:
 			for element in meta.data.elements: element.hide = True
 		bpy.context.scene.update() # actually found a use for this!!
 
@@ -342,7 +363,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		mesh_bakes = [bake for bake in bake_results if bake.object.type == 'MESH']
 		
 		skip_vca = False
-		if type(id) == Group and len(id.vs.vertex_animations) and len(id.objects) > 1:
+		if isinstance(id, Group) and len(id.vs.vertex_animations) and len(id.objects) > 1:
 			if len(mesh_bakes) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
 				self.error(get_id("exporter_err_unmergable",true).format(id.name))
 				skip_vca = True
@@ -407,7 +428,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bench.report("\n" + va.name)
 			bpy.context.scene.objects.active = bake_results[0].src
 
-		if type(id) is Group and shouldExportDMX() and id.vs.automerge:
+		if isinstance(id, Group) and shouldExportDMX() and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
 			scene_obs = bpy.context.scene.objects
 			for bake in [bake for bake in bake_results if type(bake.envelope) is str or bake.envelope is None]:
@@ -484,7 +505,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.warning(get_id("exporter_err_arm_nonuniform",True).format(self.armature_src.name))
 			if not self.armature:
 				self.armature = self.bakeObj(self.armature_src).object
-			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (type(id) == bpy.types.Object and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
+			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (isinstance(id, bpy.types.Object) and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
@@ -492,33 +513,24 @@ class SmdExporter(bpy.types.Operator, Logger):
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		bench.report("Post Bake")
 
-		if type(id) == bpy.types.Object and id.type == 'ARMATURE':
-			ad = id.animation_data
-			if id.data.vs.action_selection == 'FILTERED':
-				for action in actionsForFilter(id.vs.action_filter):
-					bake_results[0].object.animation_data.action = action
-					self.files_exported += write_func(id, bake_results, action.name, path)
-				return
-			elif ad.action:
-				export_name = ad.action.name
-			elif any(ad.nla_tracks):
-				export_name = id.name
-			else:
-				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
-			bench.report("Animation export")
-		else:
-			export_name = id.name
-		
 		bpy.context.scene.update()
-		self.files_exported += write_func(id, bake_results, export_name, path)
-		bench.report(write_func.__name__)
+
+		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection == 'FILTERED':
+			for action in actionsForFilter(id.vs.action_filter):
+				bake_results[0].object.animation_data.action = action
+				self.files_exported += write_func(id, bake_results, sanitiseFilename(action.name), path)
+				bench.report(write_func.__name__)
+		else:
+			self.files_exported += write_func(id, bake_results, export_name, path)
+			bench.report(write_func.__name__)
+
 		self.armature = None
 		
 	def getWeightmap(self,bake_result):
 		out = []
 		amod = bake_result.envelope
 		ob = bake_result.object
-		if not amod or type(amod) != bpy.types.ArmatureModifier: return out
+		if not amod or not isinstance(amod, bpy.types.ArmatureModifier): return out
 		
 		amod_vg = ob.vertex_groups.get(amod.vertex_group)
 		amod_ob = [bake.object for bake in self.bake_results if bake.src == amod.object][0]
@@ -1353,7 +1365,7 @@ skeleton
 			if dm.format_ver >= 11: jointList.append(DmeDag)
 			DmeDag["shape"] = DmeMesh
 			
-			if type(bake.envelope) == str: # bone child?
+			if isinstance(bake.envelope, str): # bone child?
 				jointDict[bake.envelope]["children"].append(DmeDag)
 				# bone.matrix_local is local to the armature, not the bone's parent
 				trfm_mat = self.armature_src.data.bones[bake.envelope].matrix_local.inverted() * ob.matrix_world

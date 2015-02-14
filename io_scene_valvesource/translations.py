@@ -195,7 +195,7 @@ _data = {
 	'ru': "Сообщество Steam",
 },
 'exportables_arm_filter_result': {
-	'ja': "「{0}」ものアクション：{1}",
+	'ja': "「{0}」アクション～{1}",
 	'en': "\"{0}\" actions ({1})",
 	'ru': "Фильтр имён действий \"{0}\" на скелете {1}",
 },
@@ -397,7 +397,7 @@ _data = {
 	'ru': "Нет QC-файлов, нечего компилировать. Blender Source Tools не генерируют QC-файлы.",
 },
 'qc_compile_complete': {
-	'ja': "{0}つQC「{1}」のものはコンパイルしました",
+	'ja': "{0}つ「{1}」QCがコンパイルしました",
 	'en': "Compiled {0} {1} QCs",
 	'ru': "Скомпилировано {0} QC для движка {1}.",
 },
@@ -421,6 +421,9 @@ _data = {
 'exporter_err_noexportables': {
 	'en': "Found no valid objects for export",
 	'ru': "Не найдено подходящих для экспорта объектов",
+},
+'exporter_warn_sanitised_filename': {
+	'en': "Sanitised exportable name \"{0}\" to \"{1}\"",
 },
 'exporter_err_flexctrl_missing': {
 	'en': "No flex controller defined for shape {0}.",
@@ -836,7 +839,7 @@ _data = {
 	'ru': "Папка, куда будут экспортироваться SMD и DMX из текущей сцены",
 },
 'qc_compilenow': {
-	'ja': "今みんあはコンパイル",
+	'ja': "今全てはコンパイル",
 	'en': "Compile All Now",
 	'ru': "Скомпилировать все QC",
 },
