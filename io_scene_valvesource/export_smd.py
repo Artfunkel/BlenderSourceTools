@@ -640,6 +640,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		result.src = id
 		self.bake_results.append(result)
 
+		select_only(id)
+
 		ops.object.mode_set(mode='OBJECT')
 
 		should_triangulate = not shouldExportDMX() or id.vs.triangulate
@@ -651,7 +653,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='OBJECT')
 				
 		duplis = []
-		select_only(id)
 		bpy.ops.object.duplicates_make_real()
 		id.select=False
 		for dupli in bpy.context.selected_objects[:]:
