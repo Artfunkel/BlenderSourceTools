@@ -61,7 +61,7 @@ def _validate_array_list(iterable,array_type):
 	try:
 		return list([array_type(i) if type(i) != array_type else i for i in iterable])
 	except Exception as e:
-		raise TypeError("Could not convert all values to {}: {}".format(array_type,e))
+		raise TypeError("Could not convert all values to {}: {}".format(array_type,e)) from e
 			
 def _quote(str):
 	return "\"{}\"".format(str)
@@ -314,8 +314,8 @@ class Element(collections.OrderedDict):
 		if type(item) != str: raise TypeError("Attribute name must be a string, not {}".format(type(item)))
 		try:
 			return super().__getitem__(item)
-		except KeyError:
-			raise AttributeError("No attribute \"{}\" on {}".format(item,self))
+		except KeyError as e:
+			raise AttributeError("No attribute \"{}\" on {}".format(item,self)) from e
 			
 	def __setitem__(self,key,item):
 		key = str(key)
@@ -456,8 +456,10 @@ def _get_dmx_type_id(encoding,version,t):
 				return attr_list_v2.index(t)
 		elif encoding == "binary_proto":
 			return attr_list_v1.index(t)
-	except:
-		raise ValueError("Type {} not supported in {} {}".format(t,encoding,version))
+	except ValueError as e:
+		raise ValueError("Type {} not supported in {} {}".format(t,encoding,version)) from e
+
+	raise ValueError("Encoding {} not recognised".format(encoding))
 
 class _StringDictionary(list):
 	dummy = False
@@ -751,8 +753,8 @@ def load(path = None, in_file = None, element_path = None):
 				encoding,encoding_ver, format,format_ver = matches[0]
 				encoding_ver = int(encoding_ver)
 				format_ver = int(format_ver)
-		except:
-			raise Exception("Could not read DMX header")
+		except Exception as e:
+			raise IOError("Could not read DMX header") from e
 		
 		check_support(encoding,encoding_ver)
 		dm = DataModel(format,format_ver)

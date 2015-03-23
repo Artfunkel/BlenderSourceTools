@@ -533,7 +533,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if not amod or not isinstance(amod, bpy.types.ArmatureModifier): return out
 		
 		amod_vg = ob.vertex_groups.get(amod.vertex_group)
-		amod_ob = [bake.object for bake in self.bake_results if bake.src == amod.object][0]
+
+		try:
+			amod_ob = next((bake.object for bake in self.bake_results if bake.src == amod.object))
+		except StopIteration as e:
+			raise ValueError("Armature for exportable \"{}\" was not baked".format(bake_result.name)) from e
 		
 		model_mat = amod_ob.matrix_world.inverted() * ob.matrix_world
 
@@ -707,6 +711,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if id.type == 'ARMATURE':			
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
+			if self.armature and self.armature != id:
+				self.warning("Multiple armatures detected")
 			self.armature = result.object = id
 			self.armature_src = result.src
 			return result
@@ -727,7 +733,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		shapes_invalid = False
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
-				if result.envelope:
+				if result.envelope or any((br for br in self.bake_results if br.envelope != mod.object)):
 					self.warning(get_id("exporter_err_dupeenv_arm",True).format(mod.name,id.name))
 				else:
 					self.armature_src = mod.object
