@@ -733,7 +733,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		shapes_invalid = False
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
-				if result.envelope or any((br for br in self.bake_results if br.envelope != mod.object)):
+				if result.envelope and any((br for br in self.bake_results if br.envelope != mod.object)):
 					self.warning(get_id("exporter_err_dupeenv_arm",True).format(mod.name,id.name))
 				else:
 					self.armature_src = mod.object
@@ -1007,7 +1007,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				ob = bake.object
 				data = ob.data
 				
-				calc_norms(data)
+				data.calc_normals_split()
 
 				uv_loop = data.uv_layers.active.data
 				uv_tex = data.uv_textures.active.data
@@ -1092,7 +1092,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			def _makeVertLine(i,co,norm):
 				return "{} {} {}\n".format(i, getSmdVec(co), getSmdVec(norm))
 			
-			calc_norms(bake.object.data)
+			bake.object.data.calc_normals_split()
 
 			_writeTime(0)
 			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
@@ -1110,7 +1110,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					shape = bake.shapes.get(shape_name)
 					if not shape: continue
 
-					calc_norms(shape)
+					shape.calc_normals_split()
 					
 					vert_index = bake.offset
 					num_bad_verts = 0
@@ -1167,7 +1167,7 @@ skeleton
 		for frame, vca_ob in enumerate(vca):
 			self.smd_file.write("time {}\n".format(frame))
 
-			calc_norms(vca_ob.data)
+			vca_ob.data.calc_normals_split()
 			self.smd_file.writelines(["{} {} {}\n".format(loop.index, getSmdVec(vca_ob.data.vertices[loop.vertex_index].co), getSmdVec(loop.normal)) for loop in vca_ob.data.loops])
 			
 			if two_percent and frame % two_percent == 0:
@@ -1438,7 +1438,7 @@ skeleton
 			
 			Indices = [None] * num_loops
 			
-			calc_norms(ob.data)
+			ob.data.calc_normals_split()
 
 			uv_layer = ob.data.uv_layers.active.data
 			
@@ -1469,7 +1469,7 @@ skeleton
 				if len(pos) % 50 == 0:
 					bpy.context.window_manager.progress_update(len(pos) / num_verts)
 
-			calc_norms(ob.data)
+			ob.data.calc_normals_split()
 
 			for i,loop in enumerate([ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]):
 				texcoIndices[loop.index] = texco.add(datamodel.Vector2(uv_layer[loop.index].uv))
@@ -1588,7 +1588,7 @@ skeleton
 						delta_lengths = [None] * len(ob.data.vertices)
 						max_delta = 0
 
-					calc_norms(shape)
+					shape.calc_normals_split()
 
 					for ob_vert in ob.data.vertices:
 						shape_vert = shape.vertices[ob_vert.index]
@@ -1647,7 +1647,7 @@ skeleton
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 			
-			calc_norms(ob.data)
+			ob.data.calc_normals_split()
 			vca_matrix = ob.matrix_world.inverted()
 			for vca_name,vca in bake_results[0].vertex_animations.items():
 				frame_shapes = []
@@ -1663,7 +1663,7 @@ skeleton
 					shape_norms = []
 					shape_normIndices = []
 
-					calc_norms(vca_ob.data)
+					vca_ob.data.calc_normals_split()
 
 					for shape_loop in vca_ob.data.loops:
 						shape_vert = vca_ob.data.vertices[shape_loop.vertex_index]

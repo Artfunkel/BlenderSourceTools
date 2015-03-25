@@ -294,13 +294,11 @@ def removeObject(obj):
 				bpy.data.armatures.remove(d)
 
 	return None if d else type
-
-def calc_norms(mesh):
-	mesh.calc_normals_split(split_angle=mesh.auto_smooth_angle if mesh.use_auto_smooth else pi)
 	
 def select_only(ob):
 	bpy.context.scene.objects.active = ob
-	bpy.ops.object.select_all(action='DESELECT')
+	if any(bpy.context.selected_objects):
+		bpy.ops.object.select_all(action='DESELECT')
 	ob.select = True
 
 def hasShapes(id, valid_only = True):
