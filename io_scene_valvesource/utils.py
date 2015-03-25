@@ -300,7 +300,8 @@ def calc_norms(mesh):
 	
 def select_only(ob):
 	bpy.context.scene.objects.active = ob
-	bpy.ops.object.select_all(action='DESELECT')
+	if any(bpy.context.selected_objects):
+		bpy.ops.object.select_all(action='DESELECT')
 	ob.select = True
 
 def hasShapes(id, valid_only = True):
