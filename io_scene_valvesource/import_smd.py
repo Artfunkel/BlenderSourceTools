@@ -790,11 +790,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 		bm.to_mesh(md)
 		bm.free()
 		md.update()
-		
-		if hasattr(md,'define_normals_split_custom'):
-			md.create_normals_split()
-			md.use_auto_smooth = True
-			md.define_normals_split_custom(norms)
+				
+		md.create_normals_split()
+		md.use_auto_smooth = True
+		md.normals_split_custom_set(norms)
 		
 		if countPolys:	
 			md.polygons.foreach_set("material_index", mats)
@@ -1487,22 +1486,21 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if smd.jobType == PHYS:
 						ob.draw_type = 'SOLID'
 
-					# Normals
-					if hasattr(ob.data,'define_normals_split_custom'):
-						ob.data.create_normals_split()
-						ob.data.use_auto_smooth = True
+					# Normals					
+					ob.data.create_normals_split()
+					ob.data.use_auto_smooth = True
 
-						normals = DmeVertexData[keywords['norm']]
-						normalsIndices = DmeVertexData[keywords['norm'] + "Indices"]
+					normals = DmeVertexData[keywords['norm']]
+					normalsIndices = DmeVertexData[keywords['norm'] + "Indices"]
 
-						normals_ordered = [None] * len(normalsIndices)
-						i = 0
-						for vert in [vert for faceset in DmeMesh["faceSets"] for vert in faceset["faces"]]:
-							if vert == -1: continue
-							normals_ordered[i] = normals[normalsIndices[vert]]
-							i += 1
+					normals_ordered = [None] * len(normalsIndices)
+					i = 0
+					for vert in [vert for faceset in DmeMesh["faceSets"] for vert in faceset["faces"]]:
+						if vert == -1: continue
+						normals_ordered[i] = normals[normalsIndices[vert]]
+						i += 1
 
-						ob.data.define_normals_split_custom(normals_ordered)
+					ob.data.normals_split_custom_set(normals_ordered)
 					
 					# Weightmap
 					if have_weightmap:
