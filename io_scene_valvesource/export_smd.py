@@ -733,7 +733,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		shapes_invalid = False
 		for mod in id.modifiers:
 			if mod.type == 'ARMATURE' and mod.object:
-				if result.envelope or any((br for br in self.bake_results if br.envelope != mod.object)):
+				if result.envelope and any((br for br in self.bake_results if br.envelope != mod.object)):
 					self.warning(get_id("exporter_err_dupeenv_arm",True).format(mod.name,id.name))
 				else:
 					self.armature_src = mod.object
