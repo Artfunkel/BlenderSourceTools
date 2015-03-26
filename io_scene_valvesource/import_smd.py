@@ -1457,7 +1457,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 						bm.verts.ensure_lookup_table()
 					
 					# Faces and Materials
-					skipfaces = []
+					skipfaces = set()
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]
 						bpy.context.scene.vs.material_path = os.path.dirname(mat_path).replace("\\","/")
@@ -1471,7 +1471,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 									face.smooth = True
 									face.material_index = mat_ind
 								except ValueError: # can't have an overlapping face...this will be painful later
-									skipfaces.append(dmx_face)
+									skipfaces.add(dmx_face)
 								dmx_face += 1
 								face_verts = []
 								continue
@@ -1494,13 +1494,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 					normalsIndices = DmeVertexData[keywords['norm'] + "Indices"]
 
 					normals_ordered = [None] * len(normalsIndices)
-					i = 0
+					i = f = 0
 					for vert in [vert for faceset in DmeMesh["faceSets"] for vert in faceset["faces"]]:
-						if vert == -1: continue
+						if vert == -1:
+							f += 1
+							continue
+						if f in skipfaces:
+							continue
+
 						normals_ordered[i] = normals[normalsIndices[vert]]
 						i += 1
 
-					ob.data.normals_split_custom_set(normals_ordered)
+					ob.data.normals_split_custom_set(normals_ordered[:i])
 					
 					# Weightmap
 					if have_weightmap:
