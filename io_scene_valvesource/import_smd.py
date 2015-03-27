@@ -1360,7 +1360,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if any(missing_bones) and smd.jobType != ANIM: # animations report missing bones seperately
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(missing_bones),smd.a.name))
 					print("\n".join(missing_bones))
-			elif any([child for child in DmeModel["children"] if child.type == "DmeJoint"]):
+			elif any((child for child in DmeModel["children"] if child.type == "DmeJoint")):
 				self.append = 'NEW_ARMATURE'
 				ob = smd.a = self.createArmature(DmeModel.name)
 				if self.qc: self.qc.a = ob
