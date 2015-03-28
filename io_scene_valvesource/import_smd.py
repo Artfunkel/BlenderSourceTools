@@ -273,7 +273,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				smd.a.data.edit_bones[bone_name].parent = smd.a.data.edit_bones[ smd.boneIDs[parent_id] ]
 
 		ops.object.mode_set(mode='OBJECT')
-		if any(boneParents): print("- Imported {} new bones".format(len(boneParents)) )
+		if boneParents: print("- Imported {} new bones".format(len(boneParents)) )
 
 		if len(smd.a.data.bones) > 128:
 			self.warning(get_id("importer_err_bonelimit_smd"))
@@ -485,7 +485,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				bone.rotation_mode = smd.rotMode
 				
 			for bone,frames in list(keyframes.items()):
-				if not any(frames):
+				if not frames:
 					del keyframes[bone]
 			
 			if smd.isDMX == False:
@@ -924,7 +924,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bpy.data.meshes.remove(vd)
 					del vd
 
-					if any(bad_vta_verts):
+					if bad_vta_verts:
 						err_ratio = len(bad_vta_verts) / num_vta_verts
 						vta_err_vg.add(bad_vta_verts,1.0,'REPLACE')
 						message = get_id("importer_err_unmatched_mesh", True).format(len(bad_vta_verts), int(err_ratio * 100))
@@ -1236,7 +1236,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		while True:
 			header = self.parseQuoteBlockedLine(file.readline())
-			if any(header): break
+			if header: break
 		
 		if header != ["version" ,"1"]:
 			self.warning (get_id("importer_err_smd_ver"))
@@ -1357,10 +1357,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 				ops.object.mode_set(mode='EDIT')
 				validateSkeleton(DmeModel["children"], None)
 
-				if any(missing_bones) and smd.jobType != ANIM: # animations report missing bones seperately
+				if missing_bones and smd.jobType != ANIM: # animations report missing bones seperately
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(missing_bones),smd.a.name))
 					print("\n".join(missing_bones))
-			elif any((child for child in DmeModel["children"] if child.type == "DmeJoint")):
+			elif any(child for child in DmeModel["children"] if child and child.type == "DmeJoint"):
 				self.append = 'NEW_ARMATURE'
 				ob = smd.a = self.createArmature(DmeModel.name)
 				if self.qc: self.qc.a = ob
@@ -1403,14 +1403,14 @@ class SmdImporter(bpy.types.Operator, Logger):
 						keyframe = KeyFrame()
 						keyframe.matrix = mat
 						restData[bone] = {0:keyframe}
-				if any(restData):
+				if restData:
 					self.applyFrames(restData,1,None)
 			
 			def parseModel(elem,matrix=Matrix(), last_bone = None):
 				if elem.type in ["DmeModel","DmeDag", "DmeJoint"]:
 					if elem.type == "DmeDag":
 						matrix *= get_transform_matrix(elem)
-					if elem.get("children") and any(elem["children"]):
+					if elem.get("children") and elem["children"]:
 						if elem.type == "DmeJoint":
 							last_bone = elem
 						subelems = elem["children"]
@@ -1647,15 +1647,15 @@ class SmdImporter(bpy.types.Operator, Logger):
 				
 				smd.a.hide = False
 				bpy.context.scene.objects.active = smd.a
-				if any(unknown_bones):
+				if unknown_bones:
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
 				self.applyFrames(keyframes,total_frames,frameRate)
 		except datamodel.AttributeError as e:
-			e.args = ["Invalid DMX file: {}".format(e.args[0] if any(e.args) else "Unknown error")]
+			e.args = ["Invalid DMX file: {}".format(e.args[0] if e.args else "Unknown error")]
 			raise
 		
 		new_obs = set(bpy.context.scene.objects).difference(starting_objects)
-		if any(new_obs):
+		if new_obs:
 			group = bpy.data.groups.new(smd.jobName)
 			for ob in new_obs:
 				if ob.type != 'ARMATURE':
