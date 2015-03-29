@@ -757,8 +757,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 					co[i-1] = float(values[i])
 					norm[i-1] = float(values[i+3])
 				
-				faceVerts.append( bm.verts.new(co) )
-				norms.append(norm)
+				vert = bm.verts.new(co)
+				vert.normal = norm
+				faceVerts.append(vert)
 
 				# Can't do these in the above for loop since there's only two
 				uvs.append( ( float(values[7]), float(values[8]) ) )
@@ -791,10 +792,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		bm.free()
 		md.update()
 				
-		md.create_normals_split()
-		md.use_auto_smooth = True
-		md.normals_split_custom_set(norms)
-		
 		if countPolys:	
 			md.polygons.foreach_set("material_index", mats)
 			
@@ -815,7 +812,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			ops.object.shade_smooth()
 			
 			for poly in smd.m.data.polygons:
-				poly.select = True		
+				poly.select = True
 
 			if not self.skipRemDoubles:
 				self.removeDoublesPreserveFaces()
