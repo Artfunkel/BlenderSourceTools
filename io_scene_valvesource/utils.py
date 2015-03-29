@@ -297,6 +297,7 @@ def removeObject(obj):
 	
 def select_only(ob):
 	bpy.context.scene.objects.active = ob
+	bpy.ops.object.mode_set(mode='OBJECT')
 	if bpy.context.selected_objects:
 		bpy.ops.object.select_all(action='DESELECT')
 	ob.select = True

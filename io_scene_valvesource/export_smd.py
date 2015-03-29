@@ -637,7 +637,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id, generate_uvs = True):
-		for bake in [bake for bake in self.bake_results if bake.src == id or bake.object == id]:
+		for bake in (bake for bake in self.bake_results if bake.src == id or bake.object == id):
 			return bake
 		
 		result = self.BakeResult(id.name)
@@ -645,8 +645,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.bake_results.append(result)
 
 		select_only(id)
-
-		ops.object.mode_set(mode='OBJECT')
 
 		should_triangulate = not shouldExportDMX() or id.vs.triangulate
 
