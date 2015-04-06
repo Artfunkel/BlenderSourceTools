@@ -323,8 +323,7 @@ class Element(collections.OrderedDict):
 		
 		def import_element(elem):
 			for dm in [dm for dm in self._datamodels if not dm in elem._datamodels]:
-				if elem in dm.elements:
-					raise IDCollisionError("Could not add {} to {}: element ID collision with {}.".format(elem, dm, dm_e))
+				dm.validate_element(elem)
 				dm.elements.append(elem)
 				elem._datamodels.add(dm)
 				for attr in elem.values():
@@ -553,16 +552,22 @@ class DataModel:
 		self.allow_random_ids = True
 		
 	def __repr__(self):
-		return "<Datamodel 0x{}{}>".format(id(self)," (root is \"{}\")".format(self.root.name) if self.root else "")
+		return "<Datamodel 0x{}{}>".format(id(self)," (root == \"{}\")".format(self.root.name) if self.root else "")
+
+	def validate_element(self,elem):
+		try:
+			collision = self.elements[self.elements.index(elem)]
+		except ValueError:
+			return # no match
+		
+		if not collision._is_placeholder:
+			raise IDCollisionError("{} invalid for {}: ID collision with {}. ID is {}.".format(elem, self, collision, elem.id))
 		
 	def add_element(self,name,elemtype="DmElement",id=None,_is_placeholder=False):
 		if id == None and not self.allow_random_ids:
 			raise ValueError("{} does not allow random IDs.".format(self))
 		elem = Element(self,name,elemtype,id,_is_placeholder)
-		try:
-			dupe_elem = self.elements.index(elem)
-			if not self.elements[dupe_elem]._is_placeholder: raise ValueError("ID {} already in use in this datamodel.".format(id))
-		except: pass
+		self.validate_element(elem)
 		self.elements.append(elem)
 		elem.datamodel = self
 		if len(self.elements) == 1: self.root = elem
@@ -572,7 +577,7 @@ class DataModel:
 		out = []
 		if isinstance(id, str): id = uuid.UUID(id)
 		for elem in self.elements:
-			if elem.id == id: return elem
+			if elem.id == id: return [elem]
 			if elem.name == name: out.append(elem)
 			if elem.type == elemtype: out.append(elem)
 		if len(out): return out
