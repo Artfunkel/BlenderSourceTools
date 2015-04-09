@@ -298,8 +298,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
 		else:
 			export_name = id.name
-
-		export_name = self.sanitiseFilename(export_name)
 		
 		# We don't want to bake any meshes with poses applied
 		# NOTE: this won't change the posebone values, but it will remove deformations
@@ -518,10 +516,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection == 'FILTERED':
 			for action in actionsForFilter(id.vs.action_filter):
 				bake_results[0].object.animation_data.action = action
-				self.files_exported += write_func(id, bake_results, sanitiseFilename(action.name), path)
+				self.files_exported += write_func(id, bake_results, self.sanitiseFilename(action.name), path)
 				bench.report(write_func.__name__)
 		else:
-			self.files_exported += write_func(id, bake_results, export_name, path)
+			self.files_exported += write_func(id, bake_results, self.sanitiseFilename(export_name), path)
 			bench.report(write_func.__name__)
 
 		self.armature = None

@@ -38,6 +38,7 @@ class Tests:
 		if self.compare_results:
 			expectedresults_path = join(tests_path,"ExpectedResults",self.blend)
 			if os.path.exists(expectedresults_path):
+				self.assertEqual(os.listdir(C.scene.vs.export_path), os.listdir(expectedresults_path))
 				self.maxDiff = None
 				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
 					for f in filenames:
@@ -109,6 +110,9 @@ class Tests:
 	def test_Export_AllTypes(self):
 		self.runExportTest("AllTypes_Armature")
 		self.runExportTest_Single("Armature")
+
+	def test_Export_ActionFilter(self):
+		self.runExportTest("ActionFilter")
 
 	def test_Export_TF2(self):
 		self.runExportTest("scout")
