@@ -590,7 +590,7 @@ _data = {
 	'ru': "Задаёт тип создаваемых при экспорте ключевых кадров с вращением",
 },
 'importer_skipremdoubles_tip': {
-	'en': "Skips the \"Remove Doubles\" step; use this if your SMD has overlapping elements",
+	'en': "Import raw, disconnected polygons from SMD files; these are harder to edit but a closer match to the original mesh",
 },
 'importer_balance_group': {
 	'en': "DMX Stereo Balance",
@@ -605,8 +605,8 @@ _data = {
 	'ru': "Способ задания вращения",
 },
 'importer_skipremdoubles': {
-	'ja': "SMDのポリゴンを保持",
-	'en': "Preserve SMD polygons",
+	'ja': "SMDのポリゴンと法線を保持",
+	'en': "Preserve SMD Polygons & Normals",
 },
 'importer_bonemode_tip': {
 	'en': "How bones in new Armatures should be displayed",
