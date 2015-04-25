@@ -396,6 +396,9 @@ _data = {
 	'en': "Cannot compile, no QCs provided. The Blender Source Tools do not generate QCs.",
 	'ru': "Нет QC-файлов, нечего компилировать. Blender Source Tools не генерируют QC-файлы.",
 },
+'exporter_err_missing_corrective_target': {
+	'en': "Found corrective shape key \"{0}\", but not target shape \"{1}\"",
+},
 'qc_compile_complete': {
 	'ja': "{0}つ「{1}」QCがコンパイルしました",
 	'en': "Compiled {0} {1} QCs",
