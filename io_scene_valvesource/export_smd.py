@@ -20,6 +20,7 @@
 
 import bpy, bmesh, subprocess, collections
 from bpy import ops
+from bpy.app.translations import pgettext
 from mathutils import *
 from math import *
 from bpy.types import Group
@@ -298,7 +299,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
 		else:
 			export_name = id.name
-		
+				
 		# We don't want to bake any meshes with poses applied
 		# NOTE: this won't change the posebone values, but it will remove deformations
 		for ob in [ob for ob in context.scene.objects if ob.type == 'ARMATURE' and ob.data.pose_position == 'POSE']:
@@ -363,7 +364,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		skip_vca = False
 		if isinstance(id, Group) and len(id.vs.vertex_animations) and len(id.objects) > 1:
 			if len(mesh_bakes) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
-				self.error(get_id("exporter_err_unmergable",true).format(id.name))
+				self.error(get_id("exporter_err_unmergable",True).format(id.name))
 				skip_vca = True
 			elif not id.vs.automerge:
 				id.vs.automerge = True
@@ -507,7 +508,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
-		
+
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		bench.report("Post Bake")
 
@@ -523,6 +524,28 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bench.report(write_func.__name__)
 
 		self.armature = None
+		
+		# Source doesn't handle Unicode characters in models. Detect any unicode strings and warn the user about them.
+		unicode_tested = set()
+		def test_for_unicode(name, id, display_type):
+			if id in unicode_tested: return;
+			unicode_tested.add(id)
+
+			try:
+				name.encode('ascii')
+			except UnicodeEncodeError:
+				self.warning(get_id("exporter_warn_unicode", format_string=True).format(pgettext(display_type), name))
+
+		for bake in bake_results:
+			test_for_unicode(bake.name, bake, type(bake.src).__name__)
+			for shape_name, shape_id in bake.shapes.items():
+				test_for_unicode(shape_name, shape_id, "Shape Key")
+			if hasattr(bake.object,"objects"):
+				for ob in bake.object.objects:
+					test_for_unicode(ob.name, ob, ob.type.capitalize())
+		for mat in self.materials_used:
+			test_for_unicode(mat[0], mat[1], type(mat[1]).__name__)
+
 		
 	def getWeightmap(self,bake_result):
 		out = []
@@ -589,17 +612,18 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 	def GetMaterialName(self, ob, poly):
 		mat_name = None
+		mat_id = None
 		if not bpy.context.scene.vs.use_image_names and len(ob.material_slots) > poly.material_index:
-			mat = ob.material_slots[poly.material_index].material
-			if mat:
-				mat_name = mat.name
+			mat_id = ob.material_slots[poly.material_index].material
+			if mat_id:
+				mat_name = mat_id.name
 		if not mat_name and ob.data.uv_textures.active.data:
-			image = ob.data.uv_textures.active.data[poly.index].image
-			if image:
-				mat_name = os.path.basename(bpy.path.abspath(image.filepath))
-				if len(mat_name) == 0: mat_name = image.name
+			mat_id = ob.data.uv_textures.active.data[poly.index].image
+			if mat_id:
+				mat_name = os.path.basename(bpy.path.abspath(mat_id.filepath))
+				if not mat_name: mat_name = mat_id.name
 		if mat_name:
-			self.materials_used.add(mat_name)
+			self.materials_used.add((mat_name,mat_id))
 			return mat_name, True
 		else:
 			return "no_material", ob.draw_type != 'TEXTURED' # assume it's a collision mesh if it's not textured
@@ -878,7 +902,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		full_path = os.path.realpath(os.path.join(path, name))
 
 		try:
-			f = open(full_path, 'w')
+			f = open(full_path, 'w',encoding='utf-8')
 		except Exception as err:
 			self.error(get_id("exporter_err_open", True).format(description, err))
 			return None
@@ -1058,7 +1082,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				print("- Exported {} materials".format(len(self.materials_used)))
 				for mat in self.materials_used:
-					print("   " + mat)
+					print("   " + mat[0])
 			
 			if done_header:
 				self.smd_file.write("end\n")
