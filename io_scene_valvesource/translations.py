@@ -631,6 +631,9 @@ _data = {
 	'en': "Which axis represents 'up' (ignored for QCs)",
 	'ru': "Какая из осей соответствует направлению \"вврех\"?",
 },
+'importer_err_namelength': {
+	'en': "{0} name \"{1}\" is too long to import. Truncating to \"{2}\"",
+},
 'importer_bones_append_desc': {
 	'en': "Add new bones to the target Armature",
 },
