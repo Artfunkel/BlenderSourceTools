@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -439,7 +439,7 @@ def scene_update(scene, immediate=False):
 	global need_export_refresh
 	global last_export_refresh
 	
-	if not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
+	if not hasattr(scene,"vs") or not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
 
 	# "real" objects

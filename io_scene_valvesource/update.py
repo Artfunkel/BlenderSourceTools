@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -72,6 +72,8 @@ class SmdToolsUpdate(bpy.types.Operator):
 					self.report({'INFO'},get_id("update_done", True).format(PrintVer(remote_ver)))
 					bpy.ops.wm.call_menu(name="SMD_MT_Updated")
 					return {'FINISHED'}
+				elif diff < 0:
+					break
 			
 			self.report({'INFO'},get_id("update_alreadylatest", True).format( PrintVer(cur_version) ))
 			return {'FINISHED'}

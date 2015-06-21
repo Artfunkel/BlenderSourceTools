@@ -1,4 +1,4 @@
-#  The MIT License (MIT)
+﻿#  The MIT License (MIT)
 #  
 #  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #  
@@ -34,7 +34,7 @@ shortsize = calcsize("H")
 floatsize = calcsize("f")
 
 def list_support():
-	return { 'binary':[1,2,3,4,5], 'keyvalues2':[1,2,3],'binary_proto':[2] }
+	return { 'binary':[1,2,3,4,5,9], 'keyvalues2':[1,2,3,4],'binary_proto':[2] }
 
 def check_support(encoding,encoding_ver):
 	versions = list_support().get(encoding)
@@ -423,6 +423,7 @@ attr_list_v2 = [
 	None,Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,
 	_ElementArray,_IntArray,_FloatArray,_BoolArray,_StrArray,_BinaryArray,_TimeArray,_ColorArray,_Vector2Array,_Vector3Array,_Vector4Array,_AngleArray,_QuaternionArray,_MatrixArray
 ]
+attr_list_v3 = [None,Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,int,int] # last two are meant to be uint64, uint8
 
 def _get_type_from_string(type_str):
 	return _dmxtypes[_dmxtypes_str.index(type_str)]
@@ -439,6 +440,10 @@ def _get_dmx_id_type(encoding,version,id):
 			return attr_list_v1[id]
 		if version in [3,4,5]:
 			return attr_list_v2[id]
+		if version in [9]:
+			if id >= 32: # array
+				return eval("_" + attr_list_v3[id-32].__name__.capitalize() + "Array")
+			return attr_list_v3[id]
 	if encoding == "keyvalues2":
 		return _dmxtypes[ _dmxtypes_str.index(id) ]
 				
@@ -453,6 +458,10 @@ def _get_dmx_type_id(encoding,version,t):
 				return attr_list_v1.index(t)
 			if version in [3,4,5]:
 				return attr_list_v2.index(t)
+			if version in [9]:
+				if issubclass(t,_Array):
+					return attr_list_v3.index(t.type) + 32
+				return attr_list_v3.index(t)
 		elif encoding == "binary_proto":
 			return attr_list_v1.index(t)
 	except ValueError as e:
@@ -526,28 +535,32 @@ class DataModel:
 	'''Container for Element objects. Has a format name (str) and format version (int). Can write itself to a string object or a file.'''
 	
 	@property
-	def format(self): return self._format
+	def format(self): return self.__format
 	@format.setter
-	def format(self,value): self._format = str(value)
+	def format(self,value): self.__format = str(value)
 	@property
-	def format_ver(self): return self._format_ver
+	def format_ver(self): return self.__format_ver
 	@format_ver.setter
-	def format_ver(self,value): self._format_ver = int(value)
+	def format_ver(self,value): self.__format_ver = int(value)
 
 	@property
-	def root(self): return self._root
+	def root(self): return self.__root
 	@root.setter
 	def root(self,value):
-		if not value or isinstance(value, Element): self._root = value
+		if not value or isinstance(value, Element): self.__root = value
 		else: raise ValueError("Root must be an Element object")
 	@property
-	def elements(self): return self._elements
+	def elements(self): return self.__elements
+
+	@property
+	def prefix_attributes(self): return self.__prefix_attributes
 
 	def __init__(self,format,format_ver):		
 		self.format = format
 		self.format_ver = format_ver
 		
-		self._elements = []
+		self.__elements = []
+		self.__prefix_attributes = Element(self,"")
 		self.root = None
 		self.allow_random_ids = True
 		
@@ -676,6 +689,14 @@ class DataModel:
 				self.out.write(header + "\n")
 		
 		if encoding == 'binary':
+			if encoding_ver >= 9:
+				self._write(1 if len(self.prefix_attributes) else 0)
+				if len(self.prefix_attributes):
+					self._write(len(self.prefix_attributes))
+					for name,value in self.prefix_attributes.items():
+						self._write(name)
+						self._write(value)
+
 			self._string_dict = _StringDictionary(encoding,encoding_ver,out_datamodel=self)
 			self._string_dict.write_dictionary(self.out)
 			
@@ -779,6 +800,8 @@ def load(path = None, in_file = None, element_path = None):
 			def read_element(elem_type):
 				id = None
 				name = None
+				prefix = elem_type == "$prefix_element$"
+				if prefix: element_chain.append(dm.prefix_attributes)
 				
 				def read_value(name,type_str,kv2_value, index=-1):
 					if type_str == 'element': # make a record; will link everything up once all elements have been read
@@ -789,12 +812,14 @@ def load(path = None, in_file = None, element_path = None):
 							return dm.add_element("Missing element",id=uuid.UUID(hex=kv2_value),_is_placeholder=True)
 					
 					elif type_str == 'string': return kv2_value
-					elif type_str == 'int': return int(kv2_value)
+					elif type_str in ['int',"uint8"]: return int(kv2_value)
+					elif type_str == "uint64": return int(kv2_value, 0)
 					elif type_str == 'float': return float(kv2_value)
 					elif type_str == 'bool': return bool(int(kv2_value))
 					elif type_str == 'time': return Time(kv2_value)
 					elif type_str.startswith('vector') or type_str in ['color','quaternion','angle']:
 						return _get_type_from_string(type_str)( [float(i) for i in kv2_value.split(" ")] )
+					elif type_str == 'binary': return Binary(binascii.unhexlify(kv2_value))
 				
 				new_elem = None
 				for line_raw in in_file:
@@ -806,9 +831,10 @@ def load(path = None, in_file = None, element_path = None):
 					if len(line) == 0:
 						continue
 					
-					if line[0] == 'id':						
-						new_elem = dm.add_element(name,elem_type,uuid.UUID(hex=line[2]))
-						element_chain.append(new_elem)
+					if line[0] == 'id':
+						if not prefix:
+							new_elem = dm.add_element(name,elem_type,uuid.UUID(hex=line[2]))
+							element_chain.append(new_elem)
 						continue
 					elif line[0] == 'name':
 						if new_elem: new_elem.name = line[2]
@@ -832,7 +858,7 @@ def load(path = None, in_file = None, element_path = None):
 						elif len(element_path):
 							del element_path[0]
 					
-					if new_elem == None:
+					if new_elem == None and not prefix:
 						continue
 					
 					if len(line) >= 2:
@@ -849,7 +875,7 @@ def load(path = None, in_file = None, element_path = None):
 									if len(line) == 1:
 										arr.append( read_element(line[0]) )
 									elif len(line) == 2:
-										arr.append( read_value(arr_name,"element",line[1],index=len(arr)) )								
+										arr.append( read_value(arr_name,"element",line[1],index=len(arr)) )
 							
 							element_chain[-1][arr_name] = arr
 							continue
@@ -875,11 +901,22 @@ def load(path = None, in_file = None, element_path = None):
 									line = parse_line(line)
 									arr.append(read_value(arr_name,arr_type_str,line[0]))
 						
-						elif len(line) == 2: # inline element
-							element_chain[-1][line[0]] = read_element(line[1])
+						elif len(line) == 2: # inline element or binary
+							if line[1] == "binary":
+								num_quotes = 0
+								value = Binary()
+								for line in in_file:
+									if "\"" in line:
+										num_quotes += 1
+										if num_quotes == 2: break
+									else:				
+										value = read_value(line[0],line[1], in_file.readline().strip())
+							else:
+								value = read_element(line[1])
+							element_chain[-1][line[0]] = value
 						elif len(line) == 3: # ordinary attribute or element ID
 							element_chain[-1][line[0]] = read_value(line[0],line[1],line[2])
-
+							
 				raise IOError("Unexpected EOF")
 			
 			if hasattr(in_file,'mode') and 'b' in in_file.mode: in_file = io.TextIOWrapper(in_file)
@@ -905,19 +942,7 @@ def load(path = None, in_file = None, element_path = None):
 				
 		elif encoding in ['binary', 'binary_proto']:
 			in_file.seek(2,1) # skip header's line break and null terminator
-			
-			dm._string_dict = _StringDictionary(encoding,encoding_ver,in_file=in_file)
-			
-			num_elements = get_int(in_file)
-			
-			# element headers
-			for i in range(num_elements):
-				elemtype = dm._string_dict.read_string(in_file)
-				name = dm._string_dict.read_string(in_file) if encoding_ver >= 4 else get_str(in_file)
-				id = uuid.UUID(bytes_le = in_file.read(16)) # little-endian
-				dm.add_element(name,elemtype,id)
-			
-			# attributes
+
 			def get_value(attr_type,from_array = False):
 				if attr_type == Element:
 					element_index = get_int(in_file)
@@ -950,12 +975,12 @@ def load(path = None, in_file = None, element_path = None):
 				else:
 					raise TypeError("Cannot read attributes of type {}".format(attr_type))
 			
-			for elem in [elem for elem in dm.elements if not elem._is_placeholder]:
+			def read_element(elem, use_string_dict = True):
 				#print(elem.name,"@",in_file.tell())
 				num_attributes = get_int(in_file)
 				for i in range(num_attributes):
 					start = in_file.tell()
-					name = dm._string_dict.read_string(in_file)
+					name = dm._string_dict.read_string(in_file) if use_string_dict else get_str(in_file)
 					attr_type = _get_dmx_id_type(encoding,encoding_ver,get_byte(in_file))
 					#print("\t",name,"@",start,attr_type)
 					if attr_type in _dmxtypes:
@@ -966,7 +991,26 @@ def load(path = None, in_file = None, element_path = None):
 						arr_item_type = _get_single_type(attr_type)
 						for x in range(array_len):
 							arr.append( get_value(arr_item_type,from_array=True) )
-		
+
+			# prefix attributes
+			if encoding_ver >= 9:
+				for prefix_elem in range(get_int(in_file)):
+					read_element(dm.prefix_attributes, use_string_dict = False)
+			
+			dm._string_dict = _StringDictionary(encoding,encoding_ver,in_file=in_file)			
+			num_elements = get_int(in_file)
+			
+			# element headers
+			for i in range(num_elements):
+				elemtype = dm._string_dict.read_string(in_file)
+				name = dm._string_dict.read_string(in_file) if encoding_ver >= 4 else get_str(in_file)
+				id = uuid.UUID(bytes_le = in_file.read(16)) # little-endian
+				dm.add_element(name,elemtype,id)			
+			
+			# element bodies
+			for elem in [elem for elem in dm.elements if not elem._is_placeholder]:
+				read_element(elem)
+
 		dm._string_dict = None
 		return dm
 	finally:

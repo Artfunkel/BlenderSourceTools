@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (2, 5, 3),
+	"version": (2, 6, 0),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -100,9 +100,10 @@ def scene_load_post(_):
 				del id[prop]
 				
 	for s in bpy.data.scenes:
-		convert(s,ValveSource_SceneProps)
-		game_path_changed(s,bpy.context)
-		engine_path_changed(s,bpy.context)
+		if hasattr(s,"vs"):
+			convert(s,ValveSource_SceneProps)
+			game_path_changed(s,bpy.context)
+			engine_path_changed(s,bpy.context)
 	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps, ExportableProps)
 	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
 	for g in bpy.data.groups: convert(g,ValveSource_GroupProps, ExportableProps)
