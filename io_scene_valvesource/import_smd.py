@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -521,15 +521,16 @@ class SmdImporter(bpy.types.Operator, Logger):
 				for bone in still_bones:
 					keyframes[bone] = {0:keyframes[bone][0]}
 			
-			# Create keyframes
+			# Create Blender keyframes
 			def ApplyRecursive(bone):
-				if keyframes.get(bone):
+				key_dict = keyframes.get(bone)
+				if key_dict:
 					# Generate curves
 					curvesLoc = None
 					curvesRot = None
 					bone_string = "pose.bones[\"{}\"].".format(bone.name)				
 					group = action.groups.new(name=bone.name)
-					for keyframe in keyframes[bone].values():
+					for keyframe in key_dict.values():
 						if curvesLoc and curvesRot: break
 						if keyframe.pos and not curvesLoc:
 							curvesLoc = []
@@ -544,8 +545,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 								curve.group = group
 								curvesRot.append(curve)
 					
-					# Key each frame
-					for f,keyframe in keyframes[bone].items():
+					# Apply each imported keyframe
+					for f, keyframe in key_dict.items():
 						# Transform
 						if smd.a.data.vs.legacy_rotation:
 							keyframe.matrix *= mat_BlenderToSMD.inverted()
@@ -1628,6 +1629,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				scale = timeFrame.get("scale",1.0)
 				duration = timeFrame["duration" if dm.format_ver >= 11 else "durationTime"]
 				offset = timeFrame.get("offset" if dm.format_ver >= 11 else "offsetTime",0.0)
+				start = timeFrame.get("start", 0)
 				
 				if type(duration) == int: duration = datamodel.Time.from_int(duration)
 				if type(offset) == int: offset = datamodel.Time.from_int(offset)
@@ -1653,7 +1655,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					values = frame_log["values"]
 					
 					for i in range( len(times) ):
-						frame_time = times[i]
+						frame_time = times[i] + start
 						if type(frame_time) == int: frame_time = datamodel.Time.from_int(frame_time)
 						frame_value = values[i]
 						frame = int(round(frame_time * frameRate,0))
@@ -1673,7 +1675,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 				bpy.context.scene.objects.active = smd.a
 				if unknown_bones:
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
+
+				# apply the keframes
 				self.applyFrames(keyframes,total_frames,frameRate)
+
+				bpy.context.scene.frame_end += int(round(start * 2 * frameRate,0))
+
 		except datamodel.AttributeError as e:
 			e.args = ["Invalid DMX file: {}".format(e.args[0] if e.args else "Unknown error")]
 			raise
