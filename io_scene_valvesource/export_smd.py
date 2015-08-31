@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -285,6 +285,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			except Exception as err:
 				self.error(get_id("exporter_err_makedirs", True).format(err))
 				return
+
+		if isinstance(id, bpy.types.Group) and not any(ob.vs.export for ob in id.objects):
+			self.error(get_id("exporter_err_nogroupitems",True).format(id.name))
+			return
 		
 		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE':
 			ad = id.animation_data
@@ -523,7 +527,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.files_exported += write_func(id, bake_results, self.sanitiseFilename(export_name), path)
 			bench.report(write_func.__name__)
 
-		self.armature = None
+		self.armature = self.armature_src = None
 		
 		# Source doesn't handle Unicode characters in models. Detect any unicode strings and warn the user about them.
 		unicode_tested = set()
@@ -660,6 +664,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id, generate_uvs = True):
 		for bake in (bake for bake in self.bake_results if bake.src == id or bake.object == id):
+			if id.type == 'ARMATURE':
+				self.armature = bake.object
+				self.armature_src = bake.src
 			return bake
 		
 		result = self.BakeResult(id.name)

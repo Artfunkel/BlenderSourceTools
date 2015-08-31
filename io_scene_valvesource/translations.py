@@ -352,6 +352,9 @@ _data = {
 	'en': "Source Engine (.smd, .vta, .dmx, .qc)",
 	'ru': "Движок Source (.smd, .vta, .dmx, .qc)",
 },
+'exporter_err_nogroupitems': {
+	'en': "Nothing in Group \"{0}\" is enabled for export",
+},
 'exporter_report_qc': {
 	'en': "{0} files exported and {2} QCs compiled ({3}/{4}) in {1} seconds",
 	'ru': "Экспортировано файлов: {0}. Скомпилировано QC-файлов: {2} (движок {3}, мод {4}). Прошло секунд: {1};",
