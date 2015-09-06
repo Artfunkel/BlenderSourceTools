@@ -303,11 +303,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
 		else:
 			export_name = id.name
-				
-		# We don't want to bake any meshes with poses applied
-		# NOTE: this won't change the posebone values, but it will remove deformations
-		for ob in [ob for ob in context.scene.objects if ob.type == 'ARMATURE' and ob.data.pose_position == 'POSE']:
-			ob.data.pose_position = 'REST'
 			
 		# hide all metaballs that we don't want
 		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Group) and not ob.name in id.objects))]:
@@ -358,9 +353,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if shouldExportDMX() and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
 			self.flex_controller_source = id.vs.flex_controller_source
-
-		for bake in [bake for bake in bake_results if bake.object.type == 'ARMATURE']:
-			bake.object.data.pose_position = 'POSE'
 
 		bpy.ops.object.mode_set(mode='OBJECT')
 		mesh_bakes = [bake for bake in bake_results if bake.object.type == 'MESH']
