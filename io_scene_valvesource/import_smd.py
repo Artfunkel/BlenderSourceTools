@@ -357,8 +357,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 		ops.object.mode_set(mode='POSE')
 
 		num_frames = 0
-		keyframes = collections.defaultdict(dict)
-		phantom_keyframes = collections.defaultdict(dict)	# bones that aren't in the reference skeleton
+		keyframes = collections.defaultdict(list)
+		phantom_keyframes = collections.defaultdict(list)	# bones that aren't in the reference skeleton
 		
 		for line in smd.file:
 			if smdBreak(line):
@@ -385,6 +385,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			rot = Euler([float(values[4]), float(values[5]), float(values[6])])
 			
 			keyframe = KeyFrame()
+			keyframe.frame = num_frames - 1
 			keyframe.matrix = Matrix.Translation(pos) * rot.to_matrix().to_4x4()
 			keyframe.pos = keyframe.rot = True
 			
@@ -394,26 +395,26 @@ class SmdImporter(bpy.types.Operator, Logger):
 				bone = smd.a.pose.bones[ smd.boneIDs[values[0]] ]
 				if not bone.parent:
 					keyframe.matrix = getUpAxisMat(smd.upAxis) * keyframe.matrix
-				keyframes[bone][num_frames-1] = keyframe
+				keyframes[bone].append(keyframe)
 			except KeyError:
 				if not smd.phantomParentIDs.get(values[0]):
 					keyframe.matrix = getUpAxisMat(smd.upAxis) * keyframe.matrix
-				phantom_keyframes[values[0]][num_frames-1] = keyframe
+				phantom_keyframes[values[0]].append(keyframe)
 			
 		# All frames read, apply phantom bones
 		for ID, parentID in smd.phantomParentIDs.items():
 			bone = smd.a.pose.bones.get( smd.boneIDs.get(ID) )
 			if not bone: continue
-			for f,phantom_keyframe in phantom_keyframes[bone].items():
+			for phantom_keyframe in phantom_keyframes[bone]:
 				phantom_parent = parentID
-				if keyframes[bone].get(f): # is there a keyframe to modify?
+				if len(keyframes[bone]) >= phantom_keyframe.frame: # is there a keyframe to modify?
 					while phantom_keyframes.get(phantom_parent): # parents are recursive
-						phantom_frame = f				
-						while not phantom_keyframes[phantom_parent].get(phantom_frame): # rewind to the last value
-							if phantom_frame == 0: continue # should never happen
-							phantom_frame -= 1
+						phantom_source_frame = phantom_keyframe.frame
+						while not phantom_keyframes[phantom_parent].get(phantom_keyframe.frame): # rewind to the last value
+							if phantom_source_frame == 0: continue # should never happen
+							phantom_source_frame -= 1
 						# Apply the phantom bone, then recurse
-						keyframes[bone][f].matrix = phantom_keyframes[phantom_parent][phantom_frame] * keyframes[bone][f].matrix
+						keyframes[bone][phantom_keyframe.frame].matrix = phantom_keyframes[phantom_parent][phantom_source_frame] * keyframes[bone][phantom_keyframe.frame].matrix
 						phantom_parent = smd.phantomParentIDs.get(phantom_parent)
 		
 		self.applyFrames(keyframes,num_frames)
@@ -512,25 +513,24 @@ class SmdImporter(bpy.types.Operator, Logger):
 				still_bones = list(keyframes.keys())
 				for bone in keyframes.keys():
 					bone_keyframes = keyframes[bone]
-					for f,keyframe in bone_keyframes.items():
-						if f == 0: continue
+					for keyframe in bone_keyframes[1:]:
 						diff = keyframe.matrix.inverted() * bone_keyframes[0].matrix
 						if diff.to_translation().length > 0.00001 or abs(diff.to_quaternion().w) > 0.0001:
 							still_bones.remove(bone)
 							break
 				for bone in still_bones:
-					keyframes[bone] = {0:keyframes[bone][0]}
+					keyframes[bone] = [keyframes[bone][0]]
 			
 			# Create Blender keyframes
 			def ApplyRecursive(bone):
-				key_dict = keyframes.get(bone)
-				if key_dict:
+				keys = keyframes.get(bone)
+				if keys:
 					# Generate curves
 					curvesLoc = None
 					curvesRot = None
 					bone_string = "pose.bones[\"{}\"].".format(bone.name)				
 					group = action.groups.new(name=bone.name)
-					for keyframe in key_dict.values():
+					for keyframe in keys:
 						if curvesLoc and curvesRot: break
 						if keyframe.pos and not curvesLoc:
 							curvesLoc = []
@@ -546,7 +546,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 								curvesRot.append(curve)
 					
 					# Apply each imported keyframe
-					for f, keyframe in key_dict.items():
+					for keyframe in keys:
 						# Transform
 						if smd.a.data.vs.legacy_rotation:
 							keyframe.matrix *= mat_BlenderToSMD.inverted()
@@ -562,18 +562,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 						if keyframe.pos:
 							for i in range(3):
 								curvesLoc[i].keyframe_points.add(1)
-								curvesLoc[i].keyframe_points[-1].co = [f, bone.location[i]]
+								curvesLoc[i].keyframe_points[-1].co = [keyframe.frame, bone.location[i]]
 						
 						# Key rotation
 						if keyframe.rot:
 							if smd.rotMode == 'XYZ':
 								for i in range(3):
 									curvesRot[i].keyframe_points.add(1)
-									curvesRot[i].keyframe_points[-1].co = [f, bone.rotation_euler[i]]
+									curvesRot[i].keyframe_points[-1].co = [keyframe.frame, bone.rotation_euler[i]]
 							else:
 								for i in range(4):
 									curvesRot[i].keyframe_points.add(1)
-									curvesRot[i].keyframe_points[-1].co = [f, bone.rotation_quaternion[i]]
+									curvesRot[i].keyframe_points[-1].co = [keyframe.frame, bone.rotation_quaternion[i]]
 
 				# Recurse
 				for child in bone.children:
@@ -581,7 +581,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			
 			# Start keying
 			for bone in smd.a.pose.bones:			
-				if not bone.parent:					
+				if not bone.parent:
 					ApplyRecursive(bone)
 			
 			for fc in action.fcurves:
@@ -1341,6 +1341,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 				out *= Matrix.Translation(Vector(trfm["position"]))
 				out *= getBlenderQuat(trfm["orientation"]).to_matrix().to_4x4()
 				return out
+			def isBone(elem):
+				return elem.type in ["DmeDag","DmeJoint"]
 			
 			# Skeleton
 			bone_matrices = {}
@@ -1384,7 +1386,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if missing_bones and smd.jobType != ANIM: # animations report missing bones seperately
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(missing_bones),smd.a.name))
 					print("\n".join(missing_bones))
-			elif any(child for child in DmeModel["children"] if child and child.type == "DmeJoint"):
+			elif any(child for child in DmeModel["children"] if child and isBone(child)):
 				self.append = 'NEW_ARMATURE'
 				ob = smd.a = self.createArmature(self.truncate_id_name(DmeModel.name, bpy.types.Armature))
 				if self.qc: self.qc.a = ob
@@ -1407,7 +1409,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 								atch.parent_bone = parent_bone.name
 						
 							atch.matrix_local = get_transform_matrix(elem)
-						elif (elem.type == "DmeJoint" and elem.name != "blender_implicit") and not elem.get("shape"): # don't import Dags which simply wrap meshes
+						elif (isBone(elem) and elem.name != "blender_implicit") and not elem.get("shape"): # don't import Dags which simply wrap meshes
 							bone = smd.a.data.edit_bones.new(self.truncate_id_name(elem.name,bpy.types.Bone))
 							bone.parent = parent_bone
 							bone.tail = (0,5,0)
@@ -1426,7 +1428,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if mat:
 						keyframe = KeyFrame()
 						keyframe.matrix = mat
-						restData[bone] = {0:keyframe}
+						restData[bone] = [keyframe]
 				if restData:
 					self.applyFrames(restData,1,None)
 			
@@ -1636,11 +1638,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 				
 				total_frames = ceil(duration * frameRate) + 1 # need a frame for 0 too!
 				
-				keyframes = collections.defaultdict(lambda: collections.defaultdict(KeyFrame))
+				keyframes = collections.defaultdict(list)
 				unknown_bones = []
 				for channel in animation["channels"]:
 					toElement = channel["toElement"]
 					if not toElement: continue # SFM
+
 					bone_name = smd.boneTransformIDs.get(toElement.id)
 					bone = smd.a.pose.bones.get(bone_name) if bone_name else None
 					if not bone:
@@ -1649,8 +1652,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 							print("- Animation refers to unrecognised bone \"{}\"".format(toElement.name))
 						continue
 					
-					frame_log = channel["log"]["layers"][0]
+					is_position_channel = channel["toAttribute"] == "position"
+					is_rotation_channel = channel["toAttribute"] == "orientation"
+					if not (is_position_channel or is_rotation_channel):
+						continue
 					
+					frame_log = channel["log"]["layers"][0]
 					times = frame_log["times"]
 					values = frame_log["values"]
 					
@@ -1658,16 +1665,19 @@ class SmdImporter(bpy.types.Operator, Logger):
 						frame_time = times[i] + start
 						if type(frame_time) == int: frame_time = datamodel.Time.from_int(frame_time)
 						frame_value = values[i]
-						frame = int(round(frame_time * frameRate,0))
-						keyframe = keyframes[bone][frame]
+						
+						keyframe = KeyFrame()
+						keyframes[bone].append(keyframe)
+
+						keyframe.frame = frame_time * frameRate
 						
 						if not (bone.parent or keyframe.pos or keyframe.rot):
 							keyframe.matrix = getUpAxisMat(smd.upAxis).inverted()
 						
-						if channel["toAttribute"][0] == "p" and not keyframe.pos:
+						if is_position_channel and not keyframe.pos:
 							keyframe.matrix *= Matrix.Translation(frame_value)
 							keyframe.pos = True
-						elif channel["toAttribute"][0] == "o" and not keyframe.rot:
+						elif is_rotation_channel and not keyframe.rot:
 							keyframe.matrix *= getBlenderQuat(frame_value).to_matrix().to_4x4()
 							keyframe.rot = True
 				

@@ -570,6 +570,7 @@ class QcInfo:
 		
 class KeyFrame:
 	def __init__(self):
+		self.frame = None
 		self.pos = self.rot = False
 		self.matrix = Matrix()
 
