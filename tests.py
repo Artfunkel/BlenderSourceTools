@@ -1,4 +1,4 @@
-# see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
+﻿# see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
 import os, shutil, unittest, sys
 from importlib import import_module
 from os.path import join
@@ -61,10 +61,10 @@ class Tests:
 			self.assertTrue(result == {'FINISHED'})
 
 		C.scene.vs.export_format = 'DMX'
-		section("DMX default")
+		section("DMX Source 1")
 		ex(True)
-		section("DMX Dota 2")
-		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","bin")
+		section("DMX Source 2")
+		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64")
 		ex(True)
 
 		C.scene.vs.export_format = 'SMD'
