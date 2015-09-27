@@ -1003,7 +1003,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			qc = self.qc
 
 		file = open(filepath, 'r')
-		in_bodygroup = in_lod = False
+		in_bodygroup = in_lod = in_sequence = False
 		lod = 0
 		for line_str in file:
 			line = self.parseQuoteBlockedLine(line_str)
@@ -1097,15 +1097,19 @@ class SmdImporter(bpy.types.Operator, Logger):
 					continue
 
 			# skeletal animations
-			if doAnim and line[0] in ["$sequence","$animation"]:
+			if in_sequence or (doAnim and line[0] in ["$sequence","$animation"]):
 				# there is no easy way to determine whether a SMD is being defined here or elsewhere, or even precisely where it is being defined
-				num_words_to_skip = 0
-				for i in range(2, len(line)):
+				num_words_to_skip = 2 if not in_sequence else 0
+				for i in range(len(line)):
 					if num_words_to_skip:
 						num_words_to_skip -= 1
 						continue
 					if line[i] == "{":
-						break
+						in_sequence = True
+						continue
+					if line[i] == "}":
+						in_sequence = False
+						continue
 					if line[i] in ["hidden","autolay","realtime","snap","spline","xfade","delta","predelta"]:
 						continue
 					if line[i] in ["fadein","fadeout","addlayer","blendwidth","node"]:
