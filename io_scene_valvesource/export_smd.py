@@ -1604,7 +1604,7 @@ skeleton
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
-					cache_deltas = wrinkle_scale or corrective
+					cache_deltas = wrinkle_scale
 					if cache_deltas:
 						delta_lengths = [None] * len(ob.data.vertices)
 						max_delta = 0
