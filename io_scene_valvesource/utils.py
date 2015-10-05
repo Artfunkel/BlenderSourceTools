@@ -373,7 +373,7 @@ def make_export_list():
 	s.vs.export_list.clear()
 	
 	def makeDisplayName(item,name=None):
-		return os.path.join(item.vs.subdir if item.vs.subdir != "." else None, (name if name else item.name) + getFileExt())
+		return os.path.join(item.vs.subdir if item.vs.subdir != "." else "", (name if name else item.name) + getFileExt())
 	
 	if len(p_cache.validObs):
 		ungrouped_objects = p_cache.validObs.copy()
