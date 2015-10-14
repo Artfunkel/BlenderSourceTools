@@ -757,6 +757,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				else:
 					self.armature_src = mod.object
 					result.envelope = mod
+				mod.show_viewport = False
 			elif mod.type == 'SOLIDIFY' and not solidify_fill_rim:
 				solidify_fill_rim = mod.use_rim
 			elif hasShapes(id) and mod.type == 'DECIMATE' and mod.decimate_type != 'UNSUBDIV':

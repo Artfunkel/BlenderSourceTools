@@ -60,25 +60,27 @@ class Tests:
 			result = bpy.ops.export_scene.smd(export_scene=do_scene)
 			self.assertTrue(result == {'FINISHED'})
 
-		C.scene.vs.export_format = 'DMX'
 		section("DMX Source 1")
-		ex(True)
-		section("DMX Source 2")
-		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64")
+		C.scene.vs.export_format = 'DMX'
 		ex(True)
 
-		C.scene.vs.export_format = 'SMD'
 		section("SMD scene")
+		C.scene.vs.export_format = 'SMD'
 		ex(True)
-
-		self.compareResults()
 
 		qc_name = bpy.path.abspath("//" + blend_name + ".qc")
 		if os.path.exists(qc_name):
 			shutil.copy2(qc_name, C.scene.vs.export_path)
 			C.scene.vs.game_path = join(steam_common_path,"SourceFilmmaker","game","usermod")
 			C.scene.vs.engine_path = os.path.realpath(join(C.scene.vs.game_path,"..","bin"))
-			bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc"))
+			self.assertEqual(bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc")), {'FINISHED'})
+
+		section("DMX Source 2")
+		C.scene.vs.export_format = 'DMX'
+		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64")
+		ex(True)
+
+		self.compareResults()		
 
 	def runExportTest_Single(self,ob_name):
 		bpy.ops.object.mode_set(mode='OBJECT')
