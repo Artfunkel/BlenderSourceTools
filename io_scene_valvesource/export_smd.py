@@ -1489,14 +1489,16 @@ skeleton
 				if len(pos) % 50 == 0:
 					bpy.context.window_manager.progress_update(len(pos) / num_verts)
 
+			bench.report("verts")
+
 			ob.data.calc_normals_split()
 
-			for i,loop in enumerate([ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]):
+			for loop in [ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]:
 				texcoIndices[loop.index] = texco.add(datamodel.Vector2(uv_layer[loop.index].uv))
 				norms[loop.index] = datamodel.Vector3(loop.normal)
-				Indices[i] = loop.vertex_index
+				Indices[loop.index] = loop.vertex_index
 			
-			bench.report("verts")
+			bench.report("loops")
 			
 			vertex_data[keywords['pos']] = datamodel.make_array(pos,datamodel.Vector3)
 			vertex_data[keywords['pos'] + "Indices"] = datamodel.make_array(Indices,int)
@@ -1511,6 +1513,9 @@ skeleton
 			if bake.shapes:
 				vertex_data[keywords["balance"]] = datamodel.make_array(balance,float)
 				vertex_data[keywords["balance"] + "Indices"] = datamodel.make_array(Indices,int)
+						
+			vertex_data[keywords['norm']] = datamodel.make_array(norms,datamodel.Vector3)
+			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(range(len(norms)),int)
 			
 			bench.report("insert")
 			face_sets = collections.OrderedDict()
@@ -1526,19 +1531,21 @@ skeleton
 				if not mat_success:
 					bad_face_mats += 1
 					
-				if not face_sets.get(mat_name):
+				face_set = face_sets.get(mat_name)
+				if face_set:
+					face_list = face_set["faces"]
+				else:
 					material_elem = materials.get(mat_name)
 					if not material_elem:
 						materials[mat_name] = material_elem = dm.add_element(mat_name,"DmeMaterial",id=mat_name + "mat")
 						material_elem["mtlName"] = os.path.join(bpy.context.scene.vs.material_path, mat_name).replace('\\','/')
 					
-					faceSet = dm.add_element(mat_name,"DmeFaceSet",id=bake.name+mat_name+"faces")
-					faceSet["material"] = material_elem
-					faceSet["faces"] = datamodel.make_array([],int)
-					
-					face_sets[mat_name] = faceSet
-				
-				face_list = face_sets[mat_name]["faces"]
+					face_set = dm.add_element(mat_name,"DmeFaceSet",id=bake.name+mat_name+"faces")
+					face_sets[mat_name] = face_set
+
+					face_set["material"] = material_elem
+					face_list = face_set["faces"] = datamodel.make_array([],int)					
+
 				face_list.extend(poly.loop_indices)
 				face_list.append(-1)				
 				
@@ -1549,9 +1556,6 @@ skeleton
 			
 			print(debug_only=True)
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
-			
-			vertex_data[keywords['norm']] = datamodel.make_array(norms,datamodel.Vector3)
-			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(range(len(norms)),int)
 			
 			if bad_face_mats:
 				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
