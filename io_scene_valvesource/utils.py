@@ -168,11 +168,23 @@ def getDmxVersionsForSDK():
 	for branch in dmx_versions.keys():
 		if path_branch == branch.lower(): return dmx_versions[branch]
 
+vertex_blend_colour_name = "Hammer_VertexPaintBlendParams"
+vertex_paint_colour_name = "Hammer_VertexPaintTintColor"
+
+hammer_vertex_data = [
+	("vertex_paint",vertex_paint_colour_name),
+	("vertex_blend",vertex_blend_colour_name),
+	("vertex_blend1",vertex_blend_colour_name + ".001")
+]
+
 def getDmxKeywords(format_version):
 	if format_version >= 22:
-		return { 'pos': "position$0", 'norm': "normal$0", 'texco':"texcoord$0", 'wrinkle':"wrinkle$0", 'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0" }
+		return { 'pos': "position$0", 'norm': "normal$0", 'texco':"texcoord$0", 'wrinkle':"wrinkle$0",
+		  'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0",
+		  'vertex_blend':"VertexPaintBlendParams$0",'vertex_blend1':"VertexPaintBlendParams1$0", 'vertex_paint':"VertexPaintTintColor$0" }
 	else:
-		return { 'pos': "positions", 'norm': "normals", 'texco':"textureCoordinates", 'wrinkle':"wrinkle", 'balance':"balance", 'weight':"jointWeights", 'weight_indices':"jointIndices" }
+		return { 'pos': "positions", 'norm': "normals", 'texco':"textureCoordinates", 'wrinkle':"wrinkle",
+		  'balance':"balance", 'weight':"jointWeights", 'weight_indices':"jointIndices" }
 
 def count_exports(context):
 	num = 0

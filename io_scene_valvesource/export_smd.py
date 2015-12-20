@@ -1437,11 +1437,10 @@ skeleton
 			if culled_weight_links:
 				self.warning(get_id("exporter_warn_weightlinks_culled",True).format(culled_weight_links,cull_threshold,bake.src.name))
 			
-			format = [ keywords['pos'], keywords['norm'], keywords['texco'] ]
+			format = vertex_data["vertexFormat"] = datamodel.make_array( [ keywords['pos'], keywords['norm'], keywords['texco'] ], str)
 			if have_weightmap: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
 			if bake.shapes and bake.balance_vg:
 				format.append(keywords["balance"])
-			vertex_data["vertexFormat"] = datamodel.make_array( format, str)
 			
 			vertex_data["flipVCoordinates"] = True
 			vertex_data["jointCount"] = jointCount
@@ -1518,6 +1517,23 @@ skeleton
 			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(range(len(norms)),int)
 			
 			bench.report("insert")
+
+			# Hammer data
+			for keyword, data_name in hammer_vertex_data:
+				vert_colours = ob.data.vertex_colors.get(data_name)
+				if vert_colours:
+					colours = []
+
+					for loopColour in vert_colours.data:
+						colour = list(loopColour.color)
+						colour.append(0) # make a W component
+						colours.append(datamodel.Vector4(colour))
+
+					kw = keywords[keyword]
+					vertex_data[kw] = datamodel.make_array(colours,datamodel.Vector4)
+					vertex_data[kw + "Indices"] = datamodel.make_array(range(len(vert_colours.data)),int)
+					format.append(kw)
+
 			face_sets = collections.OrderedDict()
 			bad_face_mats = 0
 			v = 0

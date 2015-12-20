@@ -1607,6 +1607,16 @@ class SmdImporter(bpy.types.Operator, Logger):
 								if vert != -1:				
 									uv_data[uv_vert].uv = textureCoordinates[ textureCoordinatesIndices[vert] ]
 									uv_vert+=1
+
+					# Hammer data
+					for keyword, data_name in hammer_vertex_data:
+						if keywords.get(keyword) in DmeVertexData["vertexFormat"]:
+							mesh_data = ob.data.vertex_colors.new(data_name)
+							colour_indices = DmeVertexData[keywords[keyword] + "Indices"]
+							colours = DmeVertexData[keywords[keyword]]
+
+							for i, blendColour in enumerate(colours):
+								mesh_data.data[colour_indices[i]].color = Color(blendColour[:3]) # W appears to be unmodifiable, which is just as well!
 					
 					# Shapes
 					if DmeMesh.get("deltaStates"):
