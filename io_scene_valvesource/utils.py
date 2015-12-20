@@ -168,10 +168,10 @@ def getDmxVersionsForSDK():
 	for branch in dmx_versions.keys():
 		if path_branch == branch.lower(): return dmx_versions[branch]
 
-vertex_blend_colour_name = "Hammer_VertexPaintBlendParams"
-vertex_paint_colour_name = "Hammer_VertexPaintTintColor"
+vertex_blend_colour_name = "ValveSource_VertexPaintBlendParams"
+vertex_paint_colour_name = "ValveSource_VertexPaintTintColor"
 
-hammer_vertex_data = [
+vertex_paint_data = [
 	("vertex_paint",vertex_paint_colour_name),
 	("vertex_blend",vertex_blend_colour_name),
 	("vertex_blend1",vertex_blend_colour_name + ".001")
@@ -350,6 +350,17 @@ def hasCurves(id):
 			return True
 	else:
 		return _test(id)
+
+def hasVertexColours(id):
+	def test(id_):
+		return hasattr(id_.data,"vertex_colors") and id_.data.vertex_colors.get(vertex_paint_colour_name)
+
+	if type(id) == bpy.types.Group:
+		return any(ob for ob in id.objects if test(ob))
+	elif id.type == 'MESH':
+		return test(id)
+	else:
+		return False		
 
 def actionsForFilter(filter):
 	import fnmatch

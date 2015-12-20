@@ -1609,7 +1609,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 									uv_vert+=1
 
 					# Hammer data
-					for keyword, data_name in hammer_vertex_data:
+					for keyword, data_name in vertex_paint_data:
 						if keywords.get(keyword) in DmeVertexData["vertexFormat"]:
 							mesh_data = ob.data.vertex_colors.new(data_name)
 							colour_indices = DmeVertexData[keywords[keyword] + "Indices"]

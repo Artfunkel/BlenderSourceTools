@@ -334,6 +334,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Group:
 			have_baked_metaballs = False
+			vertex_colours = hasVertexColours(id)
 			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
@@ -341,7 +342,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if ob in baked_metaballs: continue
 					else: baked_metaballs.append(ob)
 						
-				bake_results.append(self.bakeObj(ob))
+				bake = self.bakeObj(ob)
+				if vertex_colours and not hasVertexColours(bake.object):
+					vertex_colour_data = bake.object.data.vertex_colors.new(vertex_paint_colour_name).data
+					for i in range(len(vertex_colour_data)):
+						vertex_colour_data[i].color = Color([1,1,1])
+
+				bake_results.append(bake)
 			bench.report("Group bake", len(bake_results))			
 		elif id.type == 'META':
 			bake_results.append(self.bakeObj(find_basis_metaball(id)))
@@ -1519,7 +1526,11 @@ skeleton
 			bench.report("insert")
 
 			# Hammer data
-			for keyword, data_name in hammer_vertex_data:
+			for keyword, data_name in vertex_paint_data:
+				kw = keywords.get(keyword)
+				if not kw:
+					continue
+
 				vert_colours = ob.data.vertex_colors.get(data_name)
 				if vert_colours:
 					colours = []
@@ -1529,7 +1540,6 @@ skeleton
 						colour.append(0) # make a W component
 						colours.append(datamodel.Vector4(colour))
 
-					kw = keywords[keyword]
 					vertex_data[kw] = datamodel.make_array(colours,datamodel.Vector4)
 					vertex_data[kw + "Indices"] = datamodel.make_array(range(len(vert_colours.data)),int)
 					format.append(kw)
