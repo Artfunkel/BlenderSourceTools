@@ -349,7 +349,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						vertex_colour_data[i].color = Color([1,1,1])
 
 				bake_results.append(bake)
-			bench.report("Group bake", len(bake_results))			
+			bench.report("Group bake", len(bake_results))
 		elif id.type == 'META':
 			bake_results.append(self.bakeObj(find_basis_metaball(id)))
 			bench.report("Metaball bake")

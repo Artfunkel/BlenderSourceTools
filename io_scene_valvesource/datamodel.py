@@ -374,7 +374,7 @@ class Element(collections.OrderedDict):
 		for name in self:
 			attr = self[name]
 			if attr == None:
-				out += _make_attr_str(name, "element")
+				out += _make_attr_str(name, "element", None)
 				continue
 			
 			t = type(attr)

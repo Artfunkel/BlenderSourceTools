@@ -1487,26 +1487,54 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if hasattr(bm.verts,'ensure_lookup_table'):
 						bm.verts.ensure_lookup_table()
 					
-					# Faces and Materials
+					# Faces, Materials, Colours
 					skipfaces = set()
+					vertex_colour_layers = []
+
+					class VertexColourInfo():
+						def __init__(self, layer, indices, colours):
+							self.layer = layer
+							self.indices = indices
+							self.colours = colours
+
+						def get_loop_color(self, loop_index):
+							return Color(self.colours[self.indices[loop_index]][:3])
+
+					for keyword, data_name in vertex_paint_data:
+						keyword = keywords.get(keyword)
+						if keyword and keyword in DmeVertexData["vertexFormat"]:
+							vertex_colour_layers.append(VertexColourInfo(
+								bm.loops.layers.color.new(data_name),
+								DmeVertexData[keyword + "Indices"],
+								DmeVertexData[keyword]
+							))
+					
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]
 						bpy.context.scene.vs.material_path = os.path.dirname(mat_path).replace("\\","/")
 						mat, mat_ind = self.getMeshMaterial(os.path.basename(mat_path))
-						face_verts = []
+						face_loops = []
 						dmx_face = 0
 						for vert in face_set["faces"]:
-							if vert == -1:
-								try:
-									face = bm.faces.new(face_verts)
-									face.smooth = True
-									face.material_index = mat_ind
-								except ValueError: # can't have an overlapping face...this will be painful later
-									skipfaces.add(dmx_face)
-								dmx_face += 1
-								face_verts = []
+							if vert != -1:
+								face_loops.append(vert)
 								continue
-							face_verts.append(bm.verts[positionsIndices[vert]])
+
+							# -1 marks the end of a face definition, time to create it!
+							try:
+								face = bm.faces.new([bm.verts[positionsIndices[loop]] for loop in face_loops])
+								face.smooth = True
+								face.material_index = mat_ind
+
+								# Apply Source 2 vertex colours
+								for colour_layer in vertex_colour_layers:
+									for i, loop in enumerate(face.loops):
+										loop[colour_layer.layer] = colour_layer.get_loop_color(face_loops[i])
+
+							except ValueError: # Can't have an overlapping face...this will be painful later
+								skipfaces.add(dmx_face)
+							dmx_face += 1
+							face_loops.clear()
 					
 					# Move from BMesh to Blender
 					bm.to_mesh(ob.data)
@@ -1608,16 +1636,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 									uv_data[uv_vert].uv = textureCoordinates[ textureCoordinatesIndices[vert] ]
 									uv_vert+=1
 
-					# Hammer data
-					for keyword, data_name in vertex_paint_data:
-						if keywords.get(keyword) in DmeVertexData["vertexFormat"]:
-							mesh_data = ob.data.vertex_colors.new(data_name)
-							colour_indices = DmeVertexData[keywords[keyword] + "Indices"]
-							colours = DmeVertexData[keywords[keyword]]
-
-							for i, blendColour in enumerate(colours):
-								mesh_data.data[colour_indices[i]].color = Color(blendColour[:3]) # W appears to be unmodifiable, which is just as well!
-					
 					# Shapes
 					if DmeMesh.get("deltaStates"):
 						for DmeVertexDeltaData in DmeMesh["deltaStates"]:
