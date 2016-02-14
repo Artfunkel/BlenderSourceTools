@@ -1795,9 +1795,6 @@ skeleton
 
 					bpy.ops.object.mode_set(mode='POSE')
 					ops.pose.armature_apply() # refreshes the armature's internal state, required!
-					for i, bake in enumerate(bake_results):
-						vca_arm.pose.bones[i+1].matrix = bake_mat
-					ops.pose.armature_apply()
 					action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
 					for i in range(2):
 						fc = action.fcurves.new('pose.bones["{}"].location'.format(vca_bone.name),index=i)
