@@ -348,15 +348,23 @@ class SmdExporter(bpy.types.Operator, Logger):
 					for i in range(len(vertex_colour_data)):
 						vertex_colour_data[i].color = Color([1,1,1])
 
-				bake_results.append(bake)
+				if bake:
+					bake_results.append(bake)
 			bench.report("Group bake", len(bake_results))
-		elif id.type == 'META':
-			bake_results.append(self.bakeObj(find_basis_metaball(id)))
-			bench.report("Metaball bake")
 		else:
-			bake_results.append(self.bakeObj(id))
-			bench.report("Standard bake")
+			if id.type == 'META':
+				bake = self.bakeObj(find_basis_metaball(id))				
+				bench.report("Metaball bake")
+			else:
+				bake = self.bakeObj(id)
+				bench.report("Standard bake")
 
+			if bake:
+					bake_results.append(bake)
+
+		if not any(bake_results):
+			return;
+		
 		if shouldExportDMX() and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
 			self.flex_controller_source = id.vs.flex_controller_source
@@ -820,7 +828,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		data = baked.data
 
 		if not data.polygons:
-			self.error(get_id("exporter_err_nopolys", True).format(id.name))
+			self.error(get_id("exporter_err_nopolys", True).format(result.name))
 			return
 		
 		result.matrix = baked.matrix_world
