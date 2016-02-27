@@ -35,7 +35,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 	smd = None
 
 	# Properties used by the file browser
-	filepath = StringProperty(name="File Path", description="File filepath used for importing the SMD/VTA/DMX/QC file", maxlen=1024, default="")
+	files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN'})
+	directory = StringProperty(maxlen=1024, default="", subtype='FILE_PATH', options={'HIDDEN'})
 	filter_folder = BoolProperty(name="Filter Folders", description="", default=True, options={'HIDDEN'})
 	filter_glob = StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
 
@@ -62,22 +63,24 @@ class SmdImporter(bpy.types.Operator, Logger):
 		self.existingBones = [] # bones which existed before importing began
 		self.num_files_imported = 0
 
-		filepath_lc = self.properties.filepath.lower()
-		if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
-			self.num_files_imported = self.readQC(self.properties.filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, outer_qc=True)
-			bpy.context.scene.objects.active = self.qc.a
-		elif filepath_lc.endswith('.smd'):
-			self.num_files_imported = self.readSMD(self.properties.filepath, self.properties.upAxis, self.properties.rotMode)
-		elif filepath_lc.endswith ('.vta'):
-			self.num_files_imported = self.readSMD(self.properties.filepath, self.properties.upAxis, self.properties.rotMode, smd_type=FLEX)
-		elif filepath_lc.endswith('.dmx'):
-			self.num_files_imported = self.readDMX(self.properties.filepath, self.properties.upAxis, self.properties.rotMode)
-		else:
-			if len(filepath_lc) == 0:
-				self.report({'ERROR'},get_id("importer_err_nofile"))
+		for filepath in [os.path.join(self.directory,file.name) for file in self.properties.files]:
+			filepath_lc = filepath.lower()
+			if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
+				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, outer_qc=True)
+				bpy.context.scene.objects.active = self.qc.a
+			elif filepath_lc.endswith('.smd'):
+				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode)
+			elif filepath_lc.endswith ('.vta'):
+				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode, smd_type=FLEX)
+			elif filepath_lc.endswith('.dmx'):
+				self.num_files_imported = self.readDMX(filepath, self.properties.upAxis, self.properties.rotMode)
 			else:
-				self.report({'ERROR'},get_id("importer_err_badfile", True).format(os.path.basename(self.properties.filepath)))
-			return {'CANCELLED'}
+				if len(filepath_lc) == 0:
+					self.report({'ERROR'},get_id("importer_err_nofile"))
+				else:
+					self.report({'ERROR'},get_id("importer_err_badfile", True).format(os.path.basename(filepath)))
+
+			self.append = pre_append
 
 		self.errorReport(get_id("importer_complete", True).format(self.num_files_imported,self.elapsed_time()))
 		if self.num_files_imported:
