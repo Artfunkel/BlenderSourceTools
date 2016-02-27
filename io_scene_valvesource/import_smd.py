@@ -35,6 +35,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 	smd = None
 
 	# Properties used by the file browser
+	filepath = StringProperty(name="File Path", description="File filepath used for importing the SMD/VTA/DMX/QC file", maxlen=1024, default="", options={'HIDDEN'})
 	files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN'})
 	directory = StringProperty(maxlen=1024, default="", subtype='FILE_PATH', options={'HIDDEN'})
 	filter_folder = BoolProperty(name="Filter Folders", description="", default=True, options={'HIDDEN'})
@@ -63,7 +64,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 		self.existingBones = [] # bones which existed before importing began
 		self.num_files_imported = 0
 
-		for filepath in [os.path.join(self.directory,file.name) for file in self.properties.files]:
+		if self.filepath:
+			files = [self.filepath]
+		else:
+			files = [os.path.join(self.directory,file.name) for file in self.files]
+
+		for filepath in files:
 			filepath_lc = filepath.lower()
 			if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
 				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, outer_qc=True)
