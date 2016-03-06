@@ -360,7 +360,7 @@ class Element(collections.OrderedDict):
 		_add_kv2_indent()
 		
 		def _make_attr_str(name,dm_type,value, is_array = False):
-			if value:
+			if value is not None:
 				if is_array:
 					return "{}\"{}\" \"{}\" {}\n".format(_kv2_indent,name,dm_type,value)
 				else:

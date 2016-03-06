@@ -57,10 +57,11 @@ exportable_types = tuple(exportable_types)
 
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
+axes_lookup_source2 = { 'X':0, 'Y':2, 'Z':1 }
 
 dmx_model_versions = [1,15,18,22]
 
-dmx_versions = { # [encoding, format]
+dmx_versions_source1 = { # [encoding, format]
 'ep1':[0,0],
 'source2007':[2,1],
 'source2009':[2,1],
@@ -78,8 +79,10 @@ dmx_versions = { # [encoding, format]
 'Half-Life 2':[2,1],
 'Source SDK Base 2013 Singleplayer':[2,1],
 'Source SDK Base 2013 Multiplayer':[2,1],
-# Source 2!
-'Dota 2 (Source 2)':[5,22],
+}
+
+dmx_versions_source2 = {
+'dota2': ("Dota 2",[9,22]),
 }
 
 def print(*args, newline=True, debug_only=False):
@@ -150,23 +153,39 @@ def canExportDMX():
 def shouldExportDMX():
 	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
 
-def getEngineBranchName():
+def getEngineBranch():
 	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
-	if not path: return None
+	if not path or not p_cache.enginepath_valid: return (None, None, None)
 
+	# Source 2: search for executable name
+	engine_path_files = set(name[:-4] if name.endswith(".exe") else name for name in os.listdir(path))
+	if "resourcecompiler" in engine_path_files: # Source 2
+		for executable,branch_info in dmx_versions_source2.items():
+			if executable in engine_path_files:
+				return branch_info + (2,)
+
+	# Source 1 SFM special case
 	if path.lower().find("sourcefilmmaker") != -1:
-		return "Source Filmmaker" # hack for weird SFM folder structure, add a space too
-	elif "dota2.exe" in os.listdir(path) and "resourcecompiler.exe" in os.listdir(path):
-		return "Dota 2 (Source 2)"
-	elif path.lower().find("dota 2 beta") != -1:
-		return "Dota 2"
+		return ("Source Filmmaker", dmx_versions_source1["Source Filmmaker"], 1) # hack for weird SFM folder structure, add a space too	
+	
+	# Source 1 standard: use parent dir's name
+	name = os.path.basename(os.path.dirname(bpy.path.abspath(path))).title().replace("Sdk","SDK")
+	dmx_versions = dmx_versions_source1.get(name)
+	if dmx_versions:
+		return (name, dmx_versions, 1)
 	else:
-		return os.path.basename(os.path.abspath(os.path.join(bpy.path.abspath(path),os.pardir))).title().replace("Sdk","SDK") # why, Python, why
+		return (None, None, None)
+
+def getEngineBranchName():
+	'''Returns a user-friendly name for the selected Source Engine branch, or None.'''
+	return getEngineBranch()[0]
+
+def getEngineVersion():
+	'''Returns an int representing engine version, i.e. Source 1 or Source 2, or None.'''
+	return getEngineBranch()[2]
+
 def getDmxVersionsForSDK():
-	if not p_cache.enginepath_valid: return
-	path_branch = getEngineBranchName().lower()
-	for branch in dmx_versions.keys():
-		if path_branch == branch.lower(): return dmx_versions[branch]
+	return getEngineBranch()[1]
 
 vertex_blend_colour_name = "ValveSource_VertexPaintBlendParams"
 vertex_paint_colour_name = "ValveSource_VertexPaintTintColor"

@@ -62,6 +62,8 @@ class Tests:
 
 		section("DMX Source 1")
 		C.scene.vs.export_format = 'DMX'
+		C.scene.vs.dmx_encoding = '5'
+		C.scene.vs.dmx_format = '18'
 		ex(True)
 
 		section("SMD scene")
@@ -75,10 +77,10 @@ class Tests:
 			C.scene.vs.engine_path = os.path.realpath(join(C.scene.vs.game_path,"..","bin"))
 			self.assertEqual(bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc")), {'FINISHED'})
 
-		section("DMX Source 2")
+		'''section("DMX Source 2")
 		C.scene.vs.export_format = 'DMX'
 		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64")
-		ex(True)
+		ex(True)'''
 
 		self.compareResults()		
 

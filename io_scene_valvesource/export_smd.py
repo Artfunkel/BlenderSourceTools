@@ -574,9 +574,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		model_mat = amod_ob.matrix_world.inverted() * ob.matrix_world
 
 		num_verts = len(ob.data.vertices)
-		weights = []
 		for v in ob.data.vertices:
-			weights.clear()
+			weights = []
 			total_weight = 0
 			if len(out) % 50 == 0: bpy.context.window_manager.progress_update(len(out) / num_verts)
 			
@@ -618,7 +617,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for link in weights:
 					link[1] *= amod_vg_weight
 
-			out.append(weights.copy())
+			out.append(weights)
 		return out
 		
 	def GetMaterialName(self, ob, poly):
@@ -931,6 +930,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		self.smd_file = self.openSMD(filepath,name + "." + filetype,filetype.upper())
 		if self.smd_file == None: return 0
+
+		if getEngineVersion() == 2:
+			self.warning(get_id("exporter_warn_source2smdsupport"))
 
 		# BONES
 		self.smd_file.write("nodes\n")
@@ -1277,19 +1279,25 @@ skeleton
 
 		if dm.format_ver >= 22:
 			DmeAxisSystem = DmeModel["axisSystem"] = dm.add_element("axisSystem","DmeAxisSystem","AxisSys" + armature_name)
-			DmeAxisSystem["upAxis"] = axes_lookup[bpy.context.scene.vs.up_axis] + 1
+			DmeAxisSystem["upAxis"] = axes_lookup_source2[bpy.context.scene.vs.up_axis]
 			DmeAxisSystem["forwardParity"] = 1 # ??
 			DmeAxisSystem["coordSys"] = 0 # ??
+		
+		DmeModel["transform"] = makeTransform("",Matrix(),DmeModel.name + "transform")
 
 		keywords = getDmxKeywords(dm.format_ver)
 				
 		# skeleton
 		root["skeleton"] = DmeModel
-		if dm.format_ver >= 11:
+		want_jointlist = dm.format_ver >= 11
+		want_jointtransforms = dm.format_ver in range(0,21)
+		if want_jointlist:
 			jointList = DmeModel["jointList"] = datamodel.make_array([],datamodel.Element)
-		jointDict = {}
-		jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)
-		bone_transforms = {} # cache for animation lookup
+			jointList.append(DmeModel)
+		if want_jointtransforms:
+			jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)		
+			jointTransforms.append(DmeModel["transform"])
+		bone_elements = {}
 		if self.armature: scale = self.armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
@@ -1304,10 +1312,9 @@ skeleton
 					return children
 				bone_name = bone.name
 
-			bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
-			if dm.format_ver >= 11: jointList.append(bone_elem)
-			jointDict[bone_name] = bone_elem
-			self.bone_ids[bone_name] = len(bone_transforms)
+			bone_elements[bone_name] = bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
+			if want_jointlist: jointList.append(bone_elem)
+			self.bone_ids[bone_name] = len(bone_elements) # intentionally skipping 0, which is reserved for the DmeModel itself
 			
 			if not bone: relMat = Matrix()
 			else:
@@ -1326,8 +1333,7 @@ skeleton
 					trfm["position"][j] *= scale[j]
 			trfm_base["position"] = trfm["position"]
 			
-			jointTransforms.append(trfm)
-			bone_transforms[bone] = trfm
+			if want_jointtransforms: jointTransforms.append(trfm)
 			bone_elem["transform"] = trfm
 			
 			DmeModel_transforms.append(trfm_base)
@@ -1337,14 +1343,13 @@ skeleton
 				for child_elems in [writeBone(child) for child in bone.children]:
 					if child_elems: children.extend(child_elems)
 
-				bpy.context.window_manager.progress_update(len(jointTransforms)/num_bones)
+				bpy.context.window_manager.progress_update(len(bone_elements)/num_bones)
 			return [bone_elem]
 	
 		if self.armature:
 			num_bones = len(self.exportable_bones)
 			
-			DmeModel_children.extend(writeBone(implicit_bone_name))
-			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
+			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent]:
 				if root_elems: DmeModel_children.extend(root_elems)
 
 			bench.report("Bones")
@@ -1404,11 +1409,11 @@ skeleton
 			DmeMesh["baseStates"] = datamodel.make_array([vertex_data],datamodel.Element)
 						
 			DmeDag = dm.add_element(bake.name,"DmeDag",id="ob"+bake.name+"dag")
-			if dm.format_ver >= 11: jointList.append(DmeDag)
+			if want_jointlist: jointList.append(DmeDag)
 			DmeDag["shape"] = DmeMesh
 			
 			if isinstance(bake.envelope, str): # bone child?
-				jointDict[bake.envelope]["children"].append(DmeDag)
+				bone_elements[bake.envelope]["children"].append(DmeDag)
 				# bone.matrix_local is local to the armature, not the bone's parent
 				trfm_mat = self.armature_src.data.bones[bake.envelope].matrix_local.inverted() * ob.matrix_world
 			else:
@@ -1416,7 +1421,7 @@ skeleton
 				trfm_mat = ob.matrix_world
 
 			trfm = makeTransform(bake.name, trfm_mat, "ob"+bake.name)
-			jointTransforms.append(trfm)
+			if want_jointtransforms: jointTransforms.append(trfm)
 			DmeDag["transform"] = trfm
 			DmeModel_transforms.append(makeTransform(bake.name, trfm_mat, "ob_base"+bake.name))
 			
@@ -1497,6 +1502,9 @@ skeleton
 						weights[i] = vert_weights[i][1]
 						total_weight += weights[i]
 						i+=1
+
+					if total_weight == 0:
+						weights[0] = 1.0 # attach to the DmeModel itself, avoiding motion.
 					
 					jointWeights.extend(weights)
 					jointIndices.extend(indices)
@@ -1845,7 +1853,7 @@ skeleton
 				fps = bpy.context.scene.render.fps * bpy.context.scene.render.fps_base
 			
 			DmeChannelsClip = dm.add_element(name,"DmeChannelsClip",id=name+"clip")		
-			DmeAnimationList = dm.add_element(self.armature.name,"DmeAnimationList",id=name+"list")
+			DmeAnimationList = dm.add_element(armature_name,"DmeAnimationList",id=armature_name+"list")
 			DmeAnimationList["animations"] = datamodel.make_array([DmeChannelsClip],datamodel.Element)
 			root["animationList"] = DmeAnimationList
 			
@@ -1857,7 +1865,7 @@ skeleton
 				DmeTimeFrame["durationTime"] = int(duration * 10000)
 			DmeTimeFrame["scale"] = 1.0
 			DmeChannelsClip["timeFrame"] = DmeTimeFrame
-			DmeChannelsClip["frameRate"] = int(fps)
+			DmeChannelsClip["frameRate"] = int(fps) if dm.format_ver < 22 else fps
 			
 			channels = DmeChannelsClip["channels"] = datamodel.make_array([],datamodel.Element)
 			bone_channels = {}
@@ -1870,7 +1878,7 @@ skeleton
 				for template in channel_template:
 					cur = dm.add_element(bone.name + template[0],"DmeChannel",id=bone.name+template[0])
 					cur["toAttribute"] = template[1]
-					cur["toElement"] = bone_transforms[bone] if bone else jointTransforms[0]
+					cur["toElement"] = (bone_elements[bone.name] if bone else DmeModel)["transform"]
 					cur["mode"] = 1				
 					val_arr = dm.add_element(template[2]+" log","Dme"+template[2]+"LogLayer",cur.name+"loglayer")				
 					cur["log"] = dm.add_element(template[2]+" log","Dme"+template[2]+"Log",cur.name+"log")

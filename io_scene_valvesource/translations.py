@@ -451,6 +451,9 @@ _data = {
 	'en': "Could not find flex controllers for \"{0}\"",
 	'ru': "Не удалось найти контроллеры лицевой анимации для объекта {0}",
 },
+'exporter_warn_source2smdsupport': {
+	'en': "Source 2 will soon be dropping support for SMD.",
+},
 'exporter_tip': {
 	'en': "Export and compile Source Engine models",
 	'ru': "Экспортирует и компилирует модели для движка Source",
