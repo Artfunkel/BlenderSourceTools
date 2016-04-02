@@ -302,7 +302,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			else:
 				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
 		else:
-			export_name = id.name
+			export_name = id.name		
 			
 		# hide all metaballs that we don't want
 		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Group) and not ob.name in id.objects))]:
@@ -737,8 +737,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			ops.mesh.select_all(action="DESELECT")
 			ops.object.mode_set(mode='OBJECT')
-					
-		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM') # avoids a few Blender bugs (as of 2.69)
+		
+		if self.armature_src: # Prevent pose from affecting bone child transforms
+			for posebone in self.armature_src.pose.bones: posebone.matrix_basis.identity()
+
+		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 		bpy.context.scene.update()
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
 		
