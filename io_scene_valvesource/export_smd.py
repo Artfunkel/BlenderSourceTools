@@ -1298,7 +1298,7 @@ skeleton
 			jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)		
 			jointTransforms.append(DmeModel["transform"])
 		bone_elements = {}
-		if self.armature: scale = self.armature.matrix_world.to_scale()
+		if self.armature: armature_scale = self.armature.matrix_world.to_scale()
 		
 		def writeBone(bone):
 			if isinstance(bone,str):
@@ -1330,7 +1330,7 @@ skeleton
 			
 			if bone and bone.parent:
 				for j in range(3):
-					trfm["position"][j] *= scale[j]
+					trfm["position"][j] *= armature_scale[j]
 			trfm_base["position"] = trfm["position"]
 			
 			if want_jointtransforms: jointTransforms.append(trfm)
@@ -1412,16 +1412,24 @@ skeleton
 			if want_jointlist: jointList.append(DmeDag)
 			DmeDag["shape"] = DmeMesh
 			
-			if isinstance(bake.envelope, str): # bone child?
+			bone_child = isinstance(bake.envelope, str)
+			if bone_child:
 				bone_elements[bake.envelope]["children"].append(DmeDag)
-				# bone.matrix_local is local to the armature, not the bone's parent
-				trfm_mat = self.armature_src.data.bones[bake.envelope].matrix_local.inverted() * ob.matrix_world
+				
+				# Blender's bone transforms are inconsistent with object transforms:
+				# - A bone's matrix_local value is local to the armature, NOT the bone's parent
+				# - Bone parents are calculated from the head of the bone, NOT the tail (even though the tail defines the bone's location in pose mode!)
+				# The simplest way to arrive at the correct value relative to the tail is to perform a world space calculation, like so:
+				bone_parent_matrix_world = self.armature_src.matrix_world * self.armature_src.data.bones[bake.envelope].matrix_local
+				trfm_mat = bone_parent_matrix_world.normalized().inverted() * bake.src.matrix_world # normalise to remove armature scale
 			else:
 				DmeModel_children.append(DmeDag)
 				trfm_mat = ob.matrix_world
 
 			trfm = makeTransform(bake.name, trfm_mat, "ob"+bake.name)
+						
 			if want_jointtransforms: jointTransforms.append(trfm)
+			
 			DmeDag["transform"] = trfm
 			DmeModel_transforms.append(makeTransform(bake.name, trfm_mat, "ob_base"+bake.name))
 			
@@ -1896,7 +1904,6 @@ skeleton
 			prev_rot = {}
 			skipped_pos = {}
 			skipped_rot = {}
-			scale = self.armature.matrix_world.to_scale()
 
 			two_percent = num_frames / 50
 			print("Frames: ",debug_only=True,newline=False)
@@ -1916,7 +1923,7 @@ skeleton
 					
 					pos = relMat.to_translation()
 					if bone.parent:
-						for j in range(3): pos[j] *= scale[j]
+						for j in range(3): pos[j] *= armature_scale[j]
 					
 					rot = relMat.to_quaternion()
 					rot_vec = Vector(rot.to_euler())

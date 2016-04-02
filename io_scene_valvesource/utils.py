@@ -57,7 +57,7 @@ exportable_types = tuple(exportable_types)
 
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
-axes_lookup_source2 = { 'X':0, 'Y':2, 'Z':1 }
+axes_lookup_source2 = { 'X':1, 'Y':2, 'Z':3 }
 
 dmx_model_versions = [1,15,18,22]
 
