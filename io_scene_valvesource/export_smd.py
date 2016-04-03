@@ -176,7 +176,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		scene_update(context.scene, immediate=True)
 		self.bake_results = []
-		self.armature = self.armature_src = None
 		self.bone_ids = {}
 		self.materials_used = set()
 		
@@ -270,6 +269,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 	
 	def exportId(self,context,id):
 		self.attemptedExports += 1
+		self.armature = self.armature_src = None
 		bench = BenchMarker()
 		
 		subdir = id.vs.subdir
@@ -510,6 +510,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 				scene_obs.active = joined.object
 			bench.report("Mech merge")
 
+		for result in bake_results:
+			if result.armature:
+				if not self.armature:
+					self.armature = result.armature.object
+					self.armature_src = result.armature.src
+				elif self.armature != result.armature:
+					self.warning(get_id("exporter_warn_multiarmature"))
+
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
 				self.warning(get_id("exporter_err_arm_nonuniform",True).format(self.armature_src.name))
@@ -533,8 +541,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		else:
 			self.files_exported += write_func(id, bake_results, self.sanitiseFilename(export_name), path)
 			bench.report(write_func.__name__)
-
-		self.armature = self.armature_src = None
 		
 		# Source doesn't handle Unicode characters in models. Detect any unicode strings and warn the user about them.
 		unicode_tested = set()
@@ -663,6 +669,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.matrix = Matrix()
 			self.envelope = None
 			self.src = None
+			self.armature = None
 			self.balance_vg = None
 			self.shapes = collections.OrderedDict()
 			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
@@ -670,9 +677,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 	# Creates a mesh with object transformations and modifiers applied
 	def bakeObj(self,id, generate_uvs = True):
 		for bake in (bake for bake in self.bake_results if bake.src == id or bake.object == id):
-			if id.type == 'ARMATURE':
-				self.armature = bake.object
-				self.armature_src = bake.src
 			return bake
 		
 		result = self.BakeResult(id.name)
@@ -723,7 +727,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		while cur_parent:
 			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE':
 				result.envelope = cur_parent.parent_bone
-				self.armature_src = cur_parent.parent
+				result.armature = self.bakeObj(cur_parent.parent)
+				select_only(id)
 				break
 			cur_parent = cur_parent.parent
 			
@@ -745,12 +750,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bpy.context.scene.update()
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
 		
-		if id.type == 'ARMATURE':			
+		if id.type == 'ARMATURE':
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
 			if self.armature and self.armature != id:
-				self.warning("Multiple armatures detected")
-			self.armature = result.object = id
-			self.armature_src = result.src
+				self.warning(get_id("exporter_warn_multiarmature"))
+			result.armature = result
+			result.object = id
 			return result
 		
 		if id.type == 'CURVE':
@@ -762,8 +767,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if result.envelope:
 					self.warning(get_id("exporter_err_dupeenv_con",True).format(con.name,id.name))
 				else:
-					self.armature_src = con.target
+					result.armature = self.bakeObj(con.target)
 					result.envelope = con.subtarget
+					select_only(id)
 		
 		solidify_fill_rim = None
 		shapes_invalid = False
@@ -772,8 +778,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if result.envelope and any(br for br in self.bake_results if br.envelope != mod.object):
 					self.warning(get_id("exporter_err_dupeenv_arm",True).format(mod.name,id.name))
 				else:
-					self.armature_src = mod.object
+					result.armature = self.bakeObj(mod.object)
 					result.envelope = mod
+					select_only(id)
 				mod.show_viewport = False
 			elif mod.type == 'SOLIDIFY' and not solidify_fill_rim:
 				solidify_fill_rim = mod.use_rim

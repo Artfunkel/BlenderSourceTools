@@ -496,6 +496,9 @@ _data = {
 	'en': "Name of the Group to export",
 	'ru': "Имя группы для экспорта",
 },
+'exporter_warn_multiarmature': {
+	'en': "Multiple armatures detected",
+},
 'exporter_err_solidifyinside': {
 	'en': "Curve {0} has the Solidify modifier with rim fill, but is still exporting polys on both sides.",
 	'ru': "На кривой {0} включён модификатор Объёмность с заполнением обода, однако всё равно экспортируется двусторонняя геометрия",
