@@ -1271,6 +1271,8 @@ skeleton
 		dm = datamodel.DataModel("model",DatamodelFormatVersion())
 		dm.allow_random_ids = False
 
+		source2 = dm.format_ver >= 22
+
 		root = dm.add_element(bpy.context.scene.name,id="Scene"+bpy.context.scene.name)
 		DmeModel = dm.add_element(armature_name,"DmeModel",id="Object" + armature_name)
 		DmeModel_children = DmeModel["children"] = datamodel.make_array([],datamodel.Element)
@@ -1280,7 +1282,7 @@ skeleton
 		DmeModel_transforms["transforms"] = datamodel.make_array([],datamodel.Element)
 		DmeModel_transforms = DmeModel_transforms["transforms"]
 
-		if dm.format_ver >= 22:
+		if source2:
 			DmeAxisSystem = DmeModel["axisSystem"] = dm.add_element("axisSystem","DmeAxisSystem","AxisSys" + armature_name)
 			DmeAxisSystem["upAxis"] = axes_lookup_source2[bpy.context.scene.vs.up_axis]
 			DmeAxisSystem["forwardParity"] = 1 # ??
@@ -1296,10 +1298,12 @@ skeleton
 		want_jointtransforms = dm.format_ver in range(0,21)
 		if want_jointlist:
 			jointList = DmeModel["jointList"] = datamodel.make_array([],datamodel.Element)
-			jointList.append(DmeModel)
+			if source2:
+				jointList.append(DmeModel)
 		if want_jointtransforms:
 			jointTransforms = DmeModel["jointTransforms"] = datamodel.make_array([],datamodel.Element)		
-			jointTransforms.append(DmeModel["transform"])
+			if source2:
+				jointTransforms.append(DmeModel["transform"])
 		bone_elements = {}
 		if self.armature: armature_scale = self.armature.matrix_world.to_scale()
 		
@@ -1317,7 +1321,7 @@ skeleton
 
 			bone_elements[bone_name] = bone_elem = dm.add_element(bone_name,"DmeJoint",id=bone_name)
 			if want_jointlist: jointList.append(bone_elem)
-			self.bone_ids[bone_name] = len(bone_elements) # intentionally skipping 0, which is reserved for the DmeModel itself
+			self.bone_ids[bone_name] = len(bone_elements) - (0 if source2 else 1) # in Source 2, index 0 is the DmeModel
 			
 			if not bone: relMat = Matrix()
 			else:
@@ -1352,7 +1356,9 @@ skeleton
 		if self.armature:
 			num_bones = len(self.exportable_bones)
 			
-			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent]:
+			if not source2:
+				DmeModel_children.extend(writeBone(implicit_bone_name))
+			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
 				if root_elems: DmeModel_children.extend(root_elems)
 
 			bench.report("Bones")
@@ -1425,6 +1431,9 @@ skeleton
 				# The simplest way to arrive at the correct value relative to the tail is to perform a world space calculation, like so:
 				bone_parent_matrix_world = self.armature_src.matrix_world * self.armature_src.data.bones[bake.envelope].matrix_local
 				trfm_mat = bone_parent_matrix_world.normalized().inverted() * bake.src.matrix_world # normalise to remove armature scale
+
+				if not source2 and bake.src.type == 'META': # I have no idea why this is required. Metaballs are weird.
+					trfm_mat *= Matrix.Translation(self.armature_src.location)
 			else:
 				DmeModel_children.append(DmeDag)
 				trfm_mat = ob.matrix_world
@@ -1437,7 +1446,7 @@ skeleton
 			DmeModel_transforms.append(makeTransform(bake.name, trfm_mat, "ob_base"+bake.name))
 			
 			jointCount = 0
-			weight_link_limit = 3 if dm.format_ver < 22 else 4
+			weight_link_limit = 4 if source2 else 3
 			badJointCounts = 0
 			culled_weight_links = 0
 			cull_threshold = bpy.context.scene.vs.dmx_weightlink_threshold
@@ -1514,7 +1523,7 @@ skeleton
 						total_weight += weights[i]
 						i+=1
 
-					if total_weight == 0:
+					if source2 and total_weight == 0:
 						weights[0] = 1.0 # attach to the DmeModel itself, avoiding motion.
 					
 					jointWeights.extend(weights)
@@ -1876,7 +1885,7 @@ skeleton
 				DmeTimeFrame["durationTime"] = int(duration * 10000)
 			DmeTimeFrame["scale"] = 1.0
 			DmeChannelsClip["timeFrame"] = DmeTimeFrame
-			DmeChannelsClip["frameRate"] = int(fps) if dm.format_ver < 22 else fps
+			DmeChannelsClip["frameRate"] = fps if source2 else int(fps)
 			
 			channels = DmeChannelsClip["channels"] = datamodel.make_array([],datamodel.Element)
 			bone_channels = {}

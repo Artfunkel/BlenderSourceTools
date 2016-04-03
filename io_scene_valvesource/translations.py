@@ -452,7 +452,7 @@ _data = {
 	'ru': "Не удалось найти контроллеры лицевой анимации для объекта {0}",
 },
 'exporter_warn_source2smdsupport': {
-	'en': "Source 2 will soon be dropping support for SMD.",
+	'en': "Source 2 no longer supports SMD.",
 },
 'exporter_tip': {
 	'en': "Export and compile Source Engine models",
