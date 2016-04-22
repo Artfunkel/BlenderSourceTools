@@ -1362,10 +1362,11 @@ skeleton
 	
 		if self.armature:
 			num_bones = len(self.exportable_bones)
+			add_implicit_bone = not source2
 			
-			if not source2:
+			if add_implicit_bone:
 				DmeModel_children.extend(writeBone(implicit_bone_name))
-			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and bone.name != implicit_bone_name]:
+			for root_elems in [writeBone(bone) for bone in self.armature.pose.bones if not bone.parent and not (add_implicit_bone and bone.name == implicit_bone_name)]:
 				if root_elems: DmeModel_children.extend(root_elems)
 
 			bench.report("Bones")
