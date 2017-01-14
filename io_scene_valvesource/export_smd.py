@@ -529,7 +529,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.warning(get_id("exporter_err_arm_nonuniform",True).format(self.armature_src.name))
 			if not self.armature:
 				self.armature = self.bakeObj(self.armature_src).object
-			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (isinstance(id, bpy.types.Object) and id.type == 'ARMATURE') or pbone.bone.use_deform or pbone.name in [_bake.envelope for _bake in bake_results]])
+			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (isinstance(id, bpy.types.Object) and id.type == 'ARMATURE') or pbone.bone.use_deform])
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
@@ -1068,7 +1068,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				weights = self.getWeightmap(bake)
 				
 				ob_weight_str = None
-				if type(bake.envelope) == str:
+				if type(bake.envelope) == str and bake.envelope in self.bone_ids:
 					ob_weight_str = " 1 {} 1".format(self.bone_ids[bake.envelope])
 				elif not weights:
 					ob_weight_str = " 0"
@@ -1436,7 +1436,7 @@ skeleton
 			DmeDag["shape"] = DmeMesh
 			
 			bone_child = isinstance(bake.envelope, str)
-			if bone_child:
+			if bone_child and bake.envelope in bone_elements:
 				bone_elements[bake.envelope]["children"].append(DmeDag)
 				
 				# Blender's bone transforms are inconsistent with object transforms:
