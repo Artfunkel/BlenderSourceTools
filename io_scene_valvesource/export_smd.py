@@ -316,7 +316,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 			basis = id
 			for meta in [ob for ob in bpy.data.objects if ob.type == 'META']:
 				ns = meta.name.rsplit(".")
-				if len(ns) == 1 or ns[0] != basis_ns[0]: continue
+
+				if ns[0] != basis_ns[0]:
+					continue
+				if len(ns) == 1:
+					basis = meta
+					break
+
 				try:
 					if int(ns[1]) < int(basis_ns[1]):
 						basis = meta

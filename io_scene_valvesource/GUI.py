@@ -34,23 +34,22 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 		l = self.layout
 		l.operator_context = 'EXEC_DEFAULT'
 		
-		exportables = getSelectedExportables()	
+		exportables = list(getSelectedExportables())
 		if len(exportables):
 			single_obs = list([ex for ex in exportables if ex.ob_type != 'GROUP'])
 			groups = list([ex for ex in exportables if ex.ob_type == 'GROUP'])
 			groups.sort(key=lambda g: g.name.lower())
 				
 			group_layout = l
-			for i,group in enumerate(groups):
+			for i,group in enumerate(groups): # always display all possible groups, as an object could be part of several
 				if type(self) == SMD_PT_Scene:
 					if i == 0: group_col = l.column(align=True)
 					if i % 2 == 0: group_layout = group_col.row(align=True)
 				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').group = group.get_id().name
 				
-			num_obs = len(single_obs)
-			if num_obs > 1:
-				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(num_obs), icon='OBJECT_DATA')
-			elif num_obs:
+			if len(exportables) > 1:
+				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(len(exportables)), icon='OBJECT_DATA')
+			elif len(single_obs):
 				l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
 		elif len(bpy.context.selected_objects):
 			row = l.row()
