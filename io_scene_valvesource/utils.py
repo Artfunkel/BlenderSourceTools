@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, struct, time, collections, os, subprocess, sys, builtins
+import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools
 from bpy.app.translations import pgettext
 from mathutils import *
 from math import *
@@ -187,20 +187,17 @@ def getEngineVersion():
 def getDmxVersionsForSDK():
 	return getEngineBranch()[1]
 
-vertex_blend_colour_name = "ValveSource_VertexPaintBlendParams"
-vertex_paint_colour_name = "ValveSource_VertexPaintTintColor"
-
-vertex_paint_data = [
-	("vertex_paint",vertex_paint_colour_name),
-	("vertex_blend",vertex_blend_colour_name),
-	("vertex_blend1",vertex_blend_colour_name + ".001")
-]
+vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesource_vertex_blend1"]
 
 def getDmxKeywords(format_version):
 	if format_version >= 22:
-		return { 'pos': "position$0", 'norm': "normal$0", 'texco':"texcoord$0", 'wrinkle':"wrinkle$0",
+		return {
+		  'pos': "position$0", 'norm': "normal$0", 'texco':"texcoord$0", 'wrinkle':"wrinkle$0",
 		  'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0",
-		  'vertex_blend':"VertexPaintBlendParams$0",'vertex_blend1':"VertexPaintBlendParams1$0", 'vertex_paint':"VertexPaintTintColor$0" }
+		  'valvesource_vertex_blend':"VertexPaintBlendParams$0",
+		  'valvesource_vertex_blend1':"VertexPaintBlendParams1$0",
+		  'valvesource_vertex_paint':"VertexPaintTintColor$0"
+		  }
 	else:
 		return { 'pos': "positions", 'norm': "normals", 'texco':"textureCoordinates", 'wrinkle':"wrinkle",
 		  'balance':"balance", 'weight':"jointWeights", 'weight_indices':"jointIndices" }
@@ -370,16 +367,18 @@ def hasCurves(id):
 	else:
 		return _test(id)
 
-def hasVertexColours(id):
+def valvesource_vertex_maps(id):
+	"""Returns all vertex colour maps which are recognised by the Tools."""
 	def test(id_):
-		return hasattr(id_.data,"vertex_colors") and id_.data.vertex_colors.get(vertex_paint_colour_name)
+		if hasattr(id_.data,"vertex_colors"):
+			return set(id_.data.vertex_colors.keys()).intersection(vertex_maps)
+		else:
+			return []
 
 	if type(id) == bpy.types.Group:
-		return any(ob for ob in id.objects if test(ob))
+		return set(itertools.chain(*(test(ob) for ob in id.objects)))
 	elif id.type == 'MESH':
 		return test(id)
-	else:
-		return False		
 
 def actionsForFilter(filter):
 	import fnmatch
@@ -480,6 +479,10 @@ last_export_refresh = 0
 def scene_update(scene, immediate=False):
 	global need_export_refresh
 	global last_export_refresh
+
+	if bpy.context.active_object:
+		for group in bpy.context.active_object.users_group:
+			group.vs.selected_item = group.objects.values().index(bpy.context.active_object)
 	
 	if not hasattr(scene,"vs") or not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return

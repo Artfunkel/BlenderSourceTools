@@ -272,6 +272,66 @@ $sequence "{0}" "vcaanim_{0}{1}" fps {2}
 		self.report({'INFO'},"QC segment copied to clipboard.")
 		return {'FINISHED'}
 
+SMD_OT_CreateVertexMap_idname = "smd.vertex_map_create_"
+SMD_OT_SelectVertexMap_idname = "smd.vertex_map_select_"
+SMD_OT_RemoveVertexMap_idname = "smd.vertex_map_remove_"
+
+for map_name in vertex_maps:
+	def is_mesh(ob):
+		return ob is not None and ob.type == 'MESH'
+
+	class SelectVertexMap(bpy.types.Operator):
+		bl_idname = SMD_OT_SelectVertexMap_idname + map_name
+		bl_label = bl_description = get_id("vertmap_select")
+		bl_options = {'INTERNAL'}
+		vertex_map = map_name
+	
+		@classmethod
+		def poll(cls,c):
+			if not is_mesh(c.active_object): return False
+
+			vc_loop = c.active_object.data.vertex_colors.get(cls.vertex_map)
+			return vc_loop and not vc_loop.active
+
+		def execute(self,c):
+			c.active_object.data.vertex_colors[self.vertex_map].active = True
+			return {'FINISHED'}
+
+	class CreateVertexMap(bpy.types.Operator):
+		bl_idname = SMD_OT_CreateVertexMap_idname + map_name
+		bl_label = bl_description = get_id("vertmap_create")
+		bl_options = {'INTERNAL'}
+		vertex_map = map_name
+	
+		@classmethod
+		def poll(cls,c):
+			return is_mesh(c.active_object) and not cls.vertex_map in c.active_object.data.vertex_colors
+
+		def execute(self,c):
+			vc = c.active_object.data.vertex_colors.new(name=self.vertex_map)
+			vc.data.foreach_set("color",[1.0] * len(vc.data) * 3)
+			SelectVertexMap.execute(self,c)
+			return {'FINISHED'}
+
+	class RemoveVertexMap(bpy.types.Operator):
+		bl_idname = SMD_OT_RemoveVertexMap_idname + map_name
+		bl_label = bl_description = get_id("vertmap_remove")
+		bl_options = {'INTERNAL'}
+		vertex_map = map_name
+	
+		@classmethod
+		def poll(cls,c):
+			return is_mesh(c.active_object) and cls.vertex_map in c.active_object.data.vertex_colors
+
+		def execute(self,c):
+			vcs = c.active_object.data.vertex_colors
+			vcs.remove(vcs[self.vertex_map])
+			return {'FINISHED'}
+
+	bpy.utils.register_class(SelectVertexMap)
+	bpy.utils.register_class(CreateVertexMap)
+	bpy.utils.register_class(RemoveVertexMap)
+
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = get_id('exportables_title')
 	bl_space_type = "PROPERTIES"
@@ -397,6 +457,27 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			row.alignment = 'CENTER'
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
+		
+		vertmap_item = item.objects[item.vs.selected_item] if is_group else context.active_object
+		if shouldExportDMX() and DatamodelFormatVersion() >= 22 and vertmap_item:
+			if vertmap_item.type == 'MESH':
+				title = get_id("vertmap_group_props")
+				if is_group:
+					title += " ({})".format(vertmap_item.data.name)
+
+				col = self.makeSettingsBox(text=title, icon='VPAINT_HLT')
+				for map_name in vertex_maps:
+					r = col.row().split(0.55)
+					r.label(get_id(map_name),icon='GROUP_VCOL')
+					
+					r = r.row()
+					add_remove = r.row(align=True)
+					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ZOOMIN',text="")
+					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='ZOOMOUT',text="")
+					r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
+
+				col.separator()
+				col.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/Vertex_animation"
 		
 		if hasCurves(item):
 			col = self.makeSettingsBox(text=get_id("exportables_curve_props"),icon='OUTLINER_OB_CURVE')

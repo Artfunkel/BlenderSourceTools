@@ -340,7 +340,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Group:
 			have_baked_metaballs = False
-			vertex_colours = hasVertexColours(id)
+			group_vertex_maps = valvesource_vertex_maps(id)
 			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
@@ -349,10 +349,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 					else: baked_metaballs.append(ob)
 						
 				bake = self.bakeObj(ob)
-				if vertex_colours and not hasVertexColours(bake.object):
-					vertex_colour_data = bake.object.data.vertex_colors.new(vertex_paint_colour_name).data
-					for i in range(len(vertex_colour_data)):
-						vertex_colour_data[i].color = Color([1,1,1])
+				for vertex_map_name in group_vertex_maps:
+					if not vertex_map_name in bake.object.data.vertex_colors:
+						vertex_map = bake.object.data.vertex_colors.new(vertex_map_name)
+						vertex_map.data.foreach_set("color",[1.0] * len(vertex_colour_data) * 3)
 
 				if bake:
 					bake_results.append(bake)
@@ -1576,23 +1576,22 @@ skeleton
 			bench.report("insert")
 
 			# Hammer data
-			for keyword, data_name in vertex_paint_data:
-				kw = keywords.get(keyword)
-				if not kw:
+			for map_name in vertex_maps:
+				attribute_name = keywords.get(map_name)
+				vert_map = ob.data.vertex_colors.get(map_name)
+
+				if not attribute_name or not vert_map:
 					continue
+				
+				colours = []
+				for loopColour in vert_map.data:
+					colour = list(loopColour.color)
+					colour.append(0) # make a W component
+					colours.append(datamodel.Vector4(colour))
 
-				vert_colours = ob.data.vertex_colors.get(data_name)
-				if vert_colours:
-					colours = []
-
-					for loopColour in vert_colours.data:
-						colour = list(loopColour.color)
-						colour.append(0) # make a W component
-						colours.append(datamodel.Vector4(colour))
-
-					vertex_data[kw] = datamodel.make_array(colours,datamodel.Vector4)
-					vertex_data[kw + "Indices"] = datamodel.make_array(range(len(vert_colours.data)),int)
-					format.append(kw)
+				vertex_data[attribute_name] = datamodel.make_array(colours,datamodel.Vector4)
+				vertex_data[attribute_name + "Indices"] = datamodel.make_array(range(len(colours)),int)
+				format.append(attribute_name)
 
 			face_sets = collections.OrderedDict()
 			bad_face_mats = 0

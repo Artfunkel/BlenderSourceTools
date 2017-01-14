@@ -11,6 +11,9 @@ _data = {
 	'en': "Generate one flex controller per shape key",
 	'ru': "Создавать по контроллеру на каждый ключ формы",
 },
+'vertmap_group_props': {
+	'en': "Vertex Maps",
+},
 'action_selection_filter_tip': {
 	'en': "All actions that match the armature's filter term and have users",
 	'ru': "Все действия, которые подходят под фильтр имён действий и где-либо используются",
@@ -22,6 +25,9 @@ _data = {
 'action_selection_current_tip': {
 	'en': "The armature's currently assigned action or NLA tracks",
 	'ru': "Текущее действие (или нелинейная анимация) скелета",
+},
+'valvesource_cloth_enable': {
+	'en': "Cloth Physics Enable",
 },
 'subdir_tip': {
 	'en': "Optional path relative to scene output folder",
@@ -109,6 +115,9 @@ _data = {
 	'en': "Backward (inner) side",
 	'ru': "Внутренняя сторона",
 },
+'valvesource_vertex_blend': {
+	'en': "Blend Params RGB",
+},
 'bone_rot_legacy_tip': {
 	'en': "Remaps the Y axis of bones in this armature to Z, for backwards compatibility with old imports (SMD only)",
 	'ru': "Переназначить Y-ось всех костей в Z-ось для обратной совместимости с старыми импортами",
@@ -148,6 +157,9 @@ _data = {
 	'en': "A DMX file (or Text datablock) containing flex controllers",
 	'ru': "DMX-файл или внутренний текст в Blender, содержащий настройки контроллеров лицевой анимации",
 },
+'valvesource_vertex_blend1': {
+	'en': "Blend Params Extra (?)",
+},
 'curve_poly_side_tip': {
 	'en': "Determines which side(s) of this curve will generate polygons when exported",
 	'ru': "Указывает, какая сторона (стороны) выделенной кривой будет использоваться для генерации геометрии",
@@ -176,6 +188,9 @@ _data = {
 'vca_end_tip': {
 	'en': "Scene frame at which to stop recording Vertex Animation",
 	'ru': "Кадр в сцене, которым следует закончить запись вершинной анимации",
+},
+'valvesource_vertex_paint': {
+	'en': "Vertex Paint",
 },
 'controllers_mode_tip': {
 	'en': "How flex controllers are defined",
@@ -736,6 +751,9 @@ _data = {
 	'en': "Launches Half-Life Model Viewer",
 	'ru': "Запускает просмотощик моделей Source, HLMV",
 },
+'vertmap_remove': {
+	'en': "Remove Source 2 Vertex Map",
+},
 'activate_dep_shapes_tip': {
 	'en': "Activates shapes found in the name of the current shape (underscore delimited)",
 	'ru': "Активирует зависимые ключи формы  (ключи формы, которые можно найти в названии данного ключа, разделённые подчёркиванием)",
@@ -751,6 +769,9 @@ _data = {
 'vca_add': {
 	'en': "Add Vertex Animation",
 	'ru': "Добавить вершинную анимацию",
+},
+'vertmap_select': {
+	'en': "Select Source 2 Vertex Map",
 },
 'vca_preview': {
 	'ja': "頂点アニメーションを再生します",
@@ -787,6 +808,9 @@ _data = {
 	'ja': "QCの抜粋を生成します",
 	'en': "Generate QC Segment",
 	'ru': "Создать фрагмент QC-файла",
+},
+'vertmap_create': {
+	'en': "Create Source 2 Vertex Map",
 },
 'vca_preview_tip': {
 	'en': "Plays the active Source Tools Vertex Animation using scene preview settings",

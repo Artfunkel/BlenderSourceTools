@@ -1504,13 +1504,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 						def get_loop_color(self, loop_index):
 							return Color(self.colours[self.indices[loop_index]][:3])
 
-					for keyword, data_name in vertex_paint_data:
-						keyword = keywords.get(keyword)
-						if keyword and keyword in DmeVertexData["vertexFormat"]:
+					for map_name in vertex_maps:
+						attribute_name = keywords.get(map_name)
+						if attribute_name and attribute_name in DmeVertexData["vertexFormat"]:
 							vertex_colour_layers.append(VertexColourInfo(
-								bm.loops.layers.color.new(data_name),
-								DmeVertexData[keyword + "Indices"],
-								DmeVertexData[keyword]
+								bm.loops.layers.color.new(map_name),
+								DmeVertexData[attribute_name + "Indices"],
+								DmeVertexData[attribute_name]
 							))
 					
 					for face_set in DmeMesh["faceSets"]:

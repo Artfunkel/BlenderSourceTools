@@ -107,8 +107,17 @@ def scene_load_post(_):
 	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps, ExportableProps)
 	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
 	for g in bpy.data.groups: convert(g,ValveSource_GroupProps, ExportableProps)
-	for g in bpy.data.curves: convert(g,ValveSource_CurveProps, ShapeTypeProps)
-	for g in bpy.data.meshes: convert(g,ValveSource_MeshProps, ShapeTypeProps)
+	for c in bpy.data.curves: convert(c,ValveSource_CurveProps, ShapeTypeProps)
+	for m in bpy.data.meshes:
+		convert(m,ValveSource_MeshProps, ShapeTypeProps)
+		for vert_map in m.vertex_colors:
+			if vert_map.name == "ValveSource_VertexPaintTintColor":
+				vert_map.name = "valvesource_vertex_paint"
+			elif vert_map.name == "ValveSource_VertexPaintBlendParams":
+				vert_map.name = "valvesource_vertex_blend"
+			elif vert_map.name == "ValveSource_VertexPaintBlendParams.001":
+				vert_map.name = "valvesource_vertex_blend1"
+
 
 	if scene_load_post in scene_update_post:
 		scene_update_post.remove(scene_load_post)
