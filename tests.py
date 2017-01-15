@@ -2,6 +2,7 @@
 import os, shutil, unittest, sys
 from importlib import import_module
 from os.path import join
+from io_scene_valvesource import datamodel
 
 src_path = os.path.realpath(join(".."))
 tests_path = join(src_path,"Tests")
@@ -34,17 +35,24 @@ class Tests:
 		bpy.app.debug_value = 1
 		print("Blender version",bpy.app.version)
 
+	@property
+	def expectedResultsPath(self):
+		return join(tests_path,"ExpectedResults",self.blend)
+
+	@property
+	def outputPath(self):
+		return os.path.realpath(join(results_path,self.bpy_version,os.path.splitext(self.blend)[0]))
+
 	def compareResults(self):
 		if self.compare_results:
-			expectedresults_path = join(tests_path,"ExpectedResults",self.blend)
-			if os.path.exists(expectedresults_path):
-				self.assertEqual(os.listdir(C.scene.vs.export_path), os.listdir(expectedresults_path))
+			if os.path.exists(self.expectedResultsPath):
+				self.assertEqual(os.listdir(C.scene.vs.export_path), os.listdir(self.expectedResultsPath))
 				self.maxDiff = None
 				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
 					for f in filenames:
 						with open(join(dirpath,f),'rb') as out_file:
-							with open(join(expectedresults_path,f),'rb') as expected_file:
-								self.assertEqual(out_file.read(),expected_file.read())
+							with open(join(self.expectedResultsPath,f),'rb') as expected_file:
+								self.assertEqual(out_file.read(),expected_file.read(), "Export did not match expected output.")
 			print("Output matches expected results")
 
 	def runExportTest(self,blend):
@@ -115,6 +123,10 @@ class Tests:
 		self.runExportTest("Armature_NoBones")
 	def test_Export_AllTypes(self):
 		self.runExportTest("AllTypes_Armature")
+		jointList = datamodel.load(join(self.outputPath,"AllTypes.dmx")).root["skeleton"]["jointList"]
+		if any(elem.name == "Bone_NonDeforming" for elem in jointList):
+			self.fail("Export contained 'Bone_NonDeforming'. This should have been excluded.")
+
 		self.runExportTest_Single("Armature")
 
 	def test_Export_ActionFilter(self):
