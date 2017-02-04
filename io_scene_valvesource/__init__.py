@@ -186,6 +186,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path = StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=game_path_changed)
 	dmx_weightlink_threshold = FloatProperty(name=get_id("dmx_weightlinkcull"),description=get_id("dmx_weightlinkcull_tip"),max=1,min=0)
+	goldsource_compatibility = BoolProperty(name=get_id("goldsource_compatibility"),description=get_id("goldsource_compatibility_tip"),default=False)
 
 class ValveSource_VertexAnimation(PropertyGroup):
 	name = StringProperty(name="Name",default="VertexAnim")

@@ -1091,19 +1091,33 @@ class SmdExporter(bpy.types.Operator, Logger):
 						# UVs
 						uv = " ".join([getSmdFloat(j) for j in uv_loop[loop.index].uv])
 
-						# Weightmaps
-						weight_string = ""
-						if ob_weight_str:
-							weight_string = ob_weight_str
-						else:
-							valid_weights = 0
-							for link in [link for link in weights[v.index] if link[1] > 0]:
-								weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
-								valid_weights += 1
-							weight_string = " {}{}".format(valid_weights,weight_string)
-
 						# Finally, write it all to file
-						self.smd_file.write("0" + pos_norm + uv + weight_string + "\n")
+						if not bpy.context.scene.vs.goldsource_compatibility:
+
+							# Weightmaps
+							weight_string = ""
+							if ob_weight_str:
+								weight_string = ob_weight_str
+							else:
+								valid_weights = 0
+								for link in [link for link in weights[v.index] if link[1] > 0]:
+									weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
+									valid_weights += 1
+								weight_string = " {}{}".format(valid_weights,weight_string)	
+
+							self.smd_file.write("0" + pos_norm + uv + weight_string + "\n")
+						else:
+							# TODO: figure out relation to ob_weight_str
+							# but should we even bother with that since GoldSource bones
+							# apparently don't have weights?
+
+							# also simplify bone_id retreieval if possible
+							
+							bone_id = ""
+							for link in [link for link in weights[v.index] if link[1] > 0]:
+								bone_id += " {}".format( link[0] )
+
+							self.smd_file.write(bone_id + pos_norm + uv + "\n")
 
 					face_index += 1
 
