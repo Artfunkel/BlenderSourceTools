@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (2, 8, 0),
+	"version": (2, 8, 1),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -136,6 +136,9 @@ def export_active_changed(self, context):
 		context.scene.objects.active = id
 
 def group_selected_changed(self,context):
+	if utils.scene_update_guard:
+		return
+
 	for ob in context.scene.objects: ob.select = False
 	id = self.id_data.objects[self.id_data.vs.selected_item]
 	id.select = True
