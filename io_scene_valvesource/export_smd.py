@@ -1091,19 +1091,26 @@ class SmdExporter(bpy.types.Operator, Logger):
 						# UVs
 						uv = " ".join([getSmdFloat(j) for j in uv_loop[loop.index].uv])
 
-						# Weightmaps
-						weight_string = ""
-						if ob_weight_str:
-							weight_string = ob_weight_str
-						else:
-							valid_weights = 0
-							for link in [link for link in weights[v.index] if link[1] > 0]:
-								weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
-								valid_weights += 1
-							weight_string = " {}{}".format(valid_weights,weight_string)
+						if bpy.context.scene.vs.smd_format == "SOURCE":
+							# Weightmaps
+							weight_string = ""
+							if ob_weight_str:
+								weight_string = ob_weight_str
+							else:
+								valid_weights = 0
+								for link in [link for link in weights[v.index] if link[1] > 0]:
+									weight_string += " {} {}".format(link[0], getSmdFloat(link[1]))
+									valid_weights += 1
+								weight_string = " {}{}".format(valid_weights,weight_string)	
 
-						# Finally, write it all to file
-						self.smd_file.write("0" + pos_norm + uv + weight_string + "\n")
+							self.smd_file.write("0" + pos_norm + uv + weight_string + "\n") # write to file
+
+						elif bpy.context.scene.vs.smd_format == "GOLDSOURCE":
+							bone_id = next((link for link in weights[v.index] if link[1] > 0), [0,1])[0]
+							self.smd_file.write(str(bone_id) + pos_norm + uv + "\n") # write to file
+						
+						else:
+							raise ValueError("Unhandled SMD format")
 
 					face_index += 1
 

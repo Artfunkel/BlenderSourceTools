@@ -55,7 +55,7 @@ class Tests:
 								self.assertEqual(out_file.read(),expected_file.read(), "Export did not match expected output.")
 			print("Output matches expected results")
 
-	def runExportTest(self,blend):
+	def setupTest(self, blend):
 		self.loadBlender()
 		self.blend = blend
 		bpy.ops.wm.open_mainfile(filepath=join(tests_path,blend + ".blend"))
@@ -63,6 +63,10 @@ class Tests:
 		C.scene.vs.export_path = os.path.realpath(join(results_path,self.bpy_version,blend_name))
 		if os.path.isdir(C.scene.vs.export_path):
 			shutil.rmtree(C.scene.vs.export_path)
+		return blend_name
+
+	def runExportTest(self,blend):
+		blend_name = self.setupTest(blend)
 
 		def ex(do_scene):
 			result = bpy.ops.export_scene.smd(export_scene=do_scene)
@@ -175,6 +179,21 @@ class Tests:
 					 sdk_content_path + "tf/modelsrc/player/heavy/scripts/heavy_low.qc",
 					 sdk_content_path + "tf/modelsrc/player/heavy/animations/dmx/Die_HeadShot_Deployed.dmx")
 		self.assertEqual(len(bpy.data.meshes["head=zero"].shape_keys.key_blocks), 43)
+
+	def test_export_SMD_GoldSrc(self):
+		self.setupTest("Cube_Armature")
+
+		# override setupTest's values
+		self.blend = "Cube_Armature_GoldSource"
+		C.scene.vs.export_path = os.path.realpath(join(results_path, self.bpy_version, self.blend))
+
+		C.scene.vs.export_format = 'SMD'
+		C.scene.vs.smd_format = 'GOLDSOURCE'
+
+		result = bpy.ops.export_scene.smd(export_scene=True)
+		self.assertTrue(result == {'FINISHED'})
+
+		self.compareResults()
 		
 
 class bpy_274(unittest.TestCase,Tests):

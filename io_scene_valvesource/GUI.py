@@ -79,7 +79,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.alignment = 'CENTER'
 		row.prop(scene.vs,"layer_filter")
 		row.prop(scene.vs,"use_image_names")
-
+		
 		row = l.row()
 		row.alert = len(scene.vs.export_path) == 0
 		row.prop(scene.vs,"export_path")
@@ -92,8 +92,8 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
-		if shouldExportDMX():
-			if bpy.app.debug_value > 0 or scene.vs.use_kv2: l.prop(scene.vs,"use_kv2")
+		if shouldExportDMX() and bpy.app.debug_value > 0 or scene.vs.use_kv2:
+			l.prop(scene.vs,"use_kv2")
 			l.separator()
 		
 		row = l.row()
@@ -116,6 +116,10 @@ class SMD_PT_Scene(bpy.types.Panel):
 					pass
 				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
 				col.enabled = shouldExportDMX()
+		else:
+			row = l.split(0.33)
+			row.label(text=GetCustomPropName(scene.vs,"smd_format",":"))
+			row.row().prop(scene.vs,"smd_format", expand=True)
 		
 		col = l.column(align=True)
 		row = col.row(align=True)

@@ -854,7 +854,7 @@ _data = {
 	'ru': "Путь до мода",
 },
 'up_axis': {
-	'ja': "対象の前方",
+	'ja': "対象の上昇軸",
 	'en': "Target Up Axis",
 	'ru': "Направление \"Вверх\"",
 },
@@ -889,6 +889,11 @@ _data = {
 'up_axis_tip': {
 	'en': "Use for compatibility with data from other 3D tools",
 	'ru': "Используется для совместимости с экспортами из Maya и других 3D-пакетов",
+},
+'smd_format': {
+	'ja': "対象のエンジン",
+	'en': "Target Engine",
+	'ru': "мишень движка",
 },
 'dmx_mat_path_tip': {
 	'en': "Folder relative to game root containing VMTs referenced in this scene (DMX only)",
