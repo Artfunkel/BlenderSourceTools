@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (2, 8, 1),
+	"version": (2, 8, 2),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -123,7 +123,11 @@ def scene_load_post(_):
 		scene_update_post.remove(scene_load_post)
 
 def export_active_changed(self, context):
-	id = get_active_exportable(context)
+	if not context.scene.vs.export_list_active < len(context.scene.vs.export_list):
+		context.scene.vs.export_list_active = len(context.scene.vs.export_list) - 1
+		return
+
+	id = get_active_exportable(context).get_id()
 	
 	if type(id) == bpy.types.Group and id.vs.mute: return
 	for ob in context.scene.objects: ob.select = False
@@ -184,7 +188,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	use_image_names = BoolProperty(name=get_id("ignore_materials"),description=get_id("ignore_materials_tip"),default=False)
 	layer_filter = BoolProperty(name=get_id("visible_only"),description=get_id("visible_only_tip"),default=False)
 	material_path = StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
-	export_list_active = IntProperty(name=get_id("active_exportable"),default=0,update=export_active_changed)
+	export_list_active = IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)
 	export_list = CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})	
 	use_kv2 = BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path = StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=game_path_changed)

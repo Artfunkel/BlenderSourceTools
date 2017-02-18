@@ -96,9 +96,13 @@ def get_id(id, format_string = False, data = False):
 	else:
 		return out
 
-def get_active_exportable(context = None):
+def get_active_exportable(context = None, extract_id = True):
 	if not context: context = bpy.context
-	return context.scene.vs.export_list[context.scene.vs.export_list_active].get_id()
+	
+	if not context.scene.vs.export_list_active < len(context.scene.vs.export_list):
+		return None
+
+	return context.scene.vs.export_list[context.scene.vs.export_list_active]
 
 class BenchMarker:
 	def __init__(self,indent = 0, prefix = None):

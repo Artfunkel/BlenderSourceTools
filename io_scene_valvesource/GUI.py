@@ -200,10 +200,10 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls,c):
-		return type(get_active_exportable(c)) in [bpy.types.Object, bpy.types.Group]
+		return type(get_active_exportable(c).get_id()) in [bpy.types.Object, bpy.types.Group]
 	
 	def execute(self,c):
-		id = get_active_exportable(c)
+		id = get_active_exportable(c).get_id()
 		id.vs.vertex_animations.add()
 		id.vs.active_vertex_animation = len(id.vs.vertex_animations) - 1
 		return {'FINISHED'}
@@ -218,11 +218,11 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls,c):
-		id = get_active_exportable(c)
+		id = get_active_exportable(c).get_id()
 		return type(id) in [bpy.types.Object, bpy.types.Group] and len(id.vs.vertex_animations)
 	
 	def execute(self,c):
-		id = get_active_exportable(c)
+		id = get_active_exportable(c).get_id()
 		id.vs.vertex_animations.remove(self.index)
 		id.vs.active_vertex_animation -= 1
 		return {'FINISHED'}
@@ -234,7 +234,7 @@ class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
 	bl_options = {'INTERNAL'}
 
 	def execute(self,c):
-		id = get_active_exportable(c)
+		id = get_active_exportable(c).get_id()
 		anim = id.vs.vertex_animations[id.vs.active_vertex_animation]
 		c.scene.use_preview_range = True
 		c.scene.frame_preview_start = anim.start
@@ -255,7 +255,7 @@ class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
 		return get_active_exportable(c) is not None
 	
 	def execute(self,c): # FIXME: DMX syntax
-		id = get_active_exportable(c)
+		id = get_active_exportable(c).get_id()
 		fps = c.scene.render.fps / c.scene.render.fps_base
 		wm = c.window_manager
 		wm.clipboard = '$model "merge_me" {0}{1}'.format(id.name,getFileExt())
@@ -353,12 +353,12 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		scene = context.scene
 		
 		l.template_list("SMD_UL_ExportItems","",scene.vs,"export_list",scene.vs,"export_list_active",rows=3,maxrows=8)
-		
-		if not len(scene.vs.export_list):
+				
+		active_exportable = get_active_exportable(context)
+		if not active_exportable:
 			return
-		
-		active_item = scene.vs.export_list[min(scene.vs.export_list_active,len(scene.vs.export_list)-1)]
-		item = (bpy.data.groups if active_item.ob_type == 'GROUP' else bpy.data.objects)[active_item.item_name]
+
+		item = active_exportable.get_id()
 		is_group = type(item) == bpy.types.Group
 
 		col = l.column()
