@@ -96,7 +96,7 @@ def get_id(id, format_string = False, data = False):
 	else:
 		return out
 
-def get_active_exportable(context = None, extract_id = True):
+def get_active_exportable(context = None):
 	if not context: context = bpy.context
 	
 	if not context.scene.vs.export_list_active < len(context.scene.vs.export_list):
