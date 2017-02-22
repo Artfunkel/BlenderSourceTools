@@ -78,8 +78,13 @@ class Tests:
 		C.scene.vs.dmx_format = '18'
 		ex(True)
 
-		section("SMD scene")
+		section("SMD GoldSrc")
 		C.scene.vs.export_format = 'SMD'
+		C.scene.vs.smd_format = 'GOLDSOURCE'
+		ex(True)
+
+		section("SMD Source")
+		C.scene.vs.smd_format = 'SOURCE'
 		ex(True)
 
 		qc_name = bpy.path.abspath("//" + blend_name + ".qc")

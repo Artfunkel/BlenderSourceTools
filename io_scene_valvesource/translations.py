@@ -430,6 +430,9 @@ _data = {
 	'en': "Cannot export shape keys from \"{0}\" because it has a '{1}' Decimate modifier. Only Un-Subdivide mode is supported.",
 	'ru': "Невзможно экспортировать ключи формы для {0}, потому что активен модификатор \"Аппроксимация\" в режиме {1}. Поддерживается только режим \"Снять подразделение\"",
 },
+'exporterr_goldsrc_multiweights': {
+	'en': "{0} verts on \"{1}\" have multiple weight links. GoldSrc does not support this!",
+},
 'exporter_err_splitvgroup_undefined': {
 	'en': "Object \"{0}\" uses Vertex Group stereo split, but does not define a Vertex Group to use.",
 	'ru': "На объекте {0} задан режим стерео-разделения по группе вершин, но не задана группа вершин.",

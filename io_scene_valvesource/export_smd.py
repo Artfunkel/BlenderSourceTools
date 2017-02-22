@@ -943,6 +943,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 	def writeSMD(self, id, bake_results, name, filepath, filetype = 'smd'):
 		bench = BenchMarker(1,"SMD")
+		goldsrc = bpy.context.scene.vs.smd_format == "GOLDSOURCE"
 		
 		self.smd_file = self.openSMD(filepath,name + "." + filetype,filetype.upper())
 		if self.smd_file == None: return 0
@@ -1069,11 +1070,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				ob_weight_str = None
 				if type(bake.envelope) == str and bake.envelope in self.bone_ids:
-					ob_weight_str = " 1 {} 1".format(self.bone_ids[bake.envelope])
+					ob_weight_str = (" 1 {} 1" if not goldsrc else "{}").format(self.bone_ids[bake.envelope])
 				elif not weights:
-					ob_weight_str = " 0"
+					ob_weight_str = " 0" if not goldsrc else "0"
 				
 				bad_face_mats = 0
+				multi_weight_verts = set() # only relevant for GoldSrc exports
 				p = 0
 				for poly in data.polygons:
 					if p % 10 == 0: bpy.context.window_manager.progress_update(p / len(data.polygons))
@@ -1091,7 +1093,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						# UVs
 						uv = " ".join([getSmdFloat(j) for j in uv_loop[loop.index].uv])
 
-						if bpy.context.scene.vs.smd_format == "SOURCE":
+						if not goldsrc:
 							# Weightmaps
 							weight_string = ""
 							if ob_weight_str:
@@ -1105,15 +1107,23 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 							self.smd_file.write("0" + pos_norm + uv + weight_string + "\n") # write to file
 
-						elif bpy.context.scene.vs.smd_format == "GOLDSOURCE":
-							bone_id = next((link for link in weights[v.index] if link[1] > 0), [0,1])[0]
-							self.smd_file.write(str(bone_id) + pos_norm + uv + "\n") # write to file
-						
 						else:
-							raise ValueError("Unhandled SMD format")
+							if ob_weight_str:
+								weight_string = ob_weight_str
+							else:
+								goldsrc_weights = [link for link in weights[v.index] if link[1] > 0]
+								if len(goldsrc_weights) == 0:
+									weight_string = "0"
+								else:
+									if len(goldsrc_weights) > 1:
+										multi_weight_verts.add(v)
+									weight_string = str(goldsrc_weights[0][0])
+							self.smd_file.write(weight_string + pos_norm + uv + "\n") # write to file
 
 					face_index += 1
 
+				if goldsrc and multi_weight_verts:
+					self.warning(get_id("exporterr_goldsrc_multiweights", format_string=True).format(len(multi_weight_verts), bake.src.data.name))
 				if bad_face_mats:
 					format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
 					self.warning(format_str.format(bad_face_mats,bake.src.data.name))
