@@ -87,7 +87,7 @@ dmx_versions_source2 = {
 
 def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
-		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding), end= "\n" if newline else "", flush=True)
+		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding or sys.getdefaultencoding()), end= "\n" if newline else "", flush=True)
 
 def get_id(id, format_string = False, data = False):
 	out = p_cache.ids[id]
