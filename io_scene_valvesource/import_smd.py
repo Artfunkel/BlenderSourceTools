@@ -245,6 +245,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				if append:
 					bpy.context.scene.objects.active = smd.a
+					smd.a.hide = False
 					ops.object.mode_set(mode='EDIT',toggle=False)
 					self.existingBones.extend([b.name for b in smd.a.data.bones])
 				
