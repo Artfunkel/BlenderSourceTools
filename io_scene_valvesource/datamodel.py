@@ -744,6 +744,10 @@ class DataModel:
 			if encoding == 'keyvalues2': dm = dm.encode('utf-8')
 			file.write(dm)
 
+
+class DatamodelParseError(Exception):
+	pass
+
 def parse(parse_string, element_path=None):
 	return load(in_file=io.StringIO(parse_string),element_path=element_path)
 
@@ -785,6 +789,9 @@ def load(path = None, in_file = None, element_path = None):
 		check_support(encoding,encoding_ver)
 		dm = DataModel(format,format_ver)
 		
+		global line_number
+		line_number = 0
+
 		max_elem_path = len(element_path) + 1 if element_path else 0
 		
 		if encoding == 'keyvalues2':
@@ -798,6 +805,7 @@ def load(path = None, in_file = None, element_path = None):
 				return re.findall("\"(.*?)\"",line.strip("\n\t ") )
 				
 			def read_element(elem_type):
+				global line_number
 				id = None
 				name = None
 				prefix = elem_type == "$prefix_element$"
@@ -823,6 +831,7 @@ def load(path = None, in_file = None, element_path = None):
 				
 				new_elem = None
 				for line_raw in in_file:
+					line_number += 1
 					if line_raw.strip("\n\t, ").endswith("}"):
 						#print("{}- {}".format('\t' * (len(element_chain)-1),element_chain[-1].name))
 						return element_chain.pop()
@@ -850,6 +859,7 @@ def load(path = None, in_file = None, element_path = None):
 						if skip:
 							child_level = 0
 							for line_raw in in_file:
+								line_number += 1
 								if "{" in line_raw: child_level += 1
 								if "}" in line_raw:
 									if child_level == 0: return
@@ -868,6 +878,7 @@ def load(path = None, in_file = None, element_path = None):
 							
 							if "[" not in line_raw: # immediate "[" means and empty array; elements must be on separate lines
 								for line in in_file:
+									line_number += 1
 									if "[" in line: continue
 									if "]" in line: break
 									line = parse_line(line)
@@ -892,6 +903,7 @@ def load(path = None, in_file = None, element_path = None):
 								
 							else: # multi-line array
 								for line in in_file:
+									line_number += 1
 									if "[" in line:
 										continue
 									if "]" in line:
@@ -906,17 +918,19 @@ def load(path = None, in_file = None, element_path = None):
 								num_quotes = 0
 								value = Binary()
 								for line in in_file:
+									line_number += 1
 									if "\"" in line:
 										num_quotes += 1
 										if num_quotes == 2: break
 									else:				
 										value = read_value(line[0],line[1], in_file.readline().strip())
+										line_number += 1
 							else:
 								value = read_element(line[1])
 							element_chain[-1][line[0]] = value
 						elif len(line) == 3: # ordinary attribute or element ID
 							element_chain[-1][line[0]] = read_value(line[0],line[1],line[2])
-							
+
 				raise IOError("Unexpected EOF")
 			
 			if hasattr(in_file,'mode') and 'b' in in_file.mode: in_file = io.TextIOWrapper(in_file)
@@ -925,11 +939,16 @@ def load(path = None, in_file = None, element_path = None):
 			element_chain = []
 			element_users = collections.defaultdict(list)
 			for line in in_file:
-				line = parse_line(line)
-				if len(line) == 0: continue
+				try:
+					global line_number
+					line_number += 1
+					line = parse_line(line)
+					if len(line) == 0: continue
 				
-				if len(element_chain) == 0 and len(line) == 1:
-					read_element(line[0])
+					if len(element_chain) == 0 and len(line) == 1:
+						read_element(line[0])
+				except Exception as ex:
+					raise DatamodelParseError("Parsing of {} failed on line {}".format(path, line_number)) from ex
 			
 			for element in dm.elements:
 				if element._is_placeholder == True: continue

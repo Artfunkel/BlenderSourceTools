@@ -66,8 +66,8 @@ dmx_versions_source1 = { # [encoding, format]
 'source2007':[2,1],
 'source2009':[2,1],
 'Team Fortress 2':[2,1],
-'Left 4 Dead':[5,15],
-'Left 4 Dead 2':[5,15],
+'Left 4 Dead':[0,0], # wants model 7, but it's not worth working out what that is when L4D2 in far more popular and SMD export works
+'Left 4 Dead 2':[4,15],
 'orangebox':[5,18], # aka Source MP
 'Alien Swarm':[5,18],
 'Portal 2':[5,18],
