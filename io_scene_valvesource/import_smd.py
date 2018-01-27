@@ -43,7 +43,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	# Custom properties
 	doAnim = BoolProperty(name=get_id("importer_doanims"), default=True)
-	skipRemDoubles = BoolProperty(name=get_id("importer_skipremdoubles"),description=get_id("importer_skipremdoubles_tip"),default=False)
 	makeCamera = BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	append = EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
 		('VALIDATE',get_id("importer_bones_validate"),get_id("importer_bones_validate_desc")),
@@ -701,9 +700,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		# Now remove those doubles!
 		ops.object.mode_set(mode='EDIT')
-		ops.mesh.remove_doubles(threshold=0)
+		ops.mesh.remove_doubles()
 		ops.mesh.select_all(action='INVERT') # FIXME: the 'back' polys will not be connected to the main mesh
-		ops.mesh.remove_doubles(threshold=0)
+		ops.mesh.remove_doubles()
 		ops.mesh.select_all(action='DESELECT')
 		ops.object.mode_set(mode='OBJECT')
 
@@ -819,10 +818,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 		bm.free()
 		md.update()
 		
-		if self.skipRemDoubles:
-			md.create_normals_split()
-			md.use_auto_smooth = True
-			md.normals_split_custom_set(norms)
+		md.create_normals_split()
+		md.use_auto_smooth = True
+		md.normals_split_custom_set(norms)
 		
 		if countPolys:	
 			md.polygons.foreach_set("material_index", mats)
@@ -846,8 +844,23 @@ class SmdImporter(bpy.types.Operator, Logger):
 			for poly in smd.m.data.polygons:
 				poly.select = True		
 
-			if not self.skipRemDoubles:
-				self.removeDoublesPreserveFaces()
+			# Copy the mesh, remove doubles from the original, then transfer normals back from the copy
+			# It would be nice if remove doubles did this by itself!
+			normals_source = smd.m.copy()
+			normals_source.data = md.copy()
+			bpy.context.scene.objects.link(normals_source)
+			
+			self.removeDoublesPreserveFaces()
+
+			transfer = smd.m.modifiers.new(name="Copy normals", type='DATA_TRANSFER')
+			transfer.object = normals_source
+			transfer.use_object_transform = False
+			transfer.use_loop_data = True
+			transfer.loop_mapping = 'TOPOLOGY'
+			transfer.data_types_loops = {'CUSTOM_NORMAL'}
+
+			bpy.ops.object.modifier_apply(apply_as='DATA',modifier=transfer.name)
+			removeObject(normals_source)
 			
 			smd.m.show_wire = smd.jobType == PHYS
 

@@ -940,7 +940,6 @@ def load(path = None, in_file = None, element_path = None):
 			element_users = collections.defaultdict(list)
 			for line in in_file:
 				try:
-					global line_number
 					line_number += 1
 					line = parse_line(line)
 					if len(line) == 0: continue

@@ -201,8 +201,8 @@ class Tests:
 		self.compareResults()
 		
 
-class bpy_274(unittest.TestCase,Tests):
-	bpy_version = "bpy_274"
+class bpy_277(unittest.TestCase,Tests):
+	bpy_version = "bpy_277"
 
 class bpy_git(unittest.TestCase,Tests):
 	bpy_version = "bpy_git"
