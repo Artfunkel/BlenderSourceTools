@@ -478,22 +478,12 @@ def make_export_list():
 from bpy.app.handlers import scene_update_post, persistent
 need_export_refresh = True
 last_export_refresh = 0
-scene_update_guard = False
 
 @persistent
 def scene_update(scene, immediate=False):
 	global need_export_refresh
 	global last_export_refresh
-	global scene_update_guard
-
-	if bpy.context.active_object:
-		scene_update_guard = True
-		try:
-			for group in bpy.context.active_object.users_group:
-				group.vs.selected_item = group.objects.values().index(bpy.context.active_object)
-		finally:
-			scene_update_guard = False
-	
+		
 	if not hasattr(scene,"vs") or not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
 		return
 

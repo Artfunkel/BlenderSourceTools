@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (2, 9, 3),
+	"version": (2, 9, 4),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -139,15 +139,6 @@ def export_active_changed(self, context):
 		id.select = True
 		context.scene.objects.active = id
 
-def group_selected_changed(self,context):
-	if utils.scene_update_guard:
-		return
-
-	for ob in context.scene.objects: ob.select = False
-	id = self.id_data.objects[self.id_data.vs.selected_item]
-	id.select = True
-	context.scene.objects.active = id
-
 def engine_path_changed(self, context):
 	if bpy.context.scene.vs.engine_path:
 		for compiler in ["studiomdl.exe", "resourcecompiler.exe"]:
@@ -230,7 +221,7 @@ class ValveSource_ArmatureProps(PropertyGroup):
 
 class ValveSource_GroupProps(ExportableProps,PropertyGroup):
 	mute = BoolProperty(name=get_id("group_suppress"),description=get_id("group_suppress_tip"),default=False)
-	selected_item = IntProperty(update=group_selected_changed)
+	selected_item = IntProperty(default=-1, max=-1, min=-1)
 	automerge = BoolProperty(name=get_id("group_merge_mech"),description=get_id("group_merge_mech_tip"),default=False)
 
 class ShapeTypeProps():
