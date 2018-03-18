@@ -655,57 +655,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if child.type == 'EMPTY':
 					child.layers[smd.layer] = True
 
-	# Remove doubles without removing entire faces
-	def removeDoublesPreserveFaces(self):
-		smd = self.smd
-		for poly in smd.m.data.polygons:
-			poly.select = True
-		
-		def getVertCos(poly):
-			cos = []
-			for vert_index in poly.vertices:
-				cos.append(poly.id_data.vertices[vert_index].co)
-			return cos
-			
-		def getEpsilonNormal(normal):
-			norm_rounded = [0,0,0]
-			for i in range(0,3):
-				norm_rounded[i] = abs(round(normal[i],4))
-			return tuple(norm_rounded)
-		
-		# First pass: make a hashed list of unsigned normals
-		norm_dict = collections.defaultdict(list)
-		for poly in smd.m.data.polygons:
-			norm_dict[getEpsilonNormal(poly.normal)].append(poly.index)
-		
-		# Second pass: for each selected poly, check each poly with a matching normal vector
-		# and determine if it shares the same verts. If it does, deselect it to avoid
-		# destruction during Remove Doubles.
-		for poly in smd.m.data.polygons:
-			if not poly.select: continue
-			norm_tuple = getEpsilonNormal(poly.normal)			
-			poly_verts = getVertCos(poly)
-			
-			for candidate_index in norm_dict[norm_tuple]:
-				if candidate_index == poly.index: continue
-				candidate_poly = smd.m.data.polygons[candidate_index]
-				if not candidate_poly.select: continue
-				candidate_poly_verts = getVertCos(candidate_poly)
-				different = False
-				for poly_vert in poly_verts:
-					if poly_vert not in candidate_poly_verts:
-						different = True
-						break
-				candidate_poly.select = different
-		
-		# Now remove those doubles!
-		ops.object.mode_set(mode='EDIT')
-		ops.mesh.remove_doubles()
-		ops.mesh.select_all(action='INVERT') # FIXME: the 'back' polys will not be connected to the main mesh
-		ops.mesh.remove_doubles()
-		ops.mesh.select_all(action='DESELECT')
-		ops.object.mode_set(mode='OBJECT')
-
 	# triangles block
 	def readPolys(self):
 		smd = self.smd
@@ -740,7 +689,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		lastWindowUpdate = time.time()
 		# Vertex values
 		norms = []
-		weights = []
+		weights = collections.defaultdict(list)
 		# Face values
 		uvs = []
 		mats = []
@@ -753,6 +702,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		# and one for the vertices on each polygon that loops three times. We're entering the poly one now.	
 		countPolys = 0
 		badWeights = 0
+		vertMap = {}
+		allVertexWeights = set()
+
+		WeightLink = collections.namedtuple("WeightLink", ["group", "weight"])
+
 		for line in smd.file:
 			line = line.rstrip("\n")
 
@@ -768,6 +722,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 			# Enter the vertex loop. This will run three times for each poly.
 			vertexCount = 0
 			faceVerts = []
+			faceWeights = []
+			splitVerts = [] # which of these vertices are weighted uniquely and should thus be imported without merging?
 			for line in smd.file:
 				if smdBreak(line):
 					break
@@ -784,44 +740,66 @@ class SmdImporter(bpy.types.Operator, Logger):
 					co[i-1] = float(values[i])
 					norm[i-1] = float(values[i+3])
 				
-				faceVerts.append( bm.verts.new(co) )
+				co = tuple(co)
+				faceVerts.append(co)
 				norms.append(norm)
 
 				# Can't do these in the above for loop since there's only two
 				uvs.append( ( float(values[7]), float(values[8]) ) )
 
 				# Read weightmap data
-				weights.append( [] ) # Blank array, needed in case there's only one weightlink
+				vertWeights = []
 				if len(values) > 10 and values[9] != "0": # got weight links?
 					for i in range(10, 10 + (int(values[9]) * 2), 2): # The range between the first and last weightlinks (each of which is *two* values)
 						try:
 							bone = smd.a.data.bones[ smd.boneIDs[int(values[i])] ]
-							weights[-1].append( [ smd.m.vertex_groups[bone.name], float(values[i+1]) ] )
+							vertWeights.append(WeightLink(bone.name, float(values[i+1])))
 						except KeyError:
 							badWeights += 1
 				else: # Fall back on the deprecated value at the start of the line
 					try:
 						bone = smd.a.data.bones[ smd.boneIDs[int(values[0])] ]				
-						weights[-1].append( [smd.m.vertex_groups[bone.name], 1.0] )
+						vertWeights.append(WeightLink(bone.name, 1.0))
 					except KeyError:
 						badWeights += 1
 
+				faceWeights.append(vertWeights)
+
+				coWeight = tuple([co,*vertWeights])
+				splitVerts.append(coWeight not in allVertexWeights)
+				allVertexWeights.add(coWeight)
+
 				# Three verts? It's time for a new poly
 				if vertexCount == 3:
-					bm.faces.new(faceVerts)
+					for _ in range(2):
+						bmVerts = []
+						newWeights = collections.defaultdict(list)
+						for i in range(3):
+							bmv = None if splitVerts[i] else vertMap.get(faceVerts[i]) # if a vertex in this position with these bone weights exists, re-use it.
+							if bmv is None:
+								bmv = bm.verts.new(faceVerts[i])
+								for link in faceWeights[i]:
+									newWeights[link].append(len(bm.verts)-1)
+								vertMap[faceVerts[i]] = bmv
+							bmVerts.append(bmv)
+						try:
+							bm.faces.new(bmVerts)
+							for w in newWeights:
+								weights[w].extend(newWeights[w])
+							break
+						except ValueError: # face overlaps another, try again with all-new vertices
+							splitVerts = [True] * 3
+							continue
 					break
 
 			# Back in polyland now, with three verts processed.
 			countPolys+= 1
 
 		bm.to_mesh(md)
+		vertMap = None
 		bm.free()
 		md.update()
-		
-		md.create_normals_split()
-		md.use_auto_smooth = True
-		md.normals_split_custom_set(norms)
-		
+				
 		if countPolys:	
 			md.polygons.foreach_set("material_index", mats)
 			
@@ -831,9 +809,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 				uv_data[i].uv = uvs[md.loops[i].vertex_index]
 			
 			# Apply vertex groups
-			for i in range(len(md.vertices)):
-				for link in weights[i]:
-					link[0].add( [i], link[1], 'REPLACE' )
+			for link in weights:
+				smd.m.vertex_groups[link.group].add(weights[link], link.weight, 'REPLACE')
 			
 			ops.object.select_all(action="DESELECT")
 			smd.m.select = True
@@ -844,25 +821,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 			for poly in smd.m.data.polygons:
 				poly.select = True		
 
-			# Copy the mesh, remove doubles from the original, then transfer normals back from the copy
-			# It would be nice if remove doubles did this by itself!
-			normals_source = smd.m.copy()
-			normals_source.data = md.copy()
-			bpy.context.scene.objects.link(normals_source)
-			
-			self.removeDoublesPreserveFaces()
-
-			transfer = smd.m.modifiers.new(name="Copy normals", type='DATA_TRANSFER')
-			transfer.object = normals_source
-			transfer.use_object_transform = False
-			transfer.use_loop_data = True
-			transfer.loop_mapping = 'TOPOLOGY'
-			transfer.data_types_loops = {'CUSTOM_NORMAL'}
-
-			bpy.ops.object.modifier_apply(apply_as='DATA',modifier=transfer.name)
-			removeObject(normals_source)
-			
 			smd.m.show_wire = smd.jobType == PHYS
+
+			md.use_auto_smooth = True
+			md.normals_split_custom_set(norms)
 
 			if smd.upAxis == 'Y':
 				md.transform(rx90)
