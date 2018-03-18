@@ -765,7 +765,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				faceWeights.append(vertWeights)
 
-				coWeight = tuple([co,*vertWeights])
+				coWeight = tuple([co] + vertWeights)
 				splitVerts.append(coWeight not in allVertexWeights)
 				allVertexWeights.add(coWeight)
 
