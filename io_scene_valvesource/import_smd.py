@@ -689,13 +689,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		lastWindowUpdate = time.time()
 		# Vertex values
 		norms = []
-		weights = collections.defaultdict(list)
-		# Face values
-		uvs = []
-		mats = []
 
 		bm = bmesh.new()
 		bm.from_mesh(md)
+		weightLayer = bm.verts.layers.deform.new()
+		uvLayer = bm.loops.layers.uv.new()
 		
 		# *************************************************************************************************
 		# There are two loops in this function: one for polygons which continues until the "end" keyword
@@ -716,13 +714,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 				continue
 
 			mat, mat_ind = self.getMeshMaterial(line if line else pgettext(get_id("importer_name_nomat", data=True)))
-			mats.append(mat_ind)
 
 			# ***************************************************************
 			# Enter the vertex loop. This will run three times for each poly.
 			vertexCount = 0
 			faceVerts = []
 			faceWeights = []
+			faceUVs = []
 			splitVerts = [] # which of these vertices are weighted uniquely and should thus be imported without merging?
 			for line in smd.file:
 				if smdBreak(line):
@@ -745,7 +743,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				norms.append(norm)
 
 				# Can't do these in the above for loop since there's only two
-				uvs.append( ( float(values[7]), float(values[8]) ) )
+				faceUVs.append( ( float(values[7]), float(values[8]) ) )
 
 				# Read weightmap data
 				vertWeights = []
@@ -753,13 +751,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 					for i in range(10, 10 + (int(values[9]) * 2), 2): # The range between the first and last weightlinks (each of which is *two* values)
 						try:
 							bone = smd.a.data.bones[ smd.boneIDs[int(values[i])] ]
-							vertWeights.append(WeightLink(bone.name, float(values[i+1])))
+							vertWeights.append((smd.m.vertex_groups.find(bone.name), float(values[i+1])))
 						except KeyError:
 							badWeights += 1
 				else: # Fall back on the deprecated value at the start of the line
 					try:
 						bone = smd.a.data.bones[ smd.boneIDs[int(values[0])] ]				
-						vertWeights.append(WeightLink(bone.name, 1.0))
+						vertWeights.append((smd.m.vertex_groups.find(bone.name), 1.0))
 					except KeyError:
 						badWeights += 1
 
@@ -779,17 +777,20 @@ class SmdImporter(bpy.types.Operator, Logger):
 							if bmv is None:
 								bmv = bm.verts.new(faceVerts[i])
 								for link in faceWeights[i]:
-									newWeights[link].append(len(bm.verts)-1)
+									bmv[weightLayer][link[0]] = link[1]
 								vertMap[faceVerts[i]] = bmv
 							bmVerts.append(bmv)
 						try:
-							bm.faces.new(bmVerts)
-							for w in newWeights:
-								weights[w].extend(newWeights[w])
-							break
+							face = bm.faces.new(bmVerts)
 						except ValueError: # face overlaps another, try again with all-new vertices
 							splitVerts = [True] * 3
 							continue
+
+						face.material_index = mat_ind
+						for i in range(3):
+							face.loops[i][uvLayer].uv = faceUVs[i]
+
+						break
 					break
 
 			# Back in polyland now, with three verts processed.
@@ -800,18 +801,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		bm.free()
 		md.update()
 				
-		if countPolys:	
-			md.polygons.foreach_set("material_index", mats)
-			
-			md.uv_textures.new()
-			uv_data = md.uv_layers[0].data
-			for i in range(len(uv_data)):
-				uv_data[i].uv = uvs[md.loops[i].vertex_index]
-			
-			# Apply vertex groups
-			for link in weights:
-				smd.m.vertex_groups[link.group].add(weights[link], link.weight, 'REPLACE')
-			
+		if countPolys:
 			ops.object.select_all(action="DESELECT")
 			smd.m.select = True
 			bpy.context.scene.objects.active = smd.m
