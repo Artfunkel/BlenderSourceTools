@@ -1522,7 +1522,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					normals = DmeVertexData[keywords['norm']]
 					normalsIndices = DmeVertexData[keywords['norm'] + "Indices"]
 
-					normals_ordered = [None] * len(normalsIndices)
+					normals_ordered = [None] * len(ob.data.loops)
 					i = f = 0
 					for vert in [vert for faceset in DmeMesh["faceSets"] for vert in faceset["faces"]]:
 						if vert == -1:
