@@ -90,10 +90,10 @@ def scene_load_post(_):
 		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format"}
 
 		for p_g in prop_groups:
-			for prop in vars(p_g):
-				if prop.startswith('_'):
-					continue
-				val = id.get("smd_" + prop_map.get(prop, prop))
+			for prop in [prop for prop in p_g.__dict__.keys() if prop[0] != '_']:
+-				val = id.get("smd_" + (prop_map[prop] if prop in prop_map else prop))
+-				if val != None:
+-					id.vs[prop] = val
 			
 		for prop in id.keys():
 			if prop.startswith("smd_"):
