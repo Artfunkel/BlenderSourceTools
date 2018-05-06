@@ -25,6 +25,7 @@ from bpy.props import *
 from .utils import *
 from . import datamodel
 
+
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
 	bl_label = get_id("importer_title")

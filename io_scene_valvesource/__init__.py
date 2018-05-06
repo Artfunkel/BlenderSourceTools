@@ -27,7 +27,7 @@ bl_info = {
 	"location": "File > Import/Export, Scene properties",
 	"wiki_url": "http://steamcommunity.com/groups/BlenderSourceTools",
 	"tracker_url": "http://steamcommunity.com/groups/BlenderSourceTools/discussions/0/",
-	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX and QC."
+	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX, FBX, and QC."
 }
 
 import bpy, os
@@ -87,13 +87,13 @@ def menu_func_textedit(self,context):
 @bpy.app.handlers.persistent
 def scene_load_post(_):
 	def convert(id,*prop_groups):
-		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format" }
+		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format"}
 
 		for p_g in prop_groups:
-			for prop in [prop for prop in p_g.__dict__.keys() if prop[0] != '_']:
-				val = id.get("smd_" + (prop_map[prop] if prop in prop_map else prop))
-				if val != None:
-					id.vs[prop] = val
+			for prop in vars(p_g):
+				if prop.startswith('_'):
+					continue
+				val = id.get("smd_" + prop_map.get(prop, prop))
 			
 		for prop in id.keys():
 			if prop.startswith("smd_"):
@@ -175,6 +175,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	dmx_format = EnumProperty(name=get_id("dmx_format"),description=get_id("dmx_format_tip"),items=tuple(formats),default='1')
 	
 	export_format = EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
+	export_format_fbx = EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ), ('FBX', "FBX", "Autodesk Fieldbox") ),default='DMX')
 	up_axis = EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
 	use_image_names = BoolProperty(name=get_id("ignore_materials"),description=get_id("ignore_materials_tip"),default=False)
 	layer_filter = BoolProperty(name=get_id("visible_only"),description=get_id("visible_only_tip"),default=False)

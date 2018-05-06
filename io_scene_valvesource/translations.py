@@ -350,8 +350,8 @@ _data = {
 	'ru': "Экспорт и импорт для движка Source. Поддерживаемые форматы: SMD/VTA, DMX, QC.",
 },
 'export_menuitem': {
-	'en': "Source Engine (.smd, .vta, .dmx)",
-	'ru': "Движок Source (.smd, .vta, .dmx)",
+	'en': "Source Engine (.smd, .vta, .dmx, .fbx)",
+	'ru': "Движок Source (.smd, .vta, .dmx, .fbx)",
 },
 'help': {
 	'ja': "ヘレプ",
@@ -556,9 +556,9 @@ _data = {
 	'ru': "Свойства группы {0} \"пересилены\"",
 },
 'exporter_title': {
-	'ja': "SMD/VTA/DMXをエクスポート",
-	'en': "Export SMD/VTA/DMX",
-	'ru': "Экспорт SMD/VTA/DMX",
+	'ja': "SMD/VTA/DMX/FBXをエクスポート",
+	'en': "Export SMD/VTA/DMX/FBX",
+	'ru': "Экспорт SMD/VTA/DMX/FBX",
 },
 'qc_compile_err_unknown': {
 	'en': "Compile of {0} failed. Check the console for details",
@@ -881,8 +881,8 @@ _data = {
 	'ru': "Активный объект для экспорта",
 },
 'exportroot_tip': {
-	'en': "The root folder into which SMD and DMX exports from this scene are written",
-	'ru': "Папка, куда будут экспортироваться SMD и DMX из текущей сцены",
+	'en': "The root folder into which SMD, DMX, and FBX exports from this scene are written",
+	'ru': "Папка, куда будут экспортироваться SMD, DMX, и FBX из текущей сцены",
 },
 'qc_compilenow': {
 	'ja': "今全てはコンパイル",

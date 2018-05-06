@@ -28,6 +28,7 @@ from bpy.props import *
 
 from .utils import *
 from . import datamodel, ordered_set, flex
+from . import datamodel, ordered_set, flex
 
 class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_idname = "smd.compile_qc"
@@ -145,18 +146,18 @@ class SmdExporter(bpy.types.Operator, Logger):
 		#bpy.context.window_manager.progress_begin(0,1)
 		
 		# Misconfiguration?
-		if allowDMX() and context.scene.vs.export_format == 'DMX':
+		if allowDMX() and newExportFormatFetch() == 'DMX':
 			datamodel.check_support("binary",DatamodelEncodingVersion())
 			if DatamodelEncodingVersion() < 3 and DatamodelFormatVersion() > 11:
 				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
-				return {'CANCELLED' }
+				return {'CANCELLED'}
 		if len(context.scene.vs.export_path) == 0:
 			self.report({'ERROR'},get_id("exporter_err_unconfigured"))
 			return {'CANCELLED'}
 		if context.scene.vs.export_path.startswith("//") and not context.blend_data.filepath:
 			self.report({'ERROR'},get_id("exporter_err_relativeunsaved"))
 			return {'CANCELLED'}
-		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
+		if allowDMX() and newExportFormatFetch() == 'DMX' and not canExportDMX():
 			self.report({'ERROR'},get_id("exporter_err_dmxother"))
 			return {'CANCELLED'}
 		
@@ -199,13 +200,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			self.files_exported = self.attemptedExports = 0
 			
+			# don't need to take care of special "don't export animations for FBX" code, it's all synced b/c export_list :)
 			if self.export_scene:
 				for id in [exportable.get_id() for exportable in context.scene.vs.export_list]:
 					if type(id) == Group:
 						if shouldExportGroup(id):
-							self.exportId(context, id)
+							self.exportId(context, id) # actual exporting for groups
 					elif id.vs.export:
-						self.exportId(context, id)
+						self.exportId(context, id) # actual exporting for objects
 			else:
 				if self.group == "":
 					for exportable in getSelectedExportables():
@@ -385,64 +387,64 @@ class SmdExporter(bpy.types.Operator, Logger):
 				skip_vca = True
 			elif not id.vs.automerge:
 				id.vs.automerge = True
+		if newExportFormatFetch()!='FBX':
+			for va in id.vs.vertex_animations:
+				if skip_vca: break
 
-		for va in id.vs.vertex_animations:
-			if skip_vca: break
+				if shouldExportDMX():
+					va.name = va.name.replace("_","-")
 
-			if shouldExportDMX():
-				va.name = va.name.replace("_","-")
+				vca = bake_results[0].vertex_animations[va.name] # only the first bake result will ever have a vertex animation defined
+				vca.export_sequence = va.export_sequence
+				vca.num_frames = va.end - va.start
+				two_percent = vca.num_frames * len(bake_results) / 50
+				print("- Generating vertex animation \"{}\"".format(va.name))
+				anim_bench = BenchMarker(1,va.name)
+				
+				for f in range(va.start,va.end):
+					bpy.context.scene.frame_set(f)
+					bpy.ops.object.select_all(action='DESELECT')
+					for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
+						bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW'))
+						bake.fob.matrix_world = bake.src.matrix_world
+						bpy.context.scene.objects.link(bake.fob)
+						bpy.context.scene.objects.active = bake.fob
+						bake.fob.select = True
 
-			vca = bake_results[0].vertex_animations[va.name] # only the first bake result will ever have a vertex animation defined
-			vca.export_sequence = va.export_sequence
-			vca.num_frames = va.end - va.start
-			two_percent = vca.num_frames * len(bake_results) / 50
-			print("- Generating vertex animation \"{}\"".format(va.name))
-			anim_bench = BenchMarker(1,va.name)
-			
-			for f in range(va.start,va.end):
-				bpy.context.scene.frame_set(f)
-				bpy.ops.object.select_all(action='DESELECT')
-				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
-					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW'))
-					bake.fob.matrix_world = bake.src.matrix_world
-					bpy.context.scene.objects.link(bake.fob)
-					bpy.context.scene.objects.active = bake.fob
-					bake.fob.select = True
+						top_parent = self.getTopParent(bake.src)
+						if top_parent:
+							bake.fob.location -= top_parent.location
+						
+						if context.scene.rigidbody_world:
+							# Blender 2.71 bug: https://developer.blender.org/T41388
+							prev_rbw = bpy.context.scene.rigidbody_world.enabled
+							bpy.context.scene.rigidbody_world.enabled = False
 
-					top_parent = self.getTopParent(bake.src)
-					if top_parent:
-						bake.fob.location -= top_parent.location
+						bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
 					
-					if context.scene.rigidbody_world:
-						# Blender 2.71 bug: https://developer.blender.org/T41388
-						prev_rbw = bpy.context.scene.rigidbody_world.enabled
-						bpy.context.scene.rigidbody_world.enabled = False
+						if context.scene.rigidbody_world:
+							bpy.context.scene.rigidbody_world.enabled = prev_rbw
 
-					bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
-				
-					if context.scene.rigidbody_world:
-						bpy.context.scene.rigidbody_world.enabled = prev_rbw
+					if bpy.context.selected_objects and not shouldExportDMX():
+						bpy.context.scene.objects.active = bpy.context.selected_objects[0]
+						ops.object.join()
+					
+					vca.append(bpy.context.active_object if len(bpy.context.selected_objects) == 1 else bpy.context.selected_objects)
+					anim_bench.report("bake")
+					
+					if len(bpy.context.selected_objects) != 1:
+						for bake in mesh_bakes:
+							bpy.context.scene.objects.unlink(bake.fob)
+							del bake.fob
+					
+					anim_bench.report("record")
 
-				if bpy.context.selected_objects and not shouldExportDMX():
-					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
-					ops.object.join()
-				
-				vca.append(bpy.context.active_object if len(bpy.context.selected_objects) == 1 else bpy.context.selected_objects)
-				anim_bench.report("bake")
-				
-				if len(bpy.context.selected_objects) != 1:
-					for bake in mesh_bakes:
-						bpy.context.scene.objects.unlink(bake.fob)
-						del bake.fob
-				
-				anim_bench.report("record")
+					if two_percent and len(vca) / len(bake_results) % two_percent == 0:
+						print(".", debug_only=True, newline=False)
+						bpy.context.window_manager.progress_update(len(vca) / vca.num_frames)
 
-				if two_percent and len(vca) / len(bake_results) % two_percent == 0:
-					print(".", debug_only=True, newline=False)
-					bpy.context.window_manager.progress_update(len(vca) / vca.num_frames)
-
-			bench.report("\n" + va.name)
-			bpy.context.scene.objects.active = bake_results[0].src
+				bench.report("\n" + va.name)
+				bpy.context.scene.objects.active = bake_results[0].src
 
 		if isinstance(id, Group) and shouldExportDMX() and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
@@ -534,7 +536,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
 
-		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
+		write_func = None 
+		if shouldExportFBX():
+			write_func = self.writeFBX
+		elif shouldExportDMX():
+			write_func = self.writeDMX
+		else: 
+			write_func = self.writeSMD
 		bench.report("Post Bake")
 
 		bpy.context.scene.update()
@@ -691,7 +699,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		select_only(id)
 
-		should_triangulate = not shouldExportDMX() or id.vs.triangulate
+		should_triangulate = (not shouldExportDMX() and not shouldExportFBX) or id.vs.triangulate #why triangulate FBX and DMX?
 
 		def triangulate():
 			ops.object.mode_set(mode='EDIT')
@@ -1283,7 +1291,37 @@ skeleton
 		self.smd_file.write("end\n")
 		self.smd_file.close()
 		return 1
-
+	def writeFBX(self, id, bake_results, name, dir_path):
+		# exporting FBX function. use io_scene_fbx!!!!
+		# in addition - we NEED to count on bake_results returning a list of BLENDER OBJECTS! NOT whatever internal representation BST uses!!!
+		print("Exporting FBX.")
+		bench = BenchMarker(1, "FBX")
+		filepathExport = os.path.realpath(os.path.join(dir_path,name + ".fbx"))
+		written = 0
+		srcResults = []
+		for object in bake_results:
+			srcResults.append(object.src)
+		#print(bpy.context.selected_objects)
+		bench.report("Calling export library.")
+		if bpy.ops.export_scene.fbx: # only proceed if the export library exists
+			
+			# call the library
+			try:
+				from io_scene_fbx.export_fbx_bin import save_single
+				print(srcResults)
+				save_single(self, bpy.context.scene, filepath=filepathExport, axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResults, bake_space_transform=True)
+				written+=1
+			except ImportError:
+				print("Error loading the FBX library! Aborting...")
+			except:
+				print("Error exporting FBX.")
+		if bench.quiet:
+			if(written):
+				print("- FBX export took",bench.total(),"\n")
+			else:
+				print("- FBX module not present! Not exported!")
+		
+		return written
 	def writeDMX(self, id, bake_results, name, dir_path):
 		bench = BenchMarker(1,"DMX")
 		filepath = os.path.realpath(os.path.join(dir_path,name + ".dmx"))

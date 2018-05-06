@@ -21,7 +21,7 @@
 import bpy
 from .utils import *
 from .export_smd import SmdExporter, SMD_OT_Compile
-from .update import SmdToolsUpdate # comment this line if you make third-party changes
+from .update import SmdToolsUpdate # unused
 from .flex import *
 global p_cache
 
@@ -87,7 +87,10 @@ class SMD_PT_Scene(bpy.types.Panel):
 		if allowDMX():
 			row = l.row().split(0.33)
 			row.label(text=GetCustomPropName(scene.vs,"export_format",":"))
-			row.row().prop(scene.vs,"export_format",expand=True)
+			if(allowFBX()):
+				row.row().prop(scene.vs, "export_format_fbx", expand=True)
+			else:
+				row.row().prop(scene.vs,"export_format",expand=True)
 		row = l.row().split(0.33)
 		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
 		row.row().prop(scene.vs,"up_axis", expand=True)
@@ -100,7 +103,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.alert = len(scene.vs.engine_path) > 0 and not p_cache.enginepath_valid
 		row.prop(scene.vs,"engine_path")
 		
-		if scene.vs.export_format == 'DMX':
+		if newExportFormatFetch() == 'DMX':
 			version = getDmxVersionsForSDK()
 			if version == None:
 				row = l.split(0.33)
@@ -116,6 +119,9 @@ class SMD_PT_Scene(bpy.types.Panel):
 					pass
 				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
 				col.enabled = shouldExportDMX()
+		elif newExportFormatFetch() == 'FBX':
+			if canExportFBX():
+				pass
 		else:
 			row = l.split(0.33)
 			row.label(text=GetCustomPropName(scene.vs,"smd_format",":"))
@@ -125,14 +131,14 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row = col.row(align=True)
 		row.operator("wm.url_open",text=get_id("help",True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_Source_Tools_Help#Exporting"
 		row.operator("wm.url_open",text=get_id("exportpanel_steam",True),icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
-		if "SmdToolsUpdate" in globals():
-			col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
+		#if "SmdToolsUpdate" in globals():
+		#	col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
 
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+		#if item.ob_type=="ACTION" and (newExportFormatFetch()=='FBX'): return # no animation support for FBX
 		id = item.get_id()
 		if id is None: return
-
 		enabled = not (type(id) == bpy.types.Group and id.vs.mute)
 		
 		row = layout.row(align=True)
@@ -149,11 +155,11 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 
 		num_shapes, num_correctives = countShapes(id)
 		num_shapes += num_correctives
-		if num_shapes > 0:
+		if num_shapes > 0 and (newExportFormatFetch()!='FBX'): # no flexes for FBX 
 			row.label(str(num_shapes),icon='SHAPEKEY_DATA')
 
 		num_vca = len(id.vs.vertex_animations)
-		if num_vca > 0:
+		if num_vca > 0 and (newExportFormatFetch()!='FBX'): # no vertex animation for FBX
 			row.label(str(num_vca),icon=vca_icon)
 
 class FilterCache:
@@ -176,6 +182,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		cache = gui_cache.get(data)
 
 		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version):
+			
 			cache = FilterCache(p_cache.validObs_version)
 			cache.filter = [self.bitflag_filter_item if ob in p_cache.validObs and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
@@ -370,7 +377,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		if not (is_group and item.vs.mute):
 			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
 
-		if is_group or item.type in mesh_compatible:
+		if newExportFormatFetch()!= 'FBX' and (is_group or item.type in mesh_compatible): # no vertex animation support for FBX
 			col = self.makeSettingsBox(text=get_id("vca_group_props"),icon=vca_icon)
 			
 			r = col.row(align=True)
@@ -399,7 +406,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		elif item:
 			armature = item.find_armature()
 			if item.type == 'ARMATURE': armature = item
-			if armature:
+			if armature and (not shouldExportFBX()): # no armatures for FBX, either...
 				def _makebox():
 					return self.makeSettingsBox(text=get_id("exportables_armature_props", True).format(armature.name),icon='OUTLINER_OB_ARMATURE')
 				col = None
@@ -410,7 +417,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					if armature.data.vs.action_selection == 'FILTERED':
 						col.prop(armature.vs,"action_filter")
 
-				if not shouldExportDMX():
+				if not shouldExportDMX(): #smd only!
 					if not col: col = _makebox()
 					col.prop(armature.data.vs,"implicit_zero_bone")
 					col.prop(armature.data.vs,"legacy_rotation")
@@ -421,7 +428,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		
 		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
 
-		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
+		if item.vs.export and hasShapes(item) and newExportFormatFetch() == 'DMX':
 			col = self.makeSettingsBox(text=get_id("exportables_flex_props"),icon='SHAPEKEY_DATA')
 			
 			col.row().prop(item.vs,"flex_controller_mode",expand=True)

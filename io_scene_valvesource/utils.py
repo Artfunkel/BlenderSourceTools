@@ -72,6 +72,10 @@ dmx_versions_source1 = { # [encoding, format]
 'Alien Swarm':[5,18],
 'Portal 2':[5,18],
 'Counter-Strike Global Offensive':[5,18],
+'Portal 2 Desolation':[5,18],
+'PUNT':[5,18],
+'SourceEngine_Game':[5,18],
+'Blade Symphony':[5,18],
 'Source Filmmaker':[5,18],
 'Dota 2 Beta':[5,18],
 'Dota 2':[5,18],
@@ -80,7 +84,13 @@ dmx_versions_source1 = { # [encoding, format]
 'Source SDK Base 2013 Singleplayer':[2,1],
 'Source SDK Base 2013 Multiplayer':[2,1],
 }
-
+fbx_support_source1 = {
+'Counter-Strike Global Offensive':True,
+'Portal 2 Desolation':True,
+'PUNT':True,
+'SourceEngine_Game':True,
+'Blade Symphony':True
+}
 dmx_versions_source2 = {
 'dota2': ("Dota 2",[9,22]),
 }
@@ -155,30 +165,50 @@ def allowDMX():
 def canExportDMX():
 	return (len(bpy.context.scene.vs.engine_path) == 0 or p_cache.enginepath_valid) and allowDMX()
 def shouldExportDMX():
-	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
+	return newExportFormatFetch() == 'DMX' and canExportDMX()
 
+def allowFBX():
+	return getFBXSupportForSDK()
+def canExportFBX():
+	return (len(bpy.context.scene.vs.engine_path)==0 or p_cache.enginepath_valid) and allowFBX()
+def shouldExportFBX():
+	return newExportFormatFetch() == 'FBX' and canExportFBX()
+	
+def newExportFormatFetch():
+	if(allowFBX()): #if FBX is allowed for the current game, return the fbx identifier thingamijig
+		return bpy.context.scene.vs.export_format_fbx
+		
+	return bpy.context.scene.vs.export_format
 def getEngineBranch():
 	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
-	if not path or not p_cache.enginepath_valid: return (None, None, None)
+	if not path or not p_cache.enginepath_valid: return (None, None, None, True)
 
 	# Source 2: search for executable name
 	engine_path_files = set(name[:-4] if name.endswith(".exe") else name for name in os.listdir(path))
 	if "resourcecompiler" in engine_path_files: # Source 2
 		for executable,branch_info in dmx_versions_source2.items():
 			if executable in engine_path_files:
-				return branch_info + (2,)
+				return branch_info + (2, True) #s2 supports FBX
 
 	# Source 1 SFM special case
 	if path.lower().find("sourcefilmmaker") != -1:
-		return ("Source Filmmaker", dmx_versions_source1["Source Filmmaker"], 1) # hack for weird SFM folder structure, add a space too	
-	
+		return ("Source Filmmaker", dmx_versions_source1["Source Filmmaker"], 1, False) # hack for weird SFM folder structure, add a space too	
+	# punt/desolation dev branch special case
+	if(path.lower().find("sourceengine_game")) != -1:
+		return ("Portal 2 Desolation/PUNT Unified", dmx_versions_source1["SourceEngine_Game"], 1, True)
 	# Source 1 standard: use parent dir's name
-	name = os.path.basename(os.path.dirname(bpy.path.abspath(path))).title().replace("Sdk","SDK")
-	dmx_versions = dmx_versions_source1.get(name)
-	if dmx_versions:
-		return (name, dmx_versions, 1)
+	nameWorking = os.path.basename(os.path.dirname(bpy.path.abspath(path)))
+	if not (nameWorking == "bin"):
+		name = nameWorking.title().replace("Sdk","SDK")
 	else:
-		return (None, None, None)
+		print("your MOM %s", nameWorking)
+		name = os.path.basename(os.path.dirname(os.path.dirname(bpy.path.abspath(path)))).title().replace("Sdk", "SDK")
+	dmx_versions = dmx_versions_source1.get(name)
+	fbx_support = fbx_support_source1.get(name) 
+	if dmx_versions:
+		return (name, dmx_versions, 1, fbx_support)
+	else:
+		return (None, None, None, True)
 
 def getEngineBranchName():
 	'''Returns a user-friendly name for the selected Source Engine branch, or None.'''
@@ -190,7 +220,8 @@ def getEngineVersion():
 
 def getDmxVersionsForSDK():
 	return getEngineBranch()[1]
-
+def getFBXSupportForSDK():
+	return getEngineBranch()[3]
 vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesource_vertex_blend1"]
 
 def getDmxKeywords(format_version):
@@ -211,6 +242,9 @@ def count_exports(context):
 	for exportable in context.scene.vs.export_list:
 		id = exportable.get_id()
 		if id and id.vs.export and (type(id) != bpy.types.Group or not id.vs.mute):
+			#if exportable.ob_type=='ACTION' and newExportFormatFetch()=='FBX': # no animation support for FBX
+			#	continue
+			# move above code to context.scene.vs.export_list 
 			num += 1
 	return num
 
@@ -225,8 +259,10 @@ def animationLength(ad):
 			return 0
 	
 def getFileExt(flex=False):
-	if allowDMX() and bpy.context.scene.vs.export_format == 'DMX':
+	if allowDMX() and newExportFormatFetch() == 'DMX':
 		return ".dmx"
+	elif allowFBX() and newExportFormatFetch() == 'FBX':
+		return ".fbx"
 	else:
 		if flex: return ".vta"
 		else: return ".smd"
@@ -454,16 +490,17 @@ def make_export_list():
 			
 			i_name = i_type = i_icon = None
 			if ob.type == 'ARMATURE':
-				ad = ob.animation_data
-				if ad:
-					i_icon = i_type = "ACTION"
-					if ob.data.vs.action_selection == 'FILTERED':
-						i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
-					elif ad.action:
-						i_name = makeDisplayName(ob,ad.action.name)
-					elif len(ad.nla_tracks):
-						i_name = makeDisplayName(ob)
-						i_icon = "NLA"
+				if(newExportFormatFetch()!='FBX'): # no animation for FBX!
+					ad = ob.animation_data
+					if ad:
+						i_icon = i_type = "ACTION"
+						if ob.data.vs.action_selection == 'FILTERED':
+							i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
+						elif ad.action:
+							i_name = makeDisplayName(ob,ad.action.name)
+						elif len(ad.nla_tracks):
+							i_name = makeDisplayName(ob)
+							i_icon = "NLA"
 			else:
 				i_name = makeDisplayName(ob)
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
