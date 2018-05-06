@@ -21,7 +21,7 @@
 import bpy
 from .utils import *
 from .export_smd import SmdExporter, SMD_OT_Compile
-from .update import SmdToolsUpdate # unused
+from .update import SmdToolsUpdate # comment this line out if making edits
 from .flex import *
 global p_cache
 
@@ -131,8 +131,8 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row = col.row(align=True)
 		row.operator("wm.url_open",text=get_id("help",True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_Source_Tools_Help#Exporting"
 		row.operator("wm.url_open",text=get_id("exportpanel_steam",True),icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
-		#if "SmdToolsUpdate" in globals():
-		#	col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
+		if "SmdToolsUpdate" in globals():
+			col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
 
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):

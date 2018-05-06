@@ -201,7 +201,6 @@ def getEngineBranch():
 	if not (nameWorking == "bin"):
 		name = nameWorking.title().replace("Sdk","SDK")
 	else:
-		print("your MOM %s", nameWorking)
 		name = os.path.basename(os.path.dirname(os.path.dirname(bpy.path.abspath(path)))).title().replace("Sdk", "SDK")
 	dmx_versions = dmx_versions_source1.get(name)
 	fbx_support = fbx_support_source1.get(name) 
