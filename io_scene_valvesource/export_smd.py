@@ -1309,7 +1309,7 @@ skeleton
 			try:
 				from io_scene_fbx.export_fbx_bin import save_single
 				print(srcResults)
-				save_single(self, bpy.context.scene, filepath=filepathExport, axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResults, bake_space_transform=True)
+				save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=True, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResults, bake_space_transform=True)
 				written+=1
 			except ImportError:
 				print("Error loading the FBX library! Aborting...")
