@@ -1308,9 +1308,34 @@ skeleton
 			# call the library
 			try:
 				from io_scene_fbx.export_fbx_bin import save_single
-				print(srcResults)
-				save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=True, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResults, bake_space_transform=True)
+				
+				save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=False, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResults, bake_space_transform=True)
 				written+=1
+			except RuntimeError:
+				#run second pass of ngon removal if necessary
+				print("Ngons detected! Triangulating mesh...")
+				
+				srcResultsTriangulated = []
+				for object in srcResults:
+					bpy.ops.object.select_all(action = 'DESELECT') #first deselect all objects
+					object.select = True
+					bpy.ops.object.duplicate() # duplicates the selected object and deselects the original
+					newObj = bpy.context.selected_objects[0]
+					newObj.modifiers.new(name="Triangulate", type="TRIANGULATE") #triangulate this mesh
+					srcResultsTriangulated.append(newObj)
+				try:
+					save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=False, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResultsTriangulated, bake_space_transform=True)
+					#now delete the triangulated duplicates
+					try:
+						while srcResultsTriangulated[0]: #while there is still an element in the array
+							srcResultsTriangulated[0].select = True
+							bpy.ops.object.delete() # deletes object
+							del(srcResultsTriangulated[0])
+					except IndexError:
+						pass
+					written+=1
+				except:
+					print("Error exporting FBX in second pass.")
 			except ImportError:
 				print("Error loading the FBX library! Aborting...")
 			except:
@@ -1319,7 +1344,7 @@ skeleton
 			if(written):
 				print("- FBX export took",bench.total(),"\n")
 			else:
-				print("- FBX module not present! Not exported!")
+				print("- FBX export failed.")
 		
 		return written
 	def writeDMX(self, id, bake_results, name, dir_path):
