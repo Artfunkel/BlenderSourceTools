@@ -1301,38 +1301,39 @@ skeleton
 		srcResults = []
 		for object in bake_results:
 			srcResults.append(object.src)
-		#print(bpy.context.selected_objects)
+			
+		# Now we merge all of the objects into 1.
+		# "But WHY??!? Surely that's not as clean!"
+		# Studiomdl, being an utter mess, simply cannot parse UV2 data correctly when more than one object is in the FBX. 
+		# It ends up reading garbage data, creating a corrupt UV2 in-game that's unusable.
+		# Therefore we need to slam all the objects together into one single merged object.
+		# We can get away with this since FBX support is limited to static props only, which don't really require any of the special features used by multiple objects.
+		
+		bpy.ops.object.select_all(action = 'DESELECT') #first deselect all objects
+		for objectIndex in range(0, len(srcResults)) : 
+			srcResults[objectIndex].select = True 
+		bpy.ops.object.duplicate() # duplicates everything!
+		srcResults = bpy.context.selected_objects
+		exportObject = srcResults[0]
+		bpy.context.scene.objects.active = exportObject
+		bpy.ops.object.join() # merge the duplicates into the export object
+			
 		bench.report("Calling export library.")
 		if bpy.ops.export_scene.fbx: # only proceed if the export library exists
 			
 			# call the library
 			try:
 				from io_scene_fbx.export_fbx_bin import save_single
-				
-				save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=False, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResults, bake_space_transform=True)
+				dummyObject = [exportObject] # dummy object, needed for context_objects
+				save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=False, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=dummyObject, bake_space_transform=True)
 				written+=1
 			except RuntimeError:
-				#run second pass of ngon removal if necessary
+				# runtime error gets thrown if the model contains ngons, since fbx addon can't export that... if this happens, triangulate the mesh
 				print("Ngons detected! Triangulating mesh...")
-				
-				srcResultsTriangulated = []
-				for object in srcResults:
-					bpy.ops.object.select_all(action = 'DESELECT') #first deselect all objects
-					object.select = True
-					bpy.ops.object.duplicate() # duplicates the selected object and deselects the original
-					newObj = bpy.context.selected_objects[0]
-					newObj.modifiers.new(name="Triangulate", type="TRIANGULATE") #triangulate this mesh
-					srcResultsTriangulated.append(newObj)
+				exportObject.modifiers.new(name="Triangulate", type="TRIANGULATE") #triangulate this mesh
 				try:
-					save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=False, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=srcResultsTriangulated, bake_space_transform=True)
-					#now delete the triangulated duplicates
-					try:
-						while srcResultsTriangulated[0]: #while there is still an element in the array
-							srcResultsTriangulated[0].select = True
-							bpy.ops.object.delete() # deletes object
-							del(srcResultsTriangulated[0])
-					except IndexError:
-						pass
+					dummyObject = [exportObject]
+					save_single(self, bpy.context.scene, filepath=filepathExport, apply_unit_scale=False, apply_scale_options='FBX_SCALE_ALL', axis_up=bpy.context.scene.vs.up_axis, context_objects=dummyObject, bake_space_transform=True)
 					written+=1
 				except:
 					print("Error exporting FBX in second pass.")
@@ -1340,11 +1341,19 @@ skeleton
 				print("Error loading the FBX library! Aborting...")
 			except:
 				print("Error exporting FBX.")
+				
+				
+		bpy.ops.object.select_all(action = 'DESELECT') #first deselect all objects
+		while srcResults: # free all memory/cleanup objects, don't want to make duplicates
+			srcResults[0].select = True
+			bpy.ops.object.delete() # deletes object
+			del(srcResults[0])
+		
 		if bench.quiet:
 			if(written):
 				print("- FBX export took",bench.total(),"\n")
 			else:
-				print("- FBX export failed.")
+				print("- FBX export error!")
 		
 		return written
 	def writeDMX(self, id, bake_results, name, dir_path):
