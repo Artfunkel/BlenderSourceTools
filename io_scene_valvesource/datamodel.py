@@ -166,6 +166,9 @@ class _Vector(list):
 	def __hash__(self):
 		return hash(tuple(self))
 	
+	def __round__(self,n=0):
+		return type(self)([round(ord,n) for ord in self])
+	
 	def tobytes(self):
 		return struct.pack(self.type_str,*self)
 		

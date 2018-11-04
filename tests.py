@@ -95,6 +95,7 @@ class Tests:
 			self.assertEqual(bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc")), {'FINISHED'})
 
 		section("DMX Source 2")
+		C.scene.vs.export_path = join(C.scene.vs.export_path, "Source2")
 		C.scene.vs.export_format = 'DMX'
 		C.scene.vs.dmx_encoding = '9'
 		C.scene.vs.dmx_format = '22'
