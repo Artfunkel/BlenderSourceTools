@@ -30,13 +30,13 @@ floatsize = struct.calcsize("f")
 rx90 = Matrix.Rotation(radians(90),4,'X')
 ry90 = Matrix.Rotation(radians(90),4,'Y')
 rz90 = Matrix.Rotation(radians(90),4,'Z')
-ryz90 = ry90 * rz90
+ryz90 = ry90 @ rz90
 
 rx90n = Matrix.Rotation(radians(-90),4,'X')
 ry90n = Matrix.Rotation(radians(-90),4,'Y')
 rz90n = Matrix.Rotation(radians(-90),4,'Z')
 
-mat_BlenderToSMD = ry90 * rz90 # for legacy support only
+mat_BlenderToSMD = ry90 @ rz90 # for legacy support only
 
 epsilon = Vector([0.0001] * 3)
 
@@ -210,7 +210,7 @@ def count_exports(context):
 	num = 0
 	for exportable in context.scene.vs.export_list:
 		id = exportable.get_id()
-		if id and id.vs.export and (type(id) != bpy.types.Group or not id.vs.mute):
+		if id and id.vs.export and (type(id) != bpy.types.Collection or not id.vs.mute):
 			num += 1
 	return num
 
@@ -338,7 +338,7 @@ def hasShapes(id, valid_only = True):
 	def _test(id_):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
-	if type(id) == bpy.types.Group:
+	if type(id) == bpy.types.Collection:
 		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in p_cache.validObs) and _test(ob)]:
 			return True
 	else:
@@ -349,7 +349,7 @@ def countShapes(*objects):
 	num_correctives = 0
 	flattened_objects = []
 	for ob in objects:
-		if type(ob) == bpy.types.Group:
+		if type(ob) == bpy.types.Collection:
 			flattened_objects.extend(ob.objects)
 		elif hasattr(ob,'__iter__'):
 			flattened_objects.extend(ob)
@@ -365,7 +365,7 @@ def hasCurves(id):
 	def _test(id_):
 		return id_.type in ['CURVE','SURFACE','FONT']
 
-	if type(id) == bpy.types.Group:
+	if type(id) == bpy.types.Collection:
 		for _ in [ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs and _test(ob)]:
 			return True
 	else:
@@ -379,7 +379,7 @@ def valvesource_vertex_maps(id):
 		else:
 			return []
 
-	if type(id) == bpy.types.Group:
+	if type(id) == bpy.types.Collection:
 		return set(itertools.chain(*(test(ob) for ob in id.objects)))
 	elif id.type == 'MESH':
 		return test(id)
@@ -398,9 +398,9 @@ def getExportablesForId(id):
 	out = set()
 	for exportable in bpy.context.scene.vs.export_list:
 		if exportable.get_id() == id: return [exportable]
-		if exportable.ob_type == 'GROUP':
-			group = exportable.get_id()
-			if not group.vs.mute and id.name in group.objects:
+		if exportable.ob_type == 'COLLECTION':
+			collection = exportable.get_id()
+			if not collection.vs.mute and id.name in collection.objects:
 				out.add(exportable)
 	return list(out)
 
@@ -423,7 +423,7 @@ def make_export_list():
 	if len(p_cache.validObs):
 		ungrouped_objects = p_cache.validObs.copy()
 		
-		groups_sorted = bpy.data.groups[:]
+		groups_sorted = bpy.data.collections[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
 		
 		scene_groups = []
@@ -443,7 +443,7 @@ def make_export_list():
 			else:
 				i.name = makeDisplayName(g)
 			i.item_name = g.name
-			i.icon = i.ob_type = "GROUP"
+			i.icon = i.ob_type = "COLLECTION"
 			
 		
 		ungrouped_objects = list(ungrouped_objects)
@@ -475,16 +475,14 @@ def make_export_list():
 				i.icon = i_icon
 				i.item_name = ob.name
 
-from bpy.app.handlers import scene_update_post, persistent
-need_export_refresh = True
+from bpy.app.handlers import depsgraph_update_post,persistent
 last_export_refresh = 0
 
 @persistent
-def scene_update(scene, immediate=False):
-	global need_export_refresh
+def scene_update(scene):
 	global last_export_refresh
 		
-	if not hasattr(scene,"vs") or not (immediate or need_export_refresh or bpy.data.groups.is_updated or bpy.data.objects.is_updated or bpy.data.scenes.is_updated or bpy.data.actions.is_updated or bpy.data.groups.is_updated):
+	if not hasattr(scene,"vs"):
 		return
 
 	# "real" objects
@@ -497,21 +495,19 @@ def scene_update(scene, immediate=False):
 	
 	p_cache.validObs_version += 1
 
-	need_export_refresh = True
 	now = time.time()
 
-	if immediate or now - last_export_refresh > 0.25:
+	if now - last_export_refresh > 0.25:
 		make_export_list()
-		need_export_refresh = False
 		last_export_refresh = now
 
 def hook_scene_update():
-	if not scene_update in scene_update_post:
-		scene_update_post.append(scene_update)
+	if not scene_update in depsgraph_update_post:
+		depsgraph_update_post.append(scene_update)
 
 def unhook_scene_update():
-	if scene_update in scene_update_post:
-		scene_update_post.remove(scene_update)
+	if scene_update in depsgraph_update_post:
+		depsgraph_update_post.remove(scene_update)
 
 class Logger:
 	def __init__(self):

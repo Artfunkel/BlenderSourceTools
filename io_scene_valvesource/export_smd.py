@@ -23,7 +23,7 @@ from bpy import ops
 from bpy.app.translations import pgettext
 from mathutils import *
 from math import *
-from bpy.types import Group
+from bpy.types import Collection
 from bpy.props import *
 
 from .utils import *
@@ -34,13 +34,13 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	bl_label = get_id("qc_compile_title")
 	bl_description = get_id("qc_compile_tip")
 
-	files = CollectionProperty(type=bpy.types.OperatorFileListElement)
-	directory = StringProperty(maxlen=1024, default="", subtype='FILE_PATH')
+	files : CollectionProperty(type=bpy.types.OperatorFileListElement)
+	directory : StringProperty(maxlen=1024, default="", subtype='FILE_PATH')
 
-	filepath = StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
+	filepath : StringProperty(name="File path", maxlen=1024, default="", subtype='FILE_PATH')
 	
-	filter_folder = BoolProperty(default=True, options={'HIDDEN'})
-	filter_glob = StringProperty(default="*.qc;*.qci", options={'HIDDEN'})
+	filter_folder : BoolProperty(default=True, options={'HIDDEN'})
+	filter_glob : StringProperty(default="*.qc;*.qci", options={'HIDDEN'})
 	
 	@classmethod
 	def poll(cls,context):
@@ -129,8 +129,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 	bl_idname = "export_scene.smd"
 	bl_label = get_id("exporter_title")
 	
-	group = bpy.props.StringProperty(name=get_id("exporter_prop_group"),description=get_id("exporter_prop_group_tip"))
-	export_scene = bpy.props.BoolProperty(name=get_id("scene_export"),description=get_id("exporter_prop_scene_tip"),default=False) 
+	collection : bpy.props.StringProperty(name=get_id("exporter_prop_group"),description=get_id("exporter_prop_group_tip"))
+	export_scene : bpy.props.BoolProperty(name=get_id("scene_export"),description=get_id("exporter_prop_scene_tip"),default=False)
 
 	@classmethod
 	def poll(self,context):
@@ -201,20 +201,20 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			if self.export_scene:
 				for id in [exportable.get_id() for exportable in context.scene.vs.export_list]:
-					if type(id) == Group:
+					if type(id) == Collection:
 						if shouldExportGroup(id):
 							self.exportId(context, id)
 					elif id.vs.export:
 						self.exportId(context, id)
 			else:
-				if self.group == "":
+				if self.collection == "":
 					for exportable in getSelectedExportables():
 						self.exportId(context, exportable.get_id())
 				else:
-					group = bpy.data.groups[self.group]
-					if group.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(group.name))
-					elif not group.objects: self.error(get_id("exporter_err_groupempty", True).format(group.name))
-					else: self.exportId(context, group)
+					collection = bpy.data.Collection[self.collection]
+					if collection.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(collection.name))
+					elif not collection.objects: self.error(get_id("exporter_err_groupempty", True).format(collection.name))
+					else: self.exportId(context, collection)
 			
 			num_good_compiles = None
 
@@ -255,7 +255,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.window_manager.progress_end()
 			hook_scene_update()
 
-		self.group = ""
+		self.collection = ""
 		self.export_scene = False
 		return {'FINISHED'}
 
@@ -286,7 +286,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_makedirs", True).format(err))
 				return
 
-		if isinstance(id, bpy.types.Group) and not any(ob.vs.export for ob in id.objects):
+		if isinstance(id, bpy.types.Collection) and not any(ob.vs.export for ob in id.objects):
 			self.error(get_id("exporter_err_nogroupitems",True).format(id.name))
 			return
 		
@@ -305,7 +305,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			export_name = id.name		
 			
 		# hide all metaballs that we don't want
-		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Group) and not ob.name in id.objects))]:
+		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Collection) and not ob.name in id.objects))]:
 			for element in meta.data.elements: element.hide = True
 		bpy.context.scene.update() # actually found a use for this!!
 
@@ -338,7 +338,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if bench.quiet: print("- Baking...")
 
-		if type(id) == Group:
+		if type(id) == Collection:
 			have_baked_metaballs = False
 			group_vertex_maps = valvesource_vertex_maps(id)
 			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
@@ -379,7 +379,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		mesh_bakes = [bake for bake in bake_results if bake.object.type == 'MESH']
 		
 		skip_vca = False
-		if isinstance(id, Group) and len(id.vs.vertex_animations) and len(id.objects) > 1:
+		if isinstance(id, Collection) and len(id.vs.vertex_animations) and len(id.objects) > 1:
 			if len(mesh_bakes) > len([bake for bake in bake_results if (type(bake.envelope) is str and bake.envelope == bake_results[0].envelope) or bake.envelope is None]):
 				self.error(get_id("exporter_err_unmergable",True).format(id.name))
 				skip_vca = True
@@ -444,7 +444,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bench.report("\n" + va.name)
 			bpy.context.scene.objects.active = bake_results[0].src
 
-		if isinstance(id, Group) and shouldExportDMX() and id.vs.automerge:
+		if isinstance(id, Collection) and shouldExportDMX() and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
 			scene_obs = bpy.context.scene.objects
 			for bake in [bake for bake in bake_results if type(bake.envelope) is str or bake.envelope is None]:
@@ -583,7 +583,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		except StopIteration as e:
 			raise ValueError("Armature for exportable \"{}\" was not baked".format(bake_result.name)) from e
 		
-		model_mat = amod_ob.matrix_world.inverted() * ob.matrix_world
+		model_mat = amod_ob.matrix_world.inverted() @ ob.matrix_world
 
 		num_verts = len(ob.data.vertices)
 		for v in ob.data.vertices:
@@ -607,7 +607,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					
 			if amod.use_bone_envelopes and total_weight == 0: # vertex groups completely override envelopes
 				for pose_bone in [pb for pb in amod_ob.pose.bones if pb in self.exportable_bones]:
-					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( model_mat * v.co )
+					weight = pose_bone.bone.envelope_weight * pose_bone.evaluate_envelope( model_mat @ v.co )
 					if weight:
 						weights.append([ self.bone_ids[pose_bone.name], weight ])
 						total_weight += weight
@@ -754,7 +754,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 		bpy.context.scene.update()
-		id.matrix_world = Matrix.Translation(top_parent.location).inverted() * getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() * id.matrix_world
+		id.matrix_world = Matrix.Translation(top_parent.location).inverted() @ getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() @ id.matrix_world
 		
 		if id.type == 'ARMATURE':
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
@@ -1039,9 +1039,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if parent:
 							parentMat = parent.matrix
 							if self.armature.data.vs.legacy_rotation: parentMat *= mat_BlenderToSMD 
-							PoseMatrix = parentMat.inverted() * PoseMatrix
+							PoseMatrix = parentMat.inverted() @ PoseMatrix
 						else:
-							PoseMatrix = self.armature.matrix_world * PoseMatrix
+							PoseMatrix = self.armature.matrix_world @ PoseMatrix
 				
 						self.smd_file.write("{}  {}  {}\n".format(self.bone_ids[posebone.name], getSmdVec(PoseMatrix.to_translation()), getSmdVec(PoseMatrix.to_euler())))
 
@@ -1275,7 +1275,7 @@ skeleton
 			self.smd_file.write("time {}\n".format(i))
 			if self.armature_src:
 				for root_bone in [b for b in self.exportable_bones if b.parent == None]:
-					mat = getUpAxisMat('Y').inverted() * self.armature.matrix_world * root_bone.matrix
+					mat = getUpAxisMat('Y').inverted() @ self.armature.matrix_world @ root_bone.matrix
 					self.smd_file.write("{} {} {}\n".format(self.bone_ids[root_bone.name], getSmdVec(mat.to_translation()), getSmdVec(mat.to_euler())))
 			else:
 				self.smd_file.write("0 0 0 0 {} 0 0\n".format("-1.570797" if bpy.context.scene.vs.up_axis == 'Z' else "0"))
@@ -1358,9 +1358,9 @@ skeleton
 				cur_p = bone.parent
 				while cur_p and not cur_p in self.exportable_bones: cur_p = cur_p.parent
 				if cur_p:
-					relMat = cur_p.matrix.inverted() * bone.matrix
+					relMat = cur_p.matrix.inverted() @ bone.matrix
 				else:
-					relMat = self.armature.matrix_world * bone.matrix
+					relMat = self.armature.matrix_world @ bone.matrix
 			
 			trfm = makeTransform(bone_name,relMat,"bone"+bone_name)
 			trfm_base = makeTransform(bone_name,relMat,"bone_base"+bone_name)
@@ -1460,8 +1460,8 @@ skeleton
 				# - A bone's matrix_local value is local to the armature, NOT the bone's parent
 				# - Bone parents are calculated from the head of the bone, NOT the tail (even though the tail defines the bone's location in pose mode!)
 				# The simplest way to arrive at the correct value relative to the tail is to perform a world space calculation, like so:
-				bone_parent_matrix_world = self.armature_src.matrix_world * self.armature_src.data.bones[bake.envelope].matrix_local
-				trfm_mat = bone_parent_matrix_world.normalized().inverted() * bake.src.matrix_world # normalise to remove armature scale
+				bone_parent_matrix_world = self.armature_src.matrix_world @ self.armature_src.data.bones[bake.envelope].matrix_local
+				trfm_mat = bone_parent_matrix_world.normalized().inverted() @ bake.src.matrix_world # normalise to remove armature scale
 
 				if not source2 and bake.src.type == 'META': # I have no idea why this is required. Metaballs are weird.
 					trfm_mat *= Matrix.Translation(self.armature_src.location)
@@ -1815,7 +1815,7 @@ skeleton
 						ob_vert = ob.data.vertices[ob_loop.vertex_index]
 
 						if ob_vert.co != shape_vert.co:
-							delta = vca_matrix * shape_vert.co - ob_vert.co
+							delta = vca_matrix @ shape_vert.co - ob_vert.co
 
 							if abs(delta.length) > 1e-5:
 								shape_pos.append(datamodel.Vector3(delta))
@@ -1850,14 +1850,14 @@ skeleton
 					if self.armature_src:
 						for bone in [bone for bone in self.armature_src.data.bones if bone.parent is None]:
 							b = vca_arm.data.edit_bones.new(bone.name)
-							b.head = mat * bone.head
-							b.tail = mat * bone.tail
+							b.head = mat @ bone.head
+							b.tail = mat @ bone.tail
 					else:
 						for bake in bake_results:
-							bake_mat = mat * bake.object.matrix_world
+							bake_mat = mat @ bake.object.matrix_world
 							b = vca_arm.data.edit_bones.new(bake.name)
-							b.head = bake_mat * b.head
-							b.tail = bake_mat * Vector([0,1,0])
+							b.head = bake_mat @ b.head
+							b.tail = bake_mat @ Vector([0,1,0])
 
 					bpy.ops.object.mode_set(mode='POSE')
 					ops.pose.armature_apply() # refreshes the armature's internal state, required!
@@ -1959,9 +1959,9 @@ skeleton
 					cur_p = bone.parent
 					while cur_p and not cur_p in self.exportable_bones: cur_p = cur_p.parent
 					if cur_p:
-						relMat = cur_p.matrix.inverted() * bone.matrix
+						relMat = cur_p.matrix.inverted() @ bone.matrix
 					else:
-						relMat = self.armature.matrix_world * bone.matrix
+						relMat = self.armature.matrix_world @ bone.matrix
 					
 					pos = relMat.to_translation()
 					if bone.parent:

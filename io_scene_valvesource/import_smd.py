@@ -35,24 +35,23 @@ class SmdImporter(bpy.types.Operator, Logger):
 	smd = None
 
 	# Properties used by the file browser
-	filepath = StringProperty(name="File Path", description="File filepath used for importing the SMD/VTA/DMX/QC file", maxlen=1024, default="", options={'HIDDEN'})
-	files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN'})
-	directory = StringProperty(maxlen=1024, default="", subtype='FILE_PATH', options={'HIDDEN'})
-	filter_folder = BoolProperty(name="Filter Folders", description="", default=True, options={'HIDDEN'})
-	filter_glob = StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
+	filepath : StringProperty(name="File Path", description="File filepath used for importing the SMD/VTA/DMX/QC file", maxlen=1024, default="", options={'HIDDEN'})
+	files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN'})
+	directory : StringProperty(maxlen=1024, default="", subtype='FILE_PATH', options={'HIDDEN'})
+	filter_folder : BoolProperty(name="Filter Folders", description="", default=True, options={'HIDDEN'})
+	filter_glob : StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
 
 	# Custom properties
-	doAnim = BoolProperty(name=get_id("importer_doanims"), default=True)
-	makeCamera = BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
-	append = EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
+	doAnim : BoolProperty(name=get_id("importer_doanims"), default=True)
+	makeCamera : BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
+	append : EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
 		('VALIDATE',get_id("importer_bones_validate"),get_id("importer_bones_validate_desc")),
 		('APPEND',get_id("importer_bones_append"),get_id("importer_bones_append_desc")),
 		('NEW_ARMATURE',get_id("importer_bones_newarm"),get_id("importer_bones_newarm_desc"))),
 		default='APPEND')
-	upAxis = EnumProperty(name="Up Axis",items=axes,default='Z',description=get_id("importer_up_tip"))
-	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
-	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
-	boneMode = EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
+	upAxis : EnumProperty(name="Up Axis",items=axes,default='Z',description=get_id("importer_up_tip"))
+	rotMode : EnumProperty(name=get_id("importer_rotmode"),items=( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") ),default='XYZ',description=get_id("importer_rotmode_tip"))
+	boneMode : EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
 	
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
@@ -390,7 +389,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			
 			keyframe = KeyFrame()
 			keyframe.frame = num_frames - 1
-			keyframe.matrix = Matrix.Translation(pos) * rot.to_matrix().to_4x4()
+			keyframe.matrix = Matrix.Translation(pos) @ rot.to_matrix().to_4x4()
 			keyframe.pos = keyframe.rot = True
 			
 			# store the keyframe
@@ -398,11 +397,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 			try:
 				bone = smd.a.pose.bones[ smd.boneIDs[values[0]] ]
 				if not bone.parent:
-					keyframe.matrix = getUpAxisMat(smd.upAxis) * keyframe.matrix
+					keyframe.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 				keyframes[bone].append(keyframe)
 			except KeyError:
 				if not smd.phantomParentIDs.get(values[0]):
-					keyframe.matrix = getUpAxisMat(smd.upAxis) * keyframe.matrix
+					keyframe.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 				phantom_keyframes[values[0]].append(keyframe)
 			
 		# All frames read, apply phantom bones
@@ -418,7 +417,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							if phantom_source_frame == 0: continue # should never happen
 							phantom_source_frame -= 1
 						# Apply the phantom bone, then recurse
-						keyframes[bone][phantom_keyframe.frame].matrix = phantom_keyframes[phantom_parent][phantom_source_frame] * keyframes[bone][phantom_keyframe.frame].matrix
+						keyframes[bone][phantom_keyframe.frame].matrix = phantom_keyframes[phantom_parent][phantom_source_frame] @ keyframes[bone][phantom_keyframe.frame].matrix
 						phantom_parent = smd.phantomParentIDs.get(phantom_parent)
 		
 		self.applyFrames(keyframes,num_frames)
@@ -436,7 +435,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if bone.name in self.existingBones:
 					continue
 				elif bone.parent and not keyframes.get(bone.parent):
-					bone.matrix = bone.parent.matrix * kf[0].matrix
+					bone.matrix = bone.parent.matrix @ kf[0].matrix
 				else:
 					bone.matrix = kf[0].matrix
 			ops.pose.armature_apply()
@@ -518,7 +517,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				for bone in keyframes.keys():
 					bone_keyframes = keyframes[bone]
 					for keyframe in bone_keyframes[1:]:
-						diff = keyframe.matrix.inverted() * bone_keyframes[0].matrix
+						diff = keyframe.matrix.inverted() @ bone_keyframes[0].matrix
 						if diff.to_translation().length > 0.00001 or abs(diff.to_quaternion().w) > 0.0001:
 							still_bones.remove(bone)
 							break
@@ -556,11 +555,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 							keyframe.matrix *= mat_BlenderToSMD.inverted()
 						
 						if bone.parent:
-							if smd.a.data.vs.legacy_rotation: parentMat = bone.parent.matrix * mat_BlenderToSMD
+							if smd.a.data.vs.legacy_rotation: parentMat = bone.parent.matrix @ mat_BlenderToSMD
 							else: parentMat = bone.parent.matrix
-							bone.matrix = parentMat * keyframe.matrix
+							bone.matrix = parentMat @ keyframe.matrix
 						else:
-							bone.matrix = getUpAxisMat(smd.upAxis) * keyframe.matrix
+							bone.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 						
 						# Key location					
 						if keyframe.pos:
@@ -938,7 +937,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				continue # to the first vertex of the new shape
 
 			cur_id = int(values[0])
-			vta_co = getUpAxisMat(smd.upAxis) * Vector([ float(values[1]), float(values[2]), float(values[3]) ])
+			vta_co = getUpAxisMat(smd.upAxis) @ Vector([ float(values[1]), float(values[2]), float(values[3]) ])
 
 			if making_base_shape:
 				vta_ids.append(cur_id)
@@ -1151,7 +1150,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				for i in range(3):
 					origin.location[i] = float(line[i+1])
-				origin.matrix_world = getUpAxisMat(qc.upAxis) * origin.matrix_world
+				origin.matrix_world = getUpAxisMat(qc.upAxis) @ origin.matrix_world
 
 				if qc.makeCamera:
 					bpy.context.scene.camera = origin
@@ -1511,7 +1510,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					ob.data.update()
 					ob.matrix_world *= matrix
 					if ob.parent:
-						ob.matrix_world = ob.parent.matrix_world * ob.matrix_world
+						ob.matrix_world = ob.parent.matrix_world @ ob.matrix_world
 					if smd.jobType == PHYS:
 						ob.draw_type = 'SOLID'
 

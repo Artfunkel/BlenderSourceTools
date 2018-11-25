@@ -36,8 +36,8 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 		
 		exportables = list(getSelectedExportables())
 		if len(exportables):
-			single_obs = list([ex for ex in exportables if ex.ob_type != 'GROUP'])
-			groups = list([ex for ex in exportables if ex.ob_type == 'GROUP'])
+			single_obs = list([ex for ex in exportables if ex.ob_type != 'COLLECTION'])
+			groups = list([ex for ex in exportables if ex.ob_type == 'COLLECTION'])
 			groups.sort(key=lambda g: g.name.lower())
 				
 			group_layout = l
@@ -133,7 +133,7 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		id = item.get_id()
 		if id is None: return
 
-		enabled = not (type(id) == bpy.types.Group and id.vs.mute)
+		enabled = not (type(id) == bpy.types.Collection and id.vs.mute)
 		
 		row = layout.row(align=True)
 		row.alignment = 'LEFT'
@@ -204,7 +204,7 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls,c):
-		return type(get_active_exportable(c).get_id()) in [bpy.types.Object, bpy.types.Group]
+		return type(get_active_exportable(c).get_id()) in [bpy.types.Object, bpy.types.Collection]
 	
 	def execute(self,c):
 		id = get_active_exportable(c).get_id()
@@ -223,7 +223,7 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 	@classmethod
 	def poll(cls,c):
 		id = get_active_exportable(c).get_id()
-		return type(id) in [bpy.types.Object, bpy.types.Group] and len(id.vs.vertex_animations)
+		return type(id) in [bpy.types.Object, bpy.types.Collection] and len(id.vs.vertex_animations)
 	
 	def execute(self,c):
 		id = get_active_exportable(c).get_id()
@@ -363,7 +363,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			return
 
 		item = active_exportable.get_id()
-		is_group = type(item) == bpy.types.Group
+		is_group = type(item) == bpy.types.Collection
 
 		col = l.column()
 		
@@ -374,8 +374,8 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			col = self.makeSettingsBox(text=get_id("vca_group_props"),icon=vca_icon)
 			
 			r = col.row(align=True)
-			r.operator(SMD_OT_AddVertexAnimation.bl_idname,icon="ZOOMIN",text="Add")
-			op = r.operator(SMD_OT_RemoveVertexAnimation.bl_idname,icon="ZOOMOUT",text="Remove")
+			r.operator(SMD_OT_AddVertexAnimation.bl_idname,icon="ADD",text="Add")
+			op = r.operator(SMD_OT_RemoveVertexAnimation.bl_idname,icon="REMOVE",text="Remove")
 			r.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/Vertex_animation"
 
 			if len(item.vs.vertex_animations) > 0:
@@ -476,8 +476,8 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					
 					r = r.row()
 					add_remove = r.row(align=True)
-					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ZOOMIN',text="")
-					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='ZOOMOUT',text="")
+					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ADD',text="")
+					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='REMOVE',text="")
 					r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
 
 				col.separator()
