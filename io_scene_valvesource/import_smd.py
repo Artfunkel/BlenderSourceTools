@@ -681,22 +681,16 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		return material
 
-	def materialsPath(self, level, pop):
+	def materialsPath(self, maxDepth):
 		basedir = os.path.dirname(self.filepath)
-		parts = os.path.normpath(basedir).split(os.path.sep)
-		parts = []
 		head = basedir
-		for i in range(level):
+		for i in range(maxDepth):
 			head, tail = os.path.split(head)
-			parts.insert(0, tail)
-		if parts[0].lower() == 'models':
-			parts[0] = 'materials'
-		else:
-			return None
-		if pop:
-			parts.pop()
+			expected = os.path.join(head, 'materials')
+			if os.path.exists(expected):
+				return expected
 
-		return os.path.join(head, *parts)
+		return None
 
 	# find an image based on the material name under the current directory.
 	# also tries to look for a corresponding materials folder
@@ -704,17 +698,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		basedir = os.path.dirname(self.filepath)
 
 		# array of directories to search for images.
-		directories = [basedir]
+		directories = [basedir, self.materialsPath(10)]
 		formats = ['PNG', 'TARGA', "BMP", 'JPEG']
 		extensions = ['png', 'tga', 'bmp', 'jpg']
 
-		# add directories to search. convert 'models' to 'materials'.
-		# look up three levels and also four levels in case the filepath
-		# is in a 'decompiled' subdirectory.
-		# e.g. path/models/name1/name2/model.qc -> path/materials/name1/name2
-		directories.append(self.materialsPath(3, 0))
-		directories.append(self.materialsPath(4, 1)) # 'decompiled' subdirectory
-		#print("- Searching directories:", directories)
+		#print("- search paths:", directories)
 
 		for dir in filter(None, directories):
 			for ext_idx in range(len(extensions)):
