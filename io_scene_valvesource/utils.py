@@ -298,7 +298,9 @@ def MakeObjectIcon(object,prefix=None,suffix=None):
 	return out
 
 def GetCustomPropName(data,prop, suffix=""):
-	return "".join([pgettext(getattr(type(data), prop)[1]['name']), suffix])
+	'''Looks up the name of the bpy property associated with the given property name'''
+	import typing
+	return "".join([pgettext(typing.get_type_hints(type(data))[prop][1]['name']), suffix])
 
 def getObExportName(ob):
 	return ob.name
@@ -443,7 +445,8 @@ def make_export_list():
 			else:
 				i.name = makeDisplayName(g)
 			i.item_name = g.name
-			i.icon = i.ob_type = "COLLECTION"
+			i.ob_type = "COLLECTION"
+			i.icon = "GROUP"
 			
 		
 		ungrouped_objects = list(ungrouped_objects)

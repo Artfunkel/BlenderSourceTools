@@ -53,7 +53,7 @@ for func in depsgraph_update_post:
 	if func.__module__.startswith(__name__):
 		depsgraph_update_post.remove(func)
 
-from . import datamodel, import_smd, export_smd, flex, GUI
+from . import datamodel, import_smd, export_smd, flex, GUI, update
 from .utils import *
 
 class ValveSource_Exportable(bpy.types.PropertyGroup):
@@ -245,7 +245,6 @@ class ValveSource_CurveProps(ShapeTypeProps,CurveTypeProps,PropertyGroup):
 class ValveSource_TextProps(CurveTypeProps,PropertyGroup):
 	pass
 
-import inspect
 _classes = (
 	ValveSource_Exportable,
 	ValveSource_SceneProps,
@@ -257,6 +256,18 @@ _classes = (
 	ValveSource_SurfaceProps,
 	ValveSource_CurveProps,
 	ValveSource_TextProps,
+	GUI.SMD_MT_ExportChoice,
+	GUI.SMD_PT_Scene,
+	GUI.SMD_UL_ExportItems,
+	GUI.SMD_UL_GroupItems,
+	GUI.SMD_UL_VertexAnimationItem,
+	GUI.SMD_OT_AddVertexAnimation,
+	GUI.SMD_OT_RemoveVertexAnimation,
+	GUI.SMD_OT_PreviewVertexAnimation,
+	GUI.SMD_OT_GenerateVertexAnimationQCSnippet,
+	GUI.SMD_PT_Object_Config,
+	GUI.SMD_PT_Scene_QC_Complie,
+	update.SmdToolsUpdate,
 	export_smd.SMD_OT_Compile, 
 	export_smd.SmdExporter, 
 	import_smd.SmdImporter)

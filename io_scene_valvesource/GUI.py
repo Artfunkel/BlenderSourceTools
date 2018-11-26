@@ -85,10 +85,10 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.prop(scene.vs,"export_path")
 		
 		if allowDMX():
-			row = l.row().split(0.33)
+			row = l.row().split(factor=0.33)
 			row.label(text=GetCustomPropName(scene.vs,"export_format",":"))
 			row.row().prop(scene.vs,"export_format",expand=True)
-		row = l.row().split(0.33)
+		row = l.row().split(factor=0.33)
 		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
@@ -103,7 +103,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		if scene.vs.export_format == 'DMX':
 			version = getDmxVersionsForSDK()
 			if version == None:
-				row = l.split(0.33)
+				row = l.split(factor=0.33)
 				row.label(text=get_id("exportpanel_dmxver"))
 				row = row.row(align=True)
 				row.prop(scene.vs,"dmx_encoding",text="")
@@ -117,7 +117,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
 				col.enabled = shouldExportDMX()
 		else:
-			row = l.split(0.33)
+			row = l.split(factor=0.33)
 			row.label(text=GetCustomPropName(scene.vs,"smd_format",":"))
 			row.row().prop(scene.vs,"smd_format", expand=True)
 		
@@ -140,7 +140,7 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		row.enabled = enabled
 			
 		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
-		row.label(item.name,icon=item.icon)
+		row.label(text=item.name,icon=item.icon)
 
 		if not enabled: return
 
@@ -150,11 +150,11 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		num_shapes, num_correctives = countShapes(id)
 		num_shapes += num_correctives
 		if num_shapes > 0:
-			row.label(str(num_shapes),icon='SHAPEKEY_DATA')
+			row.label(text=str(num_shapes),icon='SHAPEKEY_DATA')
 
 		num_vca = len(id.vs.vertex_animations)
 		if num_vca > 0:
-			row.label(str(num_vca),icon=vca_icon)
+			row.label(text=str(num_vca),icon=vca_icon)
 
 class FilterCache:
 	def __init__(self,validObs_version):
@@ -218,7 +218,7 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 	bl_description = get_id("vca_remove_tip")
 	bl_options = {'INTERNAL'}
 
-	index = bpy.props.IntProperty(min=0)
+	index : bpy.props.IntProperty(min=0)
 
 	@classmethod
 	def poll(cls,c):
@@ -443,9 +443,9 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					if not len(datablocks_dispayed):
 						col.label(text=get_id("exportables_flex_split"))
 						sharpness_col = col.column(align=True)
-					r = sharpness_col.split(0.33,align=True)
+					r = sharpness_col.split(factor=0.33,align=True)
 					r.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
-					r2 = r.split(0.7,align=True)
+					r2 = r.split(factor=0.7,align=True)
 					if ob.data.vs.flex_stereo_mode == 'VGROUP':
 						r2.alert = ob.vertex_groups.get(ob.data.vs.flex_stereo_vg) is None
 						r2.prop_search(ob.data.vs,"flex_stereo_vg",ob,"vertex_groups",text="")
@@ -471,7 +471,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 
 				col = self.makeSettingsBox(text=title, icon='VPAINT_HLT')
 				for map_name in vertex_maps:
-					r = col.row().split(0.55)
+					r = col.row().split(factor=0.55)
 					r.label(get_id(map_name),icon='GROUP_VCOL')
 					
 					r = r.row()
@@ -488,7 +488,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			col.label(text=get_id("exportables_curve_polyside"))
 			done = set()
 			for ob in [ob for ob in objects if hasCurves(ob) and not ob.data in done]:
-				row = col.split(0.33)
+				row = col.split(factor=0.33)
 				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 				row.prop(ob.data.vs,"faces",text="")
 				done.add(ob.data)
