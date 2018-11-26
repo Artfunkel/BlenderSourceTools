@@ -711,7 +711,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		# add directories to search. convert 'models' to 'materials'.
 		# look up three levels and also four levels in case the filepath
 		# is in a 'decompiled' subdirectory.
-		# e.g. path/models/name1/name2/model.qc -> path/resources/name1/name2
+		# e.g. path/models/name1/name2/model.qc -> path/materials/name1/name2
 		directories.append(self.materialsPath(3, 0))
 		directories.append(self.materialsPath(4, 1)) # 'decompiled' subdirectory
 		#print("- Searching directories:", directories)
