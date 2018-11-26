@@ -714,7 +714,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		# e.g. path/models/name1/name2/model.qc -> path/resources/name1/name2
 		directories.append(self.materialsPath(3, 0))
 		directories.append(self.materialsPath(4, 1)) # 'decompiled' subdirectory
-		print("- Searching directories:", directories)
+		#print("- Searching directories:", directories)
 
 		for dir in filter(None, directories):
 			for ext_idx in range(len(extensions)):
@@ -725,8 +725,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 					print("- Found material image:", filename, dir)
 					image.file_format = formats[ext_idx]
 					image.source = 'FILE'
-					print("image filepath: ", image.filepath)
-					print("image: ", image)
 					return image
 		
 		return None
