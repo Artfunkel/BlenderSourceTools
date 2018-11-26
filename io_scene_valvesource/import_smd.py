@@ -18,12 +18,16 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bmesh, random, collections
+import bpy, bmesh, random, collections, os
 from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import *
+from bpy_extras import image_utils
 from .utils import *
 from . import datamodel
+
+_grid_width = 200
+_grid_height = 200
 
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
@@ -629,20 +633,106 @@ class SmdImporter(bpy.types.Operator, Logger):
 				mat_ind = len(md.materials) - 1
 		else: # material does not exist
 			print("- New material: {}".format(mat_name))
-			mat = bpy.data.materials.new(mat_name)
+
+			# create material
+			mat = self.createMaterial(mat_name)
 			md.materials.append(mat)
-			# Give it a random colour
-			randCol = []
-			for i in range(3):
-				randCol.append(random.uniform(.4,1))
-			mat.diffuse_color = randCol
-			if smd.jobType != PHYS:
-				mat.use_face_texture = True # in case the uninitated user wants a quick rendering
-			else:
-				smd.m.draw_type = 'SOLID'
 			mat_ind = len(md.materials) - 1
 
+			if smd.jobType != PHYS:
+				mat.use_face_texture = True # in case the uninitiated user wants a quick rendering
+			else:
+				smd.m.draw_type = 'SOLID'
+
 		return mat, mat_ind
+
+	def randomColor(self):
+		randCol = []
+		for i in range(3):
+			randCol.append(random.uniform(.4,1))
+		return randCol
+
+	def createMaterial(self, mat_name):
+		material = bpy.data.materials.new(mat_name)
+		material.use_nodes = True
+		material.diffuse_color = self.randomColor()
+
+		tree = material.node_tree
+		nodes = tree.nodes
+		links = tree.links
+
+		nodes.clear()
+
+		# material output
+		node_output = nodes.new(type='ShaderNodeOutputMaterial')
+		node_output.location = self.gridLocation(0, 0)
+
+		# create principled BSDF
+		node_bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
+		node_bsdf.location = self.gridLocation(-1, 0)
+
+		# create image texture
+		node_texture = nodes.new(type='ShaderNodeTexImage')
+		node_texture.location = self.gridLocation(-2, 0)
+		node_texture.image = self.findImage(mat_name)
+
+		links.new(node_texture.outputs["Color"], node_bsdf.inputs["Base Color"])
+		links.new(node_bsdf.outputs["BSDF"], node_output.inputs["Surface"])
+
+		return material
+
+	def materialsPath(self, level, pop):
+		basedir = os.path.dirname(self.filepath)
+		parts = os.path.normpath(basedir).split(os.path.sep)
+		parts = []
+		head = basedir
+		for i in range(level):
+			head, tail = os.path.split(head)
+			parts.insert(0, tail)
+		if parts[0].lower() == 'models':
+			parts[0] = 'materials'
+		else:
+			return None
+		if pop:
+			parts.pop()
+
+		return os.path.join(head, *parts)
+
+	# find an image based on the material name under the current directory.
+	# also tries to look for a corresponding materials folder
+	def findImage(self, mat_name):
+		basedir = os.path.dirname(self.filepath)
+
+		# array of directories to search for images.
+		directories = [basedir]
+		formats = ['PNG', 'TARGA', "BMP", 'JPEG']
+		extensions = ['png', 'tga', 'bmp', 'jpg']
+
+		# add directories to search. convert 'models' to 'materials'.
+		# look up three levels and also four levels in case the filepath
+		# is in a 'decompiled' subdirectory.
+		# e.g. path/models/name1/name2/model.qc -> path/resources/name1/name2
+		directories.append(self.materialsPath(3, 0))
+		directories.append(self.materialsPath(4, 1)) # 'decompiled' subdirectory
+		print("- Searching directories:", directories)
+
+		for dir in filter(None, directories):
+			for ext_idx in range(len(extensions)):
+				ext = extensions[ext_idx]
+				filename = mat_name + "." + ext
+				image = image_utils.load_image(filename, dirname=dir, recursive=True, check_existing=True)
+				if not image is None:
+					print("- Found material image:", filename, dir)
+					image.file_format = formats[ext_idx]
+					image.source = 'FILE'
+					print("image filepath: ", image.filepath)
+					print("image: ", image)
+					return image
+		
+		return None
+
+	def gridLocation(self, x, y):
+		return (x * _grid_width, y * _grid_height)
 
 	def setLayer(self):
 		smd = self.smd
