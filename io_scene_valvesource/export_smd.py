@@ -163,9 +163,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		# Don't create an undo level from edit mode
 		prev_mode = prev_hidden = None
 		if context.active_object:
-			if context.active_object.hide:
+			if context.active_object.hide_viewport:
 				prev_hidden = context.active_object 
-				context.active_object.hide = False
+				context.active_object.hide_viewport = False
 			prev_mode = context.mode
 			if prev_mode.find("EDIT") != -1: prev_mode = 'EDIT'
 			elif prev_mode.find("PAINT") != -1: # FFS Blender!
@@ -194,8 +194,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 			# lots of operators only work on visible objects
 			for object in context.scene.objects:
-				object.hide = False
-			context.scene.layers = [True] * len(context.scene.layers)
+				object.hide_viewport = False
 
 			self.files_exported = self.attemptedExports = 0
 			
@@ -249,7 +248,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if prev_mode:
 				ops.object.mode_set(mode=prev_mode)
 			if prev_hidden:
-				prev_hidden.hide = True
+				prev_hidden.hide_viewport = True
 			bpy.context.scene.update_tag()
 			
 			bpy.context.window_manager.progress_end()
@@ -306,7 +305,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 		# hide all metaballs that we don't want
 		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Collection) and not ob.name in id.objects))]:
-			for element in meta.data.elements: element.hide = True
+			for element in meta.data.elements: element.hide_viewport = True
 		bpy.context.scene.update() # actually found a use for this!!
 
 		def find_basis_metaball(id):
@@ -403,11 +402,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.scene.frame_set(f)
 				bpy.ops.object.select_all(action='DESELECT')
 				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
-					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake.src.to_mesh(bpy.context.scene, True, 'PREVIEW'))
+					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake.src.to_mesh(bpy.context.depsgraph, True))
 					bake.fob.matrix_world = bake.src.matrix_world
-					bpy.context.scene.objects.link(bake.fob)
-					bpy.context.scene.objects.active = bake.fob
-					bake.fob.select = True
+					bpy.context.scene.collection.objects.link(bake.fob)
+					bpy.context.view_layer.objects.active = bake.fob
+					bake.fob.select_set(True)
 
 					top_parent = self.getTopParent(bake.src)
 					if top_parent:
@@ -424,7 +423,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						bpy.context.scene.rigidbody_world.enabled = prev_rbw
 
 				if bpy.context.selected_objects and not shouldExportDMX():
-					bpy.context.scene.objects.active = bpy.context.selected_objects[0]
+					bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
 					ops.object.join()
 				
 				vca.append(bpy.context.active_object if len(bpy.context.selected_objects) == 1 else bpy.context.selected_objects)
@@ -442,7 +441,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.context.window_manager.progress_update(len(vca) / vca.num_frames)
 
 			bench.report("\n" + va.name)
-			bpy.context.scene.objects.active = bake_results[0].src
+			bpy.context.view_layer.objects.active = bake_results[0].src
 
 		if isinstance(id, Collection) and shouldExportDMX() and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
@@ -462,7 +461,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					ob.data = ob.data.copy()
 					ob.data.uv_layers.active.name = "__dmx_uv__"
 					scene_obs.link(ob)
-					ob.select = True
+					ob.select_set(True)
 					scene_obs.active = ob
 					bake_results.remove(part)
 					
@@ -483,9 +482,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 							bpy.ops.object.select_all(action='DESELECT')
 							frame.reverse()
 							for ob in frame:
-								bpy.context.scene.objects.link(ob)
-								ob.select = True
-							bpy.context.scene.objects.active = frame[0]
+								bpy.context.scene.collection.objects.link(ob)
+								ob.select_set(True)
+							bpy.context.view_layer.objects.active = frame[0]
 							bpy.ops.object.join()
 							bpy.context.active_object.name = "{}-{}".format(src_name,i)
 							bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
@@ -502,7 +501,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						ob = bpy.data.objects.new(name="{} -> {}".format(part.name,shape_name),object_data = mesh.copy())
 						scene_obs.link(ob)
 						ob.matrix_local = part.matrix
-						ob.select = True
+						ob.select_set(True)
 						scene_obs.active = ob
 						
 					bpy.ops.object.join()
@@ -639,8 +638,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			mat_id = ob.material_slots[poly.material_index].material
 			if mat_id:
 				mat_name = mat_id.name
-		if not mat_name and ob.data.uv_textures.active.data:
-			mat_id = ob.data.uv_textures.active.data[poly.index].image
+		if not mat_name and ob.data.uv_layers.active.data:
+			mat_id = ob.data.uv_layers.active.data[poly.index].image
 			if mat_id:
 				mat_name = os.path.basename(bpy.path.abspath(mat_id.filepath))
 				if not mat_name: mat_name = mat_id.name
@@ -701,12 +700,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 		duplis = []
 		bpy.ops.object.duplicates_make_real()
-		id.select=False
+		id.select_set(False)
 		for dupli in bpy.context.selected_objects[:]:
 			dupli.parent = id
 			duplis.append(self.bakeObj(dupli, generate_uvs = False))
 		if duplis:
-			for bake in duplis: bake.object.select=True
+			for bake in duplis: bake.object.select_set(True)
 			del duplis
 			bpy.ops.object.join()
 			if should_triangulate: triangulate()
@@ -716,7 +715,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if id.type != 'META': # eek, what about lib data?
 			id = id.copy()
-			bpy.context.scene.objects.link(id)
+			bpy.context.scene.collection.objects.link(id)
 		if id.data:
 			id.data = id.data.copy()
 		
@@ -798,17 +797,17 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if id.type in exportable_types:
 			# Bake reference mesh
-			data = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
+			data = id.to_mesh(bpy.context.depsgraph, True)
 			data.name = id.name + "_baked"			
 		
 			def put_in_object(id, data, quiet=False):
-				if bpy.context.scene.objects.active:
+				if bpy.context.view_layer.objects.active:
 					ops.object.mode_set(mode='OBJECT')
 
 				ob = bpy.data.objects.new(name=id.name,object_data=data)
 				ob.matrix_world = id.matrix_world
 
-				bpy.context.scene.objects.link(ob)
+				bpy.context.scene.collection.objects.link(ob)
 		
 				select_only(ob)
 
@@ -833,9 +832,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if duplis:
 			if not id.type in exportable_types:
-				id.select = False
-				bpy.context.scene.objects.active = duplis
-			duplis.select = True
+				id.select_set(False)
+				bpy.context.view_layer.objects.active = duplis
+			duplis.select_set(True)
 			bpy.ops.object.join()
 			baked = bpy.context.active_object
 
@@ -888,21 +887,21 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for i, shape in enumerate(id.data.shape_keys.key_blocks):
 				if i == 0: continue
 				id.active_shape_key_index = i
-				baked_shape = id.to_mesh(bpy.context.scene, True, 'PREVIEW')
+				baked_shape = id.to_mesh(bpy.context.depsgraph, True)
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 
 				shape_ob = put_in_object(id,baked_shape, quiet = True)
 
 				if duplis:
 					select_only(shape_ob)
-					duplis.select = True
+					duplis.select_set(True)
 					bpy.ops.object.join()
 					shape_ob = bpy.context.active_object
 
 				result.shapes[shape.name] = shape_ob.data
 
 				if should_triangulate:
-					bpy.context.scene.objects.active = shape_ob
+					bpy.context.view_layer.objects.active = shape_ob
 					triangulate()
 				
 				bpy.context.scene.objects.unlink(shape_ob)
@@ -912,11 +911,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for mod in id.modifiers:
 			mod.show_viewport = False # mainly to disable physics modifiers
 
-		bpy.context.scene.objects.active = baked
-		baked.select = True
+		bpy.context.view_layer.objects.active = baked
+		baked.select_set(True)
 
 		# project a UV map
-		if generate_uvs and not baked.data.uv_textures:
+		if generate_uvs and not baked.data.uv_layers:
 			if len(result.object.data.vertices) < 2000:
 				ops.object.mode_set(mode='OBJECT')
 				ops.uv.smart_project()
@@ -1064,7 +1063,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				data.calc_normals_split()
 
 				uv_loop = data.uv_layers.active.data
-				uv_tex = data.uv_textures.active.data
+				uv_tex = data.uv_layers.active.data
 
 				weights = self.getWeightmap(bake)
 				
@@ -1837,8 +1836,8 @@ skeleton
 
 				if vca.export_sequence: # generate and export a skeletal animation that drives the vertex animation
 					vca_arm = bpy.data.objects.new("vca_arm",bpy.data.armatures.new("vca_arm"))
-					bpy.context.scene.objects.link(vca_arm)
-					bpy.context.scene.objects.active = vca_arm
+					bpy.context.scene.collection.objects.link(vca_arm)
+					bpy.context.view_layer.objects.active = vca_arm
 
 					bpy.ops.object.mode_set(mode='EDIT')
 					vca_bone = vca_arm.data.edit_bones.new("vcabone_" + vca_name)

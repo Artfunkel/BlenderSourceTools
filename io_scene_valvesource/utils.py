@@ -330,11 +330,11 @@ def removeObject(obj):
 	return None if d else type
 	
 def select_only(ob):
-	bpy.context.scene.objects.active = ob
+	bpy.context.view_layer.objects.active = ob
 	bpy.ops.object.mode_set(mode='OBJECT')
 	if bpy.context.selected_objects:
 		bpy.ops.object.select_all(action='DESELECT')
-	ob.select = True
+	ob.select_set(True)
 
 def hasShapes(id, valid_only = True):
 	def _test(id_):
@@ -482,7 +482,7 @@ from bpy.app.handlers import depsgraph_update_post,persistent
 last_export_refresh = 0
 
 @persistent
-def scene_update(scene):
+def scene_update(scene, immediate = False):
 	global last_export_refresh
 		
 	if not hasattr(scene,"vs"):
@@ -494,13 +494,13 @@ def scene_update(scene):
 						 and not (scene.vs.layer_filter and len([i for i in range(20) if ob.layers[i] and scene.layers[i]]) == 0)])
 
 	# dupli groups etc.
-	p_cache.validObs = p_cache.validObs.union(set([ob for ob in scene.objects if (ob.type == 'MESH' and ob.dupli_type in ['VERTS','FACES'] and ob.children) or (ob.dupli_type == 'GROUP' and ob.dupli_group)]))
+	#p_cache.validObs = p_cache.validObs.union(set([ob for ob in scene.objects if (ob.type == 'MESH' and ob.dupli_type in ['VERTS','FACES'] and ob.children) or (ob.dupli_type == 'GROUP' and ob.dupli_group)]))
 	
 	p_cache.validObs_version += 1
 
 	now = time.time()
 
-	if now - last_export_refresh > 0.25:
+	if immediate or now - last_export_refresh > 0.25:
 		make_export_list()
 		last_export_refresh = now
 

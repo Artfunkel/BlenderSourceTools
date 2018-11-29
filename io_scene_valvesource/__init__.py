@@ -130,14 +130,14 @@ def export_active_changed(self, context):
 	id = get_active_exportable(context).get_id()
 	
 	if type(id) == bpy.types.Group and id.vs.mute: return
-	for ob in context.scene.objects: ob.select = False
+	for ob in context.scene.objects: ob.select_set(False)
 	
 	if type(id) == bpy.types.Group:
-		context.scene.objects.active = id.objects[0]
-		for ob in id.objects: ob.select = True
+		context.view_layer.objects.active = id.objects[0]
+		for ob in id.objects: ob.select_set(True)
 	else:
-		id.select = True
-		context.scene.objects.active = id
+		id.select_set(True)
+		context.view_layer.objects.active = id
 
 def engine_path_changed(self, context):
 	if bpy.context.scene.vs.engine_path:
