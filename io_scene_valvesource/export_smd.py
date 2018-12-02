@@ -305,7 +305,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			
 		# hide all metaballs that we don't want
 		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Collection) and not ob.name in id.objects))]:
-			for element in meta.data.elements: element.hide_viewport = True
+			for element in meta.data.elements: element.hide = True
 		bpy.context.scene.update() # actually found a use for this!!
 
 		def find_basis_metaball(id):
@@ -431,7 +431,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 				if len(bpy.context.selected_objects) != 1:
 					for bake in mesh_bakes:
-						bpy.context.scene.objects.unlink(bake.fob)
+						bpy.context.scene.collection.objects.unlink(bake.fob)
 						del bake.fob
 				
 				anim_bench.report("record")
@@ -445,7 +445,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if isinstance(id, Collection) and shouldExportDMX() and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
-			scene_obs = bpy.context.scene.objects
+			scene_obs = bpy.context.scene.collection.objects
+			view_obs = bpy.context.view_layer.objects.active
 			for bake in [bake for bake in bake_results if type(bake.envelope) is str or bake.envelope is None]:
 				bone_parents[bake.envelope].append(bake)
 				
@@ -462,7 +463,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					ob.data.uv_layers.active.name = "__dmx_uv__"
 					scene_obs.link(ob)
 					ob.select_set(True)
-					scene_obs.active = ob
+					view_obs.active = ob
 					bake_results.remove(part)
 					
 				bpy.ops.object.join()
@@ -482,14 +483,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 							bpy.ops.object.select_all(action='DESELECT')
 							frame.reverse()
 							for ob in frame:
-								bpy.context.scene.collection.objects.link(ob)
+								scene_obs.link(ob)
 								ob.select_set(True)
 							bpy.context.view_layer.objects.active = frame[0]
 							bpy.ops.object.join()
 							bpy.context.active_object.name = "{}-{}".format(src_name,i)
 							bpy.ops.object.transform_apply(location=True,scale=True,rotation=True)
 							vca.append(bpy.context.active_object)
-							bpy.context.scene.objects.unlink(bpy.context.active_object)
+							scene_obs.unlink(bpy.context.active_object)
 				
 				bake_results.append(joined)
 					
@@ -502,7 +503,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						scene_obs.link(ob)
 						ob.matrix_local = part.matrix
 						ob.select_set(True)
-						scene_obs.active = ob
+						view_obs.active = ob
 						
 					bpy.ops.object.join()
 					joined.shapes[shape_name] = bpy.context.active_object.data
@@ -512,7 +513,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.data.objects.remove(ob)
 					del ob
 						
-				scene_obs.active = joined.object
+				view_obs.active = joined.object
 			bench.report("Mech merge")
 
 		for result in bake_results:
@@ -647,7 +648,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.materials_used.add((mat_name,mat_id))
 			return mat_name, True
 		else:
-			return "no_material", ob.draw_type != 'TEXTURED' # assume it's a collision mesh if it's not textured
+			return "no_material", ob.display_type != 'TEXTURED' # assume it's a collision mesh if it's not textured
 
 	def getTopParent(self,id):
 		top_parent = id
@@ -867,7 +868,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				else:
 					axis = axes_lookup[id.data.vs.flex_stereo_mode]
 					balance_width = baked.dimensions[axis]  * ( 1 - (id.data.vs.flex_stereo_sharpness / 100) )
-					result.balance_vg = baked.vertex_groups.new("__dmx_balance__")
+					result.balance_vg = baked.vertex_groups.new(name="__dmx_balance__")
 					zeroes = []
 					ones = []
 					for vert in baked.data.vertices:
@@ -904,7 +905,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bpy.context.view_layer.objects.active = shape_ob
 					triangulate()
 				
-				bpy.context.scene.objects.unlink(shape_ob)
+				bpy.context.scene.collection.objects.unlink(shape_ob)
 				bpy.data.objects.remove(shape_ob)
 				del shape_ob
 
@@ -1034,10 +1035,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 						# Get the bone's Matrix from the current pose
 						PoseMatrix = posebone.matrix
 						if self.armature.data.vs.legacy_rotation:
-							PoseMatrix *= mat_BlenderToSMD 
+							PoseMatrix @= mat_BlenderToSMD 
 						if parent:
 							parentMat = parent.matrix
-							if self.armature.data.vs.legacy_rotation: parentMat *= mat_BlenderToSMD 
+							if self.armature.data.vs.legacy_rotation: parentMat @= mat_BlenderToSMD 
 							PoseMatrix = parentMat.inverted() @ PoseMatrix
 						else:
 							PoseMatrix = self.armature.matrix_world @ PoseMatrix
@@ -1463,7 +1464,7 @@ skeleton
 				trfm_mat = bone_parent_matrix_world.normalized().inverted() @ bake.src.matrix_world # normalise to remove armature scale
 
 				if not source2 and bake.src.type == 'META': # I have no idea why this is required. Metaballs are weird.
-					trfm_mat *= Matrix.Translation(self.armature_src.location)
+					trfm_mat @= Matrix.Translation(self.armature_src.location)
 			else:
 				DmeModel_children.append(DmeDag)
 				trfm_mat = ob.matrix_world

@@ -107,7 +107,7 @@ class Tests:
 	def runExportTest_Single(self,ob_name):
 		bpy.ops.object.mode_set(mode='OBJECT')
 		bpy.ops.object.select_all(action='DESELECT')
-		bpy.data.objects[ob_name].select = True
+		bpy.data.objects[ob_name].select_set(True)
 		
 		for fmt in ['DMX','SMD']:
 			C.scene.vs.export_format = fmt
@@ -152,7 +152,7 @@ class Tests:
 	def test_Generate_FlexControllers(self):
 		self.loadBlender()
 		bpy.ops.wm.open_mainfile(filepath=join(tests_path,"scout.blend"))
-		C.scene.objects.active = D.objects['head=zero']
+		C.view_layer.objects.active = D.objects['head=zero']
 		bpy.ops.export_scene.dmx_flex_controller()
 
 		with open(join(tests_path,"flex_scout_morphs_low.dmx"),encoding='ASCII') as f:

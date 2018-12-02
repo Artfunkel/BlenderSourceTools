@@ -39,7 +39,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		objects = []
 		shapes = set()
 		
-		if type(id) == bpy.types.Group:
+		if type(id) == bpy.types.Collection:
 			objects.extend(list([ob for ob in id.objects if ob.data and ob.type in shape_types and ob.data.shape_keys]))
 		else:
 			objects.append(id)
