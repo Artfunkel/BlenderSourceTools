@@ -45,7 +45,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				if type(self) == SMD_PT_Scene:
 					if i == 0: group_col = l.column(align=True)
 					if i % 2 == 0: group_layout = group_col.row(align=True)
-				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').group = group.get_id().name
+				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').collection = group.get_id().name
 				
 			if len(exportables) > 1:
 				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(len(exportables)), icon='OBJECT_DATA')
@@ -78,7 +78,6 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row = l.row()
 		row.alignment = 'CENTER'
 		row.prop(scene.vs,"layer_filter")
-		row.prop(scene.vs,"use_image_names")
 		
 		row = l.row()
 		row.alert = len(scene.vs.export_path) == 0
@@ -535,7 +534,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		have_qcs = len(p_cache.qc_paths) > 0
 	
 		if have_qcs or isWild(p_cache.qc_lastPath):
-			c = l.column_flow(2)
+			c = l.column_flow(columns=2)
 			c.operator_context = 'EXEC_DEFAULT'
 			for path in p_cache.qc_paths:
 				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
@@ -552,4 +551,4 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			compile_row.enabled = False
 		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path") # can't add this until the above test completes!
 		
-		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='SCRIPTWIN',text=get_id("launch_hlmv",True))
+		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='PREFERENCES',text=get_id("launch_hlmv",True))

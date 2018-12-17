@@ -129,10 +129,10 @@ def export_active_changed(self, context):
 
 	id = get_active_exportable(context).get_id()
 	
-	if type(id) == bpy.types.Group and id.vs.mute: return
+	if type(id) == bpy.types.Collection and id.vs.mute: return
 	for ob in context.scene.objects: ob.select_set(False)
 	
-	if type(id) == bpy.types.Group:
+	if type(id) == bpy.types.Collection:
 		context.view_layer.objects.active = id.objects[0]
 		for ob in id.objects: ob.select_set(True)
 	else:
@@ -176,7 +176,6 @@ class ValveSource_SceneProps(PropertyGroup):
 	
 	export_format : EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
 	up_axis : EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
-	use_image_names : BoolProperty(name=get_id("ignore_materials"),description=get_id("ignore_materials_tip"),default=False)
 	layer_filter : BoolProperty(name=get_id("visible_only"),description=get_id("visible_only_tip"),default=False)
 	material_path : StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
 	export_list_active : IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)
@@ -265,6 +264,7 @@ _classes = (
 	GUI.SMD_OT_RemoveVertexAnimation,
 	GUI.SMD_OT_PreviewVertexAnimation,
 	GUI.SMD_OT_GenerateVertexAnimationQCSnippet,
+	GUI.SMD_OT_LaunchHLMV,
 	GUI.SMD_PT_Object_Config,
 	GUI.SMD_PT_Scene_QC_Complie,
 	update.SmdToolsUpdate,

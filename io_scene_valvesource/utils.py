@@ -532,11 +532,11 @@ class Logger:
 		l = menu.layout
 		if len(self.log_errors):
 			for msg in self.log_errors:
-				l.label("{}: {}".format(pgettext("Error").upper(), msg))
+				l.label(text="{}: {}".format(pgettext("Error").upper(), msg))
 			l.separator()
 		if len(self.log_warnings):
 			for msg in self.log_warnings:
-				l.label("{}: {}".format(pgettext("Warning").upper(), msg))
+				l.label(text="{}: {}".format(pgettext("Warning").upper(), msg))
 
 	def elapsed_time(self):
 		return round(time.time() - self.startTime, 1)

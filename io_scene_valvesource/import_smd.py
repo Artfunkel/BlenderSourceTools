@@ -1247,7 +1247,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		target_arm = self.findArmature() if self.append != 'NEW_ARMATURE' else None
 		if target_arm:
 			smd.a = target_arm
-			arm_hide = target_arm.hide
 		
 		ob = bone = restData = smd.atch = None
 		smd.layer = target_layer
@@ -1337,7 +1336,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							validateSkeleton(elem["children"], elem)
 
 				bpy.context.view_layer.objects.active = smd.a
-				smd.a.hide = False
+				smd.a.hide_viewport = False
 				ops.object.mode_set(mode='EDIT')
 				validateSkeleton(DmeModel["children"], None)
 
@@ -1393,7 +1392,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			def parseModel(elem,matrix=Matrix(), last_bone = None):
 				if elem.type in ["DmeModel","DmeDag", "DmeJoint"]:
 					if elem.type == "DmeDag":
-						matrix @= get_transform_matrix(elem)
+						matrix = matrix @ get_transform_matrix(elem)
 					if elem.get("children") and elem["children"]:
 						if elem.type == "DmeJoint":
 							last_bone = elem
@@ -1666,7 +1665,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							keyframe.matrix @= getBlenderQuat(frame_value).to_matrix().to_4x4()
 							keyframe.rot = True
 				
-				smd.a.hide = False
+				smd.a.hide_viewport = False
 				bpy.context.view_layer.objects.active = smd.a
 				if unknown_bones:
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))

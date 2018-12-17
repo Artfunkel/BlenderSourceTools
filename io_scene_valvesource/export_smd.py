@@ -210,7 +210,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					for exportable in getSelectedExportables():
 						self.exportId(context, exportable.get_id())
 				else:
-					collection = bpy.data.Collection[self.collection]
+					collection = bpy.data.collections[self.collection]
 					if collection.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(collection.name))
 					elif not collection.objects: self.error(get_id("exporter_err_groupempty", True).format(collection.name))
 					else: self.exportId(context, collection)
@@ -635,15 +635,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 	def GetMaterialName(self, ob, poly):
 		mat_name = None
 		mat_id = None
-		if not bpy.context.scene.vs.use_image_names and len(ob.material_slots) > poly.material_index:
+		if len(ob.material_slots) > poly.material_index:
 			mat_id = ob.material_slots[poly.material_index].material
 			if mat_id:
 				mat_name = mat_id.name
-		if not mat_name and ob.data.uv_layers.active.data:
-			mat_id = ob.data.uv_layers.active.data[poly.index].image
-			if mat_id:
-				mat_name = os.path.basename(bpy.path.abspath(mat_id.filepath))
-				if not mat_name: mat_name = mat_id.name
 		if mat_name:
 			self.materials_used.add((mat_name,mat_id))
 			return mat_name, True
@@ -1125,8 +1120,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if goldsrc and multi_weight_verts:
 					self.warning(get_id("exporterr_goldsrc_multiweights", format_string=True).format(len(multi_weight_verts), bake.src.data.name))
 				if bad_face_mats:
-					format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
-					self.warning(format_str.format(bad_face_mats,bake.src.data.name))
+					self.warning(get_id("exporter_err_facesnotex_ormat").format(bad_face_mats,bake.src.data.name))
 				
 				print("- Exported",face_index,"polys")
 				
@@ -1650,8 +1644,7 @@ skeleton
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
 			if bad_face_mats:
-				format_str = get_id("exporter_err_facesnotex") if bpy.context.scene.vs.use_image_names else get_id("exporter_err_facesnotex_ormat")
-				self.warning(format_str.format(bad_face_mats, bake.name))
+				self.warning(get_id("exporter_err_facesnotex_ormat").format(bad_face_mats, bake.name))
 			bench.report("polys")
 
 			two_percent = int(len(bake.shapes) / 50)
