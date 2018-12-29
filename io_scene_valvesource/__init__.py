@@ -267,6 +267,7 @@ _classes = (
 	GUI.SMD_OT_LaunchHLMV,
 	GUI.SMD_PT_Object_Config,
 	GUI.SMD_PT_Scene_QC_Complie,
+	flex.DmxWriteFlexControllers,
 	update.SmdToolsUpdate,
 	export_smd.SMD_OT_Compile, 
 	export_smd.SmdExporter, 

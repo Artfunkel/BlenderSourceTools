@@ -1,13 +1,15 @@
 ﻿# see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
-import os, shutil, unittest, sys
+import os, shutil, unittest, sys, site
 from importlib import import_module
 from os.path import join
 from io_scene_valvesource import datamodel
 
-src_path = os.path.realpath(join(".."))
+src_path = os.path.realpath(".")
 tests_path = join(src_path,"Tests")
 results_path = join(src_path,"..","TestResults")
 if not os.path.exists(results_path): os.makedirs(results_path)
+
+site.addsitedir(join(src_path, "io_scene_valvesource"))
 
 sdk_content_path = os.getenv("SOURCESDK") + "_content\\"
 steam_common_path = os.path.realpath(join(sdk_content_path,"..","..","common"))
@@ -94,6 +96,8 @@ class Tests:
 			C.scene.vs.engine_path = os.path.realpath(join(C.scene.vs.game_path,"..","bin"))
 			self.assertEqual(bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc")), {'FINISHED'})
 
+		self.compareResults()	
+
 		section("DMX Source 2")
 		C.scene.vs.export_path = join(C.scene.vs.export_path, "Source2")
 		C.scene.vs.export_format = 'DMX'
@@ -101,8 +105,7 @@ class Tests:
 		C.scene.vs.dmx_format = '22'
 		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64")
 		ex(True)
-
-		self.compareResults()		
+	
 
 	def runExportTest_Single(self,ob_name):
 		bpy.ops.object.mode_set(mode='OBJECT')
@@ -202,8 +205,8 @@ class Tests:
 		self.compareResults()
 		
 
-class bpy_274(unittest.TestCase,Tests):
-	bpy_version = "bpy_274"
+#class bpy_274(unittest.TestCase,Tests):
+#	bpy_version = "bpy_274"
 
 class bpy_git(unittest.TestCase,Tests):
 	bpy_version = "bpy_git"

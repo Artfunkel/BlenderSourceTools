@@ -446,7 +446,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if isinstance(id, Collection) and shouldExportDMX() and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
 			scene_obs = bpy.context.scene.collection.objects
-			view_obs = bpy.context.view_layer.objects.active
+			view_obs = bpy.context.view_layer.objects
 			for bake in [bake for bake in bake_results if type(bake.envelope) is str or bake.envelope is None]:
 				bone_parents[bake.envelope].append(bake)
 				

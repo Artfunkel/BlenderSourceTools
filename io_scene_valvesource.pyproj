@@ -3,49 +3,43 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{5e446a8f-55cc-4931-9e47-9a392d07b69a}</ProjectGuid>
-    <ProjectHome>io_scene_valvesource\</ProjectHome>
-    <StartupFile>..\interactive_startup.py</StartupFile>
+    <ProjectGuid>5e446a8f-55cc-4931-9e47-9a392d07b69a</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>external\interactive_startup.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <InterpreterId>Global|PythonCore|3.7</InterpreterId>
-    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
-    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
-    <IsWindowsApplication>False</IsWindowsApplication>
+    <Name>Blender Source Tools</Name>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>
-    </CommandLineArguments>
-    <InterpreterPath>
-    </InterpreterPath>
-    <InterpreterArguments>
-    </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <InterpreterId>Global|PythonCore|3.7</InterpreterId>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
   <PropertyGroup />
   <ItemGroup>
-    <Compile Include="datamodel.py" />
-    <Compile Include="export_smd.py" />
-    <Compile Include="flex.py" />
-    <Compile Include="GUI.py" />
-    <Compile Include="import_smd.py" />
-    <Compile Include="ordered_set.py" />
-    <Compile Include="translations.py" />
-    <Compile Include="update.py" />
-    <Compile Include="utils.py" />
-    <Compile Include="__init__.py" />
-    <Compile Include="..\interactive_startup.py">
-      <Link>external\interactive_startup.py</Link>
-    </Compile>
-    <Compile Include="..\tests.py">
-      <Link>external\tests.py</Link>
-    </Compile>
+    <Compile Include="io_scene_valvesource\datamodel.py" />
+    <Compile Include="io_scene_valvesource\export_smd.py" />
+    <Compile Include="io_scene_valvesource\flex.py" />
+    <Compile Include="io_scene_valvesource\GUI.py" />
+    <Compile Include="io_scene_valvesource\import_smd.py" />
+    <Compile Include="io_scene_valvesource\ordered_set.py" />
+    <Compile Include="io_scene_valvesource\translations.py" />
+    <Compile Include="io_scene_valvesource\update.py" />
+    <Compile Include="io_scene_valvesource\utils.py" />
+    <Compile Include="io_scene_valvesource\__init__.py" />
+    <Compile Include="interactive_startup.py" />
+    <Compile Include="tests.py" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="external\" />
+    <Folder Include="io_scene_valvesource\" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.7" />
