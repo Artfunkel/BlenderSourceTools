@@ -55,9 +55,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 	
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
-		pre_eem = context.user_preferences.edit.use_enter_edit_mode
+		prefs = context.preferences if hasattr(context, "preferences") else context.user_preferences
+		pre_eem = prefs.edit.use_enter_edit_mode
 		pre_append = self.append
-		context.user_preferences.edit.use_enter_edit_mode = False
+		prefs.edit.use_enter_edit_mode = False
 
 		self.existingBones = [] # bones which existed before importing began
 		self.num_files_imported = 0
@@ -98,7 +99,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if bpy.context.area and bpy.context.area.type == 'VIEW_3D' and bpy.context.region:
 			ops.view3d.view_selected()
 
-		context.user_preferences.edit.use_enter_edit_mode = pre_eem
+		prefs.edit.use_enter_edit_mode = pre_eem
 		self.append = pre_append
 
 		return {'FINISHED'}
@@ -445,7 +446,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bone_vis = bpy.context.active_object
 					bone_vis.data.name = bone_vis.name = "smd_bone_vis"
 					bone_vis.use_fake_user = True
-					bpy.context.scene.collection.objects.unlink(bone_vis) # don't want the user deleting this
+					if bone_vis.name in bpy.context.scene.collection.objects:
+						bpy.context.scene.collection.objects.unlink(bone_vis) # don't want the user deleting this
 					bpy.context.view_layer.objects.active = smd.a
 			elif self.properties.boneMode == 'ARROWS' and (not bone_vis or bone_vis.type != 'EMPTY'):
 					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
@@ -860,13 +862,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if values[0] == "time":
 				shape_name = smd.shapeNames.get(values[1])
 				if smd.vta_ref == None:
-					if not hasShapes(smd.m, False): smd.m.shape_key_add(shape_name if shape_name else "Basis")
+					if not hasShapes(smd.m, False): smd.m.shape_key_add(name=shape_name if shape_name else "Basis")
 					vd = bpy.data.meshes.new(name="VTA vertices")
 					vta_ref = smd.vta_ref = bpy.data.objects.new(name=vd.name,object_data=vd)
 					vta_ref.matrix_world = smd.m.matrix_world
 					smd.g.objects.link(vta_ref)
 
-					vta_err_vg = vta_ref.vertex_groups.new(get_id("importer_name_unmatchedvta"))
+					vta_err_vg = vta_ref.vertex_groups.new(name=get_id("importer_name_unmatchedvta"))
 				elif making_base_shape:
 					vd.vertices.add(len(vta_cos)/3)
 					vd.vertices.foreach_set("co",vta_cos)
@@ -915,7 +917,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					making_base_shape = False
 				
 				if not making_base_shape:
-					smd.m.shape_key_add(shape_name if shape_name else values[1])
+					smd.m.shape_key_add(name=shape_name if shape_name else values[1])
 					num_shapes += 1
 
 				continue # to the first vertex of the new shape

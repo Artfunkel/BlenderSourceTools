@@ -48,7 +48,6 @@ class Tests:
 	def compareResults(self):
 		if self.compare_results:
 			if os.path.exists(self.expectedResultsPath):
-				self.assertEqual(os.listdir(C.scene.vs.export_path), os.listdir(self.expectedResultsPath))
 				self.maxDiff = None
 				for dirpath,dirnames,filenames in os.walk(C.scene.vs.export_path):
 					for f in filenames:
@@ -96,7 +95,6 @@ class Tests:
 			C.scene.vs.engine_path = os.path.realpath(join(C.scene.vs.game_path,"..","bin"))
 			self.assertEqual(bpy.ops.smd.compile_qc(filepath=join(C.scene.vs.export_path, blend_name + ".qc")), {'FINISHED'})
 
-		self.compareResults()	
 
 		section("DMX Source 2")
 		C.scene.vs.export_path = join(C.scene.vs.export_path, "Source2")
@@ -105,7 +103,8 @@ class Tests:
 		C.scene.vs.dmx_format = '22'
 		C.scene.vs.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64")
 		ex(True)
-	
+
+		self.compareResults()	
 
 	def runExportTest_Single(self,ob_name):
 		bpy.ops.object.mode_set(mode='OBJECT')
