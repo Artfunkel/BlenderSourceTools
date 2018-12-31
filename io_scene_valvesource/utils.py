@@ -263,7 +263,10 @@ def PrintVer(in_seq,sep="."):
 		rlist.reverse()
 		out = ""
 		for val in rlist:
-			if int(val) == 0 and not len(out):
+			try:
+				if int(val) == 0 and not len(out):
+					continue
+			except ValueError:
 				continue
 			out = "{}{}{}".format(str(val),sep if sep else "",out) # NB last value!
 		if out.count(sep) == 1:
