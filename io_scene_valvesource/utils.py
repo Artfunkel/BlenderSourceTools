@@ -91,7 +91,7 @@ def print(*args, newline=True, debug_only=False):
 
 def get_id(id, format_string = False, data = False):
 	out = p_cache.ids[id]
-	if format_string or (data and bpy.context.user_preferences.system.use_translate_new_dataname):
+	if format_string or (data and bpy.context.preferences.system.use_translate_new_dataname):
 		return pgettext(out)
 	else:
 		return out

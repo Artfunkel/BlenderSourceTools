@@ -187,7 +187,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		try:
 			context.tool_settings.use_keyframe_insert_auto = False
 			context.tool_settings.use_keyframe_insert_keyingset = False
-			context.user_preferences.edit.use_enter_edit_mode = False
+			context.preferences.edit.use_enter_edit_mode = False
 			unhook_scene_update()
 			if context.scene.rigidbody_world:
 				context.scene.frame_set(context.scene.rigidbody_world.point_cache.frame_start)

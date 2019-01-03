@@ -55,10 +55,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 	
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
-		prefs = context.preferences if hasattr(context, "preferences") else context.user_preferences
-		pre_eem = prefs.edit.use_enter_edit_mode
+		pre_eem = context.preferences.edit.use_enter_edit_mode
 		pre_append = self.append
-		prefs.edit.use_enter_edit_mode = False
+		context.preferences.edit.use_enter_edit_mode = False
 
 		self.existingBones = [] # bones which existed before importing began
 		self.num_files_imported = 0
@@ -99,7 +98,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if bpy.context.area and bpy.context.area.type == 'VIEW_3D' and bpy.context.region:
 			ops.view3d.view_selected()
 
-		prefs.edit.use_enter_edit_mode = pre_eem
+		context.preferences.edit.use_enter_edit_mode = pre_eem
 		self.append = pre_append
 
 		return {'FINISHED'}
