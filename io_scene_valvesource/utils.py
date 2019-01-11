@@ -91,7 +91,7 @@ def print(*args, newline=True, debug_only=False):
 
 def get_id(id, format_string = False, data = False):
 	out = p_cache.ids[id]
-	if format_string or (data and bpy.context.preferences.system.use_translate_new_dataname):
+	if format_string or (data and bpy.context.preferences.view.use_translate_new_dataname):
 		return pgettext(out)
 	else:
 		return out
@@ -493,8 +493,7 @@ def scene_update(scene, immediate = False):
 
 	# "real" objects
 	p_cache.validObs = set([ob for ob in scene.objects if ob.type in exportable_types
-						 and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)
-						 and not (scene.vs.layer_filter and len([i for i in range(20) if ob.layers[i] and scene.layers[i]]) == 0)])
+						 and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
 
 	# dupli groups etc.
 	#p_cache.validObs = p_cache.validObs.union(set([ob for ob in scene.objects if (ob.type == 'MESH' and ob.dupli_type in ['VERTS','FACES'] and ob.children) or (ob.dupli_type == 'GROUP' and ob.dupli_group)]))

@@ -176,7 +176,6 @@ class ValveSource_SceneProps(PropertyGroup):
 	
 	export_format : EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
 	up_axis : EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
-	layer_filter : BoolProperty(name=get_id("visible_only"),description=get_id("visible_only_tip"),default=False)
 	material_path : StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
 	export_list_active : IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)
 	export_list : CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})

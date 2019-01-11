@@ -76,10 +76,6 @@ class SMD_PT_Scene(bpy.types.Panel):
 		l.operator(SmdExporter.bl_idname,text="Export")
 		
 		row = l.row()
-		row.alignment = 'CENTER'
-		row.prop(scene.vs,"layer_filter")
-		
-		row = l.row()
 		row.alert = len(scene.vs.export_path) == 0
 		row.prop(scene.vs,"export_path")
 		
