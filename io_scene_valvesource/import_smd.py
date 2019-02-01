@@ -633,6 +633,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			randCol = []
 			for i in range(3):
 				randCol.append(random.uniform(.4,1))
+			randCol.append(1)
 			mat.diffuse_color = randCol
 			if smd.jobType == PHYS:
 				smd.m.display_type = 'SOLID'
