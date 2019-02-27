@@ -1011,6 +1011,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				else:
 					anim_len = 1
 
+				# remove any unkeyed poses, e.g. from other animations in this export operation.
+				for posebone in self.armature.pose.bones: posebone.matrix_basis.identity()
+
 				# Start writing out the animation
 				for i in range(anim_len):
 					bpy.context.window_manager.progress_update(i / anim_len)
