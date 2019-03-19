@@ -267,6 +267,7 @@ _classes = (
 	GUI.SMD_PT_Object_Config,
 	GUI.SMD_PT_Scene_QC_Complie,
 	flex.DmxWriteFlexControllers,
+	flex.AddCorrectiveShapeDrivers,
 	update.SmdToolsUpdate,
 	export_smd.SMD_OT_Compile, 
 	export_smd.SmdExporter, 
@@ -282,7 +283,7 @@ def register():
 	
 	bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
-	bpy.types.MESH_MT_shape_key_specials.append(menu_func_shapekeys)
+	bpy.types.MESH_MT_shape_key_context_menu.append(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.append(menu_func_textedit)
 	hook_scene_update()
 	bpy.app.handlers.load_post.append(scene_load_post)
@@ -309,7 +310,7 @@ def unregister():
 
 	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
-	bpy.types.MESH_MT_shape_key_specials.remove(menu_func_shapekeys)
+	bpy.types.MESH_MT_shape_key_context_menu.remove(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
 
 	bpy.app.translations.unregister(__name__)

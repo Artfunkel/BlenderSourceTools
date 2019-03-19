@@ -402,7 +402,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bpy.context.scene.frame_set(f)
 				bpy.ops.object.select_all(action='DESELECT')
 				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
-					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake.src.to_mesh(bpy.context.depsgraph, True))
+					eval_ob = (ob.name, None)
+					bake_ob = bpy.context.depsgraph.objects.get(bake.src.name) # Workaround for https://developer.blender.org/T61156
+					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake_ob.to_mesh(bpy.context.depsgraph, True))
 					bake.fob.matrix_world = bake.src.matrix_world
 					bpy.context.scene.collection.objects.link(bake.fob)
 					bpy.context.view_layer.objects.active = bake.fob
@@ -793,7 +795,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if id.type in exportable_types:
 			# Bake reference mesh
-			data = id.to_mesh(bpy.context.depsgraph, True)
+			bake_ob = bpy.context.depsgraph.objects.get(id.name) # Workaround for https://developer.blender.org/T61156
+			data = bake_ob.to_mesh(bpy.context.depsgraph, True)
 			data.name = id.name + "_baked"			
 		
 			def put_in_object(id, data, quiet=False):

@@ -32,7 +32,7 @@ class Tests:
 		C = bpy.context
 		D = bpy.data
 		sys.path.append('.')
-		bpy.ops.wm.addon_enable(module='io_scene_valvesource')
+		bpy.ops.preferences.addon_enable(module='io_scene_valvesource')
 		sys.path.remove('.')
 		bpy.app.debug_value = 1
 		print("Blender version",bpy.app.version)
