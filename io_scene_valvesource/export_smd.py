@@ -306,7 +306,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		# hide all metaballs that we don't want
 		for meta in [ob for ob in context.scene.objects if ob.type == 'META' and (not ob.vs.export or (isinstance(id, Collection) and not ob.name in id.objects))]:
 			for element in meta.data.elements: element.hide = True
-		bpy.context.scene.update() # actually found a use for this!!
 
 		def find_basis_metaball(id):
 			basis_ns = id.name.rsplit(".")
@@ -401,10 +400,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for f in range(va.start,va.end):
 				bpy.context.scene.frame_set(f)
 				bpy.ops.object.select_all(action='DESELECT')
+				depsgraph = bpy.context.evaluated_depsgraph_get()
 				for bake in mesh_bakes: # create baked snapshots of each vertex animation frame
-					eval_ob = (ob.name, None)
-					bake_ob = bpy.context.depsgraph.objects.get(bake.src.name) # Workaround for https://developer.blender.org/T61156
-					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bake_ob.to_mesh(bpy.context.depsgraph, True))
+					bake.fob = bpy.data.objects.new("{}-{}".format(va.name,f), bpy.data.meshes.new_from_object((bake.src.evaluated_get(depsgraph))))
 					bake.fob.matrix_world = bake.src.matrix_world
 					bpy.context.scene.collection.objects.link(bake.fob)
 					bpy.context.view_layer.objects.active = bake.fob
@@ -538,8 +536,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
 		bench.report("Post Bake")
-
-		bpy.context.scene.update()
 
 		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection == 'FILTERED':
 			for action in actionsForFilter(id.vs.action_filter):
@@ -750,7 +746,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for posebone in self.armature_src.pose.bones: posebone.matrix_basis.identity()
 
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
-		bpy.context.scene.update()
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() @ getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() @ id.matrix_world
 		
 		if id.type == 'ARMATURE':
@@ -791,12 +786,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.error(get_id("exporter_err_shapes_decimate", True).format(id.name,mod.decimate_type))
 				shapes_invalid = True
 		ops.object.mode_set(mode='OBJECT')
-				
+		
+		depsgraph = bpy.context.evaluated_depsgraph_get()
 		
 		if id.type in exportable_types:
 			# Bake reference mesh
-			bake_ob = bpy.context.depsgraph.objects.get(id.name) # Workaround for https://developer.blender.org/T61156
-			data = bake_ob.to_mesh(bpy.context.depsgraph, True)
+			data = bpy.data.meshes.new_from_object(id.evaluated_get(depsgraph))
 			data.name = id.name + "_baked"			
 		
 			def put_in_object(id, data, quiet=False):
@@ -886,7 +881,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for i, shape in enumerate(id.data.shape_keys.key_blocks):
 				if i == 0: continue
 				id.active_shape_key_index = i
-				baked_shape = id.to_mesh(bpy.context.depsgraph, True)
+				baked_shape = bpy.data.meshes.new_from_object(id.evaluated_get(depsgraph))
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 
 				shape_ob = put_in_object(id,baked_shape, quiet = True)

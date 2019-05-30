@@ -654,7 +654,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		# Create a new mesh object, disable double-sided rendering, link it to the current scene
 		smd.m = bpy.data.objects.new(mesh_name,bpy.data.meshes.new(mesh_name))
-		smd.m.data.show_double_sided = False
 		smd.m.parent = smd.a
 		smd.g.objects.link(smd.m)
 		if smd.jobType == REF: # can only have flex on a ref mesh
@@ -879,7 +878,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					mod.target = smd.m
 					mod.wrap_method = 'NEAREST_VERTEX'
 					
-					vd = vta_ref.to_mesh(bpy.context.depsgraph, True)
+					vd = bpy.data.meshes.new_from_object(vta_ref.evaluated_get(bpy.context.evaluated_depsgraph_get()))
 					
 					vta_ref.modifiers.remove(mod)
 					del mod
