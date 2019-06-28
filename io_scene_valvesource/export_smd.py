@@ -881,6 +881,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for i, shape in enumerate(id.data.shape_keys.key_blocks):
 				if i == 0: continue
 				id.active_shape_key_index = i
+				depsgraph = bpy.context.evaluated_depsgraph_get()
 				baked_shape = bpy.data.meshes.new_from_object(id.evaluated_get(depsgraph))
 				baked_shape.name = "{} -> {}".format(id.name,shape.name)
 

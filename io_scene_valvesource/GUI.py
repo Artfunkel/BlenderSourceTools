@@ -467,7 +467,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				col = self.makeSettingsBox(text=title, icon='VPAINT_HLT')
 				for map_name in vertex_maps:
 					r = col.row().split(factor=0.55)
-					r.label(get_id(map_name),icon='GROUP_VCOL')
+					r.label(text=get_id(map_name),icon='GROUP_VCOL')
 					
 					r = r.row()
 					add_remove = r.row(align=True)

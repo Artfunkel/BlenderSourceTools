@@ -571,6 +571,9 @@ class DataModel:
 		return "<Datamodel 0x{}{}>".format(id(self)," (root == \"{}\")".format(self.root.name) if self.root else "")
 
 	def validate_element(self,elem):
+		if elem._is_placeholder:
+			return
+
 		try:
 			collision = self.elements[self.elements.index(elem)]
 		except ValueError:
