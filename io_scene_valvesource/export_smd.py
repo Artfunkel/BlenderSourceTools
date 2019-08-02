@@ -524,12 +524,29 @@ class SmdExporter(bpy.types.Operator, Logger):
 				elif self.armature != result.armature:
 					self.warning(get_id("exporter_warn_multiarmature"))
 
+		def flattenBoneTree(id):
+			def appendChildBones(ar,bone):
+				ar.append(bone)
+				for cBone in bone.children:
+					appendChildBones(ar,cBone)
+			#if not (isinstance(id, bpy.types.Object) and id.type == 'ARMATURE'):
+			#	return []
+			tree = []
+			roots = []
+			for pbone in self.armature.pose.bones:
+				if pbone.bone.use_deform and pbone.parent is None:
+					roots.append(pbone)
+			for root in roots:
+				appendChildBones(tree,root)
+			return tree
+
+
 		if self.armature_src:
 			if list(self.armature_src.scale).count(self.armature_src.scale[0]) != 3:
 				self.warning(get_id("exporter_err_arm_nonuniform",True).format(self.armature_src.name))
 			if not self.armature:
 				self.armature = self.bakeObj(self.armature_src).object
-			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (isinstance(id, bpy.types.Object) and id.type == 'ARMATURE') or pbone.bone.use_deform])
+			self.exportable_bones = flattenBoneTree(id)
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
