@@ -808,7 +808,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if id.type in exportable_types:
 			# Bake reference mesh
-			data = bpy.data.meshes.new_from_object(id.evaluated_get(depsgraph))
+			data = bpy.data.meshes.new_from_object(id.evaluated_get(depsgraph),preserve_all_data_layers=True,depsgraph=depsgraph)
 			data.name = id.name + "_baked"			
 		
 			def put_in_object(id, data, quiet=False):
