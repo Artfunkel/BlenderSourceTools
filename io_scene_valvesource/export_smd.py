@@ -529,7 +529,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.warning(get_id("exporter_err_arm_nonuniform",True).format(self.armature_src.name))
 			if not self.armature:
 				self.armature = self.bakeObj(self.armature_src).object
-			self.exportable_bones = list([pbone for pbone in self.armature.pose.bones if (isinstance(id, bpy.types.Object) and id.type == 'ARMATURE') or pbone.bone.use_deform])
+			exporting_armature = isinstance(id, bpy.types.Object) and id.type == 'ARMATURE'
+			self.exportable_bones = list([self.armature.pose.bones[edit_bone.name] for edit_bone in self.armature.data.bones if (exporting_armature or edit_bone.use_deform)])
 			skipped_bones = len(self.armature.pose.bones) - len(self.exportable_bones)
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))

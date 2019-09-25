@@ -445,8 +445,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bone_vis = bpy.context.active_object
 					bone_vis.data.name = bone_vis.name = "smd_bone_vis"
 					bone_vis.use_fake_user = True
-					if bone_vis.name in bpy.context.scene.collection.objects:
-						bpy.context.scene.collection.objects.unlink(bone_vis) # don't want the user deleting this
+					for collection in bone_vis.users_collection:
+						collection.objects.unlink(bone_vis) # don't want the user deleting this
 					bpy.context.view_layer.objects.active = smd.a
 			elif self.properties.boneMode == 'ARROWS' and (not bone_vis or bone_vis.type != 'EMPTY'):
 					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
