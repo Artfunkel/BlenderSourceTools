@@ -1461,6 +1461,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 								DmeVertexData[attribute_name + "Indices"],
 								DmeVertexData[attribute_name]
 							))
+						if DatamodelFormatVersion() < 22:
+							bpy.context.scene.vs.dmx_format = '22'
 					
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]

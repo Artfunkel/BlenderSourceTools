@@ -1836,7 +1836,8 @@ skeleton
 					bpy.context.view_layer.objects.active = vca_arm
 
 					bpy.ops.object.mode_set(mode='EDIT')
-					vca_bone = vca_arm.data.edit_bones.new("vcabone_" + vca_name)
+					vca_bone_name = "vcabone_" + vca_name
+					vca_bone = vca_arm.data.edit_bones.new(vca_bone_name)
 					vca_bone.tail.y = 1
 					
 					bpy.context.scene.frame_set(0)
@@ -1858,7 +1859,7 @@ skeleton
 					ops.pose.armature_apply() # refreshes the armature's internal state, required!
 					action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
 					for i in range(2):
-						fc = action.fcurves.new('pose.bones["{}"].location'.format(vca_bone.name),index=i)
+						fc = action.fcurves.new('pose.bones["{}"].location'.format(vca_bone_name),index=i)
 						fc.keyframe_points.add(count=2)
 						for key in fc.keyframe_points: key.interpolation = 'LINEAR'
 						if i == 0: fc.keyframe_points[0].co = (0,1.0)

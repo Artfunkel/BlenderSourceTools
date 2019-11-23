@@ -457,12 +457,11 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
 		
-		vertmap_item = item.objects[item.vs.selected_item] if is_group else context.active_object
-		if shouldExportDMX() and DatamodelFormatVersion() >= 22 and vertmap_item:
-			if vertmap_item.type == 'MESH':
+		if shouldExportDMX() and DatamodelFormatVersion() >= 22 and context.active_object:
+			if context.active_object.type == 'MESH':
 				title = get_id("vertmap_group_props")
 				if is_group:
-					title += " ({})".format(vertmap_item.data.name)
+					title += " ({})".format(context.active_object.data.name)
 
 				col = self.makeSettingsBox(text=title, icon='VPAINT_HLT')
 				for map_name in vertex_maps:

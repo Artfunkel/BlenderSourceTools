@@ -29,11 +29,11 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	bl_options = {'UNDO','INTERNAL'}
 	
 	@classmethod
-	def poll(self, context):
+	def poll(cls, context):
 		return hasShapes(get_active_exportable(context).get_id(), valid_only=False)
 	
 	@classmethod
-	def make_controllers(self,id):
+	def make_controllers(cls,id):
 		dm = datamodel.DataModel("model",1)
 		
 		objects = []
@@ -87,7 +87,6 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		dm = self.make_controllers(id)
 		
 		text = bpy.data.texts.new(dm.root.name)
-		text.use_tabs_as_spaces = False
 		text.from_string(dm.echo("keyvalues2",1))
 		
 		if not id.vs.flex_controller_source or bpy.data.texts.get(id.vs.flex_controller_source):
@@ -159,7 +158,7 @@ class InsertUUID(bpy.types.Operator):
 	bl_description = get_id("insert_uuid_tip")
 
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return context.space_data.type == 'TEXT_EDITOR' and context.space_data.text
 
 	def execute(self,context):
@@ -170,7 +169,7 @@ class InsertUUID(bpy.types.Operator):
 			sel_range.sort()
 
 			import re
-			m = re.search("[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}",line.body[sel_range[0]:sel_range[1]],re.I)
+			m = re.search(r"[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}",line.body[sel_range[0]:sel_range[1]],re.I)
 			if m:
 				line.body = line.body[:m.start()] + str(datamodel.uuid.uuid4()) + line.body[m.end():]
 				return {'FINISHED'}
