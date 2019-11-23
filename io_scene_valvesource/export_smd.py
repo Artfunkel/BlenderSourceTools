@@ -64,7 +64,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		return {'FINISHED'}
 	
 	@classmethod
-	def getQCs(self,path = None):
+	def getQCs(cls,path = None):
 		import glob
 		ext = ".qc"
 		out = []
@@ -133,7 +133,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 	export_scene : bpy.props.BoolProperty(name=get_id("scene_export"),description=get_id("exporter_prop_scene_tip"),default=False)
 
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return len(context.scene.vs.export_list)
 		
 	def invoke(self, context, event):
@@ -350,7 +350,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for vertex_map_name in group_vertex_maps:
 					if not vertex_map_name in bake.object.data.vertex_colors:
 						vertex_map = bake.object.data.vertex_colors.new(vertex_map_name)
-						vertex_map.data.foreach_set("color",[1.0] * len(vertex_colour_data) * 3)
+						vertex_map.data.foreach_set("color",[1.0] * 4)
 
 				if bake:
 					bake_results.append(bake)
@@ -367,7 +367,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					bake_results.append(bake)
 
 		if not any(bake_results):
-			return;
+			return
 		
 		if shouldExportDMX() and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
@@ -1600,7 +1600,6 @@ skeleton
 				colours = []
 				for loopColour in vert_map.data:
 					colour = list(loopColour.color)
-					colour.append(0) # make a W component
 					colours.append(datamodel.Vector4(colour))
 
 				vertex_data[attribute_name] = datamodel.make_array(colours,datamodel.Vector4)

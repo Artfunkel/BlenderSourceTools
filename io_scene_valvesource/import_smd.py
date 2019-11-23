@@ -1451,7 +1451,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							self.colours = colours
 
 						def get_loop_color(self, loop_index):
-							return Color(self.colours[self.indices[loop_index]][:3])
+							return self.colours[self.indices[loop_index]]
 
 					for map_name in vertex_maps:
 						attribute_name = keywords.get(map_name)

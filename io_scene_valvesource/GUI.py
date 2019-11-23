@@ -308,7 +308,7 @@ for map_name in vertex_maps:
 
 		def execute(self,c):
 			vc = c.active_object.data.vertex_colors.new(name=self.vertex_map)
-			vc.data.foreach_set("color",[1.0] * len(vc.data) * 3)
+			vc.data.foreach_set("color",[1.0] * len(vc.data) * 4)
 			SelectVertexMap.execute(self,c)
 			return {'FINISHED'}
 
