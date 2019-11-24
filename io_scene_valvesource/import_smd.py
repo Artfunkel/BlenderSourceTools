@@ -1010,18 +1010,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if line[0] == "$definebone":
 				pass # TODO
 
-			def import_file(word_index,default_ext,type,append='APPEND',layer=0,in_file_recursion = False):
+			def import_file(word_index,default_ext,smd_type,append='APPEND',layer=0,in_file_recursion = False):
 				path = os.path.join( qc.cd(), appendExt(line[word_index],default_ext) )
 				
 				if not in_file_recursion and not os.path.exists(path):
-					return import_file(word_index,"dmx",type,append,layer,True)
+					return import_file(word_index,"dmx",smd_type,append,layer,True)
 
 				if not path in qc.imported_smds: # FIXME: an SMD loaded once relatively and once absolutely will still pass this test
 					qc.imported_smds.append(path)
 					self.append = append if qc.a else 'NEW_ARMATURE'
 
 					# import the file
-					self.num_files_imported += (self.readDMX if path.endswith("dmx") else self.readSMD)(path,qc.upAxis,rotMode,False,type,target_layer=layer)
+					self.num_files_imported += (self.readDMX if path.endswith("dmx") else self.readSMD)(path,qc.upAxis,rotMode,False,smd_type,target_layer=layer)
 				return True
 
 			# meshes
@@ -1081,7 +1081,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# there are many more keywords, but they can only appear *after* an SMD is referenced
 				
 					if not qc.a: qc.a = self.findArmature()
-				
+					if not qc.a:
+						self.warning(get_id("qc_warn_noarmature", True).format(line_str.strip()))
+						continue
+
 					if line[i].lower() not in qc.animation_names:
 						if not qc.a.animation_data: qc.a.animation_data_create()
 						last_action = qc.a.animation_data.action

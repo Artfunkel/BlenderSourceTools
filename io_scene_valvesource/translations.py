@@ -721,6 +721,9 @@ _data = {
 	'ja': "アーマティアを生成",
 	'en': "Make New Armature",
 },
+'qc_warn_noarmature': {
+	'en': "Skipping {0}; no armature found.",
+},
 'exportstate_pattern_tip': {
 	'en': "Visible objects with this string in their name will be affected",
 	'ru': "Будут обработаны видимые объекты, содержащие в своём названии эту строку",

@@ -317,8 +317,8 @@ def removeObject(obj):
 			if child.type == 'EMPTY':
 				removeObject(child)
 
-	if obj.name in bpy.context.scene.objects:
-		bpy.context.scene.collection.objects.unlink(obj)
+	for collection in obj.users_collection:
+		collection.objects.unlink(obj)
 	if obj.users == 0:
 		if type == 'ARMATURE' and obj.animation_data:
 			obj.animation_data.action = None # avoid horrible Blender bug that leads to actions being deleted
