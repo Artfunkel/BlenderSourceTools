@@ -256,6 +256,7 @@ _classes = (
 	ValveSource_TextProps,
 	GUI.SMD_MT_ExportChoice,
 	GUI.SMD_PT_Scene,
+	GUI.SMD_MT_ConfigureScene,
 	GUI.SMD_UL_ExportItems,
 	GUI.SMD_UL_GroupItems,
 	GUI.SMD_UL_VertexAnimationItem,

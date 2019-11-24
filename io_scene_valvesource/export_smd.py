@@ -151,7 +151,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
 				return {'CANCELLED' }
 		if len(context.scene.vs.export_path) == 0:
-			self.report({'ERROR'},get_id("exporter_err_unconfigured"))
+			bpy.ops.wm.call_menu(name="SMD_MT_ConfigureScene")
 			return {'CANCELLED'}
 		if context.scene.vs.export_path.startswith("//") and not context.blend_data.filepath:
 			self.report({'ERROR'},get_id("exporter_err_relativeunsaved"))

@@ -118,10 +118,20 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		col = l.column(align=True)
 		row = col.row(align=True)
-		row.operator("wm.url_open",text=get_id("help",True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_Source_Tools_Help#Exporting"
+		self.HelpButton(row)
 		row.operator("wm.url_open",text=get_id("exportpanel_steam",True),icon='URL').url = "http://steamcommunity.com/groups/BlenderSourceTools"
 		if "SmdToolsUpdate" in globals():
 			col.operator(SmdToolsUpdate.bl_idname,text=get_id("exportpanel_update",True),icon='URL')
+
+	@staticmethod
+	def HelpButton(layout):
+		layout.operator("wm.url_open",text=get_id("help",True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_Source_Tools_Help#Exporting"
+
+class SMD_MT_ConfigureScene(bpy.types.Menu):
+	bl_label = get_id("exporter_report_menu")
+	def draw(self, context):
+		self.layout.label(text=get_id("exporter_err_unconfigured"))
+		SMD_PT_Scene.HelpButton(self.layout)
 
 class SMD_UL_ExportItems(bpy.types.UIList):
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
