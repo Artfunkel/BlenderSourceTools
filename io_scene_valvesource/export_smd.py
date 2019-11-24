@@ -521,7 +521,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if not self.armature:
 					self.armature = result.armature.object
 					self.armature_src = result.armature.src
-				elif self.armature != result.armature:
+				elif self.armature != result.armature.object:
 					self.warning(get_id("exporter_warn_multiarmature"))
 
 		if self.armature_src:
