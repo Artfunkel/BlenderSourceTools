@@ -1,4 +1,4 @@
-﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -655,7 +655,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		# Create a new mesh object, disable double-sided rendering, link it to the current scene
 		smd.m = bpy.data.objects.new(mesh_name,bpy.data.meshes.new(mesh_name))
 		smd.m.parent = smd.a
-		smd.g.objects.link(smd.m)
+		bpy.context.scene.collection.objects.link(smd.m)
 		if smd.jobType == REF: # can only have flex on a ref mesh
 			if self.qc:
 				self.qc.ref_mesh = smd.m # for VTA import
@@ -865,7 +865,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 					vd = bpy.data.meshes.new(name="VTA vertices")
 					vta_ref = smd.vta_ref = bpy.data.objects.new(name=vd.name,object_data=vd)
 					vta_ref.matrix_world = smd.m.matrix_world
-					smd.g.objects.link(vta_ref)
 
 					vta_err_vg = vta_ref.vertex_groups.new(name=get_id("importer_name_unmatchedvta"))
 				elif making_base_shape:
@@ -1129,7 +1128,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 				print("QC IMPORTER: created {} at $origin\n".format(name))
 
 				origin = bpy.data.objects.new(qc.jobName + "_origin",data)
-				smd.g.objects.link(origin)
 
 				origin.rotation_euler = Vector([pi/2,0,pi]) + Vector(getUpAxisMat(qc.upAxis).inverted().to_euler()) # works, but adding seems very wrong!
 				ops.object.select_all(action="DESELECT")
@@ -1190,8 +1188,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		smd.startTime = time.time()
 		smd.layer = target_layer
 		smd.rotMode = rotMode
-		smd.g = bpy.data.collections.new(smd.jobName)
-		bpy.context.scene.collection.children.link(smd.g)
 		if self.qc:
 			smd.upAxis = self.qc.upAxis
 			smd.a = self.qc.a
@@ -1360,7 +1356,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 					for elem in elem_array:
 						if elem.type =="DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
 							atch = smd.atch = bpy.data.objects.new(name=self.truncate_id_name(elem["shape"].name, "Attachment"), object_data=None)
-							smd.g.objects.link(atch)
 							atch.show_in_front = True
 							atch.empty_display_type = 'ARROWS'
 
@@ -1413,7 +1408,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 						ops.object.mode_set(mode='OBJECT')
 					mesh_name = self.truncate_id_name(DmeMesh.name,bpy.types.Mesh)
 					ob = smd.m = bpy.data.objects.new(name=mesh_name, object_data=bpy.data.meshes.new(name=mesh_name))
-					smd.g.objects.link(ob)
 					ob.show_wire = smd.jobType == PHYS
 
 					DmeVertexData = DmeMesh["currentState"]
