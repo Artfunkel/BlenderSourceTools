@@ -940,6 +940,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		filename = os.path.basename(filepath)
 		filedir = os.path.dirname(filepath)
 
+		def normalisePath(path):
+			if (os.path.sep == '/'):
+				path = path.replace('\\','/')
+			return os.path.normpath(path)
+
 		if outer_qc:
 			print("\nQC IMPORTER: now working on",filename)
 			
@@ -1011,7 +1016,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				pass # TODO
 
 			def import_file(word_index,default_ext,smd_type,append='APPEND',layer=0,in_file_recursion = False):
-				path = os.path.join( qc.cd(), appendExt(line[word_index],default_ext) )
+				path = os.path.join( qc.cd(), appendExt(normalisePath(line[word_index]),default_ext) )
 				
 				if not in_file_recursion and not os.path.exists(path):
 					return import_file(word_index,"dmx",smd_type,append,layer,True)
@@ -1156,7 +1161,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			# QC inclusion
 			if line[0] == "$include":
-				path = os.path.join(qc.root_filedir,line[1]) # special case: ignores dir stack
+				path = os.path.join(qc.root_filedir,normalisePath(line[1])) # special case: ignores dir stack
 
 				if not path.endswith(".qc") and not path.endswith(".qci"):
 					if os.path.exists(appendExt(path,".qci")):
@@ -1190,8 +1195,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 		smd.startTime = time.time()
 		smd.layer = target_layer
 		smd.rotMode = rotMode
-		smd.g = bpy.data.collections.new(smd.jobName)
-		bpy.context.scene.collection.children.link(smd.g)
+		if smd.jobType != ANIM:
+			smd.g = bpy.data.collections.new(smd.jobName)
+			bpy.context.scene.collection.children.link(smd.g)
 		if self.qc:
 			smd.upAxis = self.qc.upAxis
 			smd.a = self.qc.a
