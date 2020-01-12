@@ -1479,6 +1479,10 @@ skeleton
 			culled_weight_links = 0
 			cull_threshold = bpy.context.scene.vs.dmx_weightlink_threshold
 			have_weightmap = False
+			cloth_groups = None
+			
+			if source2 and ob.vertex_groups["cloth_enable"]: # Only read cloth groups if we have cloth_enable
+				cloth_groups = findDmxClothVertexGroups(ob)
 
 			if type(bake.envelope) is bpy.types.ArmatureModifier:
 				ob_weights = self.getWeightmap(bake)
@@ -1509,6 +1513,10 @@ skeleton
 			if have_weightmap: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
 			if bake.shapes and bake.balance_vg:
 				format.append(keywords["balance"])
+				
+			if cloth_groups:
+				for vgroup in cloth_groups:
+					format.append(vgroup.name + "$0")
 			
 			vertex_data["flipVCoordinates"] = True
 			vertex_data["jointCount"] = jointCount
@@ -1522,6 +1530,11 @@ skeleton
 			jointWeights = []
 			jointIndices = []
 			balance = [0.0] * num_verts
+			cloth_weights = {}
+			
+			if cloth_groups:
+				for vgroup in cloth_groups:
+					cloth_weights[vgroup.name] = [0.0] * num_verts
 			
 			Indices = [None] * num_loops
 			
@@ -1538,6 +1551,11 @@ skeleton
 				if bake.shapes and bake.balance_vg:
 					try: balance[vert.index] = bake.balance_vg.weight(vert.index)
 					except: pass
+					
+				if cloth_groups:
+					for vgroup in cloth_groups:
+						try: cloth_weights[vgroup.name][vert.index] = vgroup.weight(vert.index)
+						except: pass
 				
 				if have_weightmap:
 					weights = [0.0] * jointCount
@@ -1586,6 +1604,13 @@ skeleton
 						
 			vertex_data[keywords['norm']] = datamodel.make_array(norms,datamodel.Vector3)
 			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(range(len(norms)),int)
+			
+			if cloth_groups:
+				for keyword in cloth_weights:
+					print(keyword)
+					print(cloth_weights[keyword])
+					vertex_data[keyword + "$0"] = datamodel.make_array(cloth_weights[keyword],float)
+					vertex_data[keyword + "$0Indices"] = datamodel.make_array(Indices,int)
 			
 			bench.report("insert")
 

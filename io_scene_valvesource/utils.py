@@ -193,6 +193,54 @@ def getDmxVersionsForSDK():
 
 vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesource_vertex_blend1"]
 
+# Per vertex Source 2 DMX cloth maps
+cloth_maps = [
+	"cloth_enable",
+	"cloth_animation_attract",
+	"cloth_animation_force_attract",
+	"cloth_goal_strength",
+	"cloth_goal_strength_v2",
+	"cloth_goal_damping",
+	"cloth_drag",
+	"cloth_drag_v2",
+	"cloth_mass",
+	"cloth_gravity",
+	"cloth_gravity_z",
+	"cloth_collision_radius",
+	"cloth_ground_collision",
+	"cloth_ground_friction",
+	"cloth_use_rods",
+	"cloth_make_rods",
+	"cloth_anchor_free_rotate",
+	"cloth_volumetric",
+	"cloth_suspenders",
+	"cloth_bend_stiffness",
+	"cloth_stray_radius_inv",
+	"cloth_stray_radius",
+	"cloth_stray_radius_stretchiness",
+	"cloth_antishrink",
+	"cloth_shear_resistance",
+	"cloth_stretch",
+	"cloth_friction"
+]
+
+def findDmxClothVertexGroups(ob):
+	groups = []
+	for vgroup in ob.vertex_groups:
+		if vgroup.name in cloth_maps:
+			groups.append(vgroup)
+			
+		elif vgroup.name.startswith("cloth_collision_layer_"):
+			for n in range(16):
+				if vgroup.name == f"cloth_collision_layer_{n}":
+					groups.append(vgroup)
+					break
+			
+		elif vgroup.name.startswith("cloth_vertex_set_"):
+			groups.append(vgroup)
+
+	return groups
+
 def getDmxKeywords(format_version):
 	if format_version >= 22:
 		return {
