@@ -204,9 +204,15 @@ class ExportableProps():
 	vertex_animations : CollectionProperty(name=get_id("vca_group_props"),type=ValveSource_VertexAnimation)
 	active_vertex_animation : IntProperty(default=-1)
 
+class VertexMapRemap(PropertyGroup):
+	group : StringProperty(name="Group name",default="")
+	min : FloatProperty(name="Min",description="Maps to 0.0",default=0.0)
+	max : FloatProperty(name="Max",description="Maps to 1.0",default=1.0)
+
 class ValveSource_ObjectProps(ExportableProps,PropertyGroup):
 	action_filter : StringProperty(name=get_id("action_filter"),description=get_id("action_filter_tip"))
 	triangulate : BoolProperty(name=get_id("triangulate"),description=get_id("triangulate_tip"),default=False)
+	vertex_map_remaps :  CollectionProperty(name="Vertes map remaps",type=VertexMapRemap)
 
 class ValveSource_ArmatureProps(PropertyGroup):
 	implicit_zero_bone : BoolProperty(name=get_id("dummy_bone"),default=True,description=get_id("dummy_bone_tip"))
@@ -244,6 +250,7 @@ class ValveSource_TextProps(CurveTypeProps,PropertyGroup):
 	pass
 
 _classes = (
+	VertexMapRemap,
 	ValveSource_Exportable,
 	ValveSource_SceneProps,
 	ValveSource_VertexAnimation,

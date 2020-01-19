@@ -340,6 +340,73 @@ for map_name in vertex_maps:
 	bpy.utils.register_class(SelectVertexMap)
 	bpy.utils.register_class(CreateVertexMap)
 	bpy.utils.register_class(RemoveVertexMap)
+	
+for map_name in vertex_float_maps:
+	def is_mesh(ob):
+		return ob is not None and ob.type == 'MESH'
+
+	class SelectVertexMap(bpy.types.Operator):
+		bl_idname = SMD_OT_SelectVertexMap_idname + map_name
+		bl_label = bl_description = get_id("vertmap_select")
+		bl_options = {'INTERNAL'}
+		vertex_map = map_name
+	
+		@classmethod
+		def poll(cls,c):
+			if not is_mesh(c.active_object): return False
+
+			vg_loop = c.active_object.vertex_groups.get(cls.vertex_map)
+			return vg_loop and not c.active_object.vertex_groups.active == vg_loop
+
+		def execute(self,c):
+			c.active_object.vertex_groups.active_index = c.active_object.vertex_groups[self.vertex_map].index
+			return {'FINISHED'}
+
+	class CreateVertexMap(bpy.types.Operator):
+		bl_idname = SMD_OT_CreateVertexMap_idname + map_name
+		bl_label = bl_description = get_id("vertmap_create")
+		bl_options = {'INTERNAL'}
+		vertex_map = map_name
+	
+		@classmethod
+		def poll(cls,c):
+			return is_mesh(c.active_object) and not cls.vertex_map in c.active_object.vertex_groups
+
+		def execute(self,c):
+			vc = c.active_object.vertex_groups.new(name=self.vertex_map)
+			
+			found = False
+			for remap in c.active_object.vs.vertex_map_remaps:
+				if remap.group == map_name:
+					found = True
+					break
+			
+			remap = c.active_object.vs.vertex_map_remaps.add()	
+			remap.group = map_name
+			remap.min = 0.0
+			remap.max = 1.0
+			
+			SelectVertexMap.execute(self,c)
+			return {'FINISHED'}
+
+	class RemoveVertexMap(bpy.types.Operator):
+		bl_idname = SMD_OT_RemoveVertexMap_idname + map_name
+		bl_label = bl_description = get_id("vertmap_remove")
+		bl_options = {'INTERNAL'}
+		vertex_map = map_name
+	
+		@classmethod
+		def poll(cls,c):
+			return is_mesh(c.active_object) and cls.vertex_map in c.active_object.vertex_groups
+
+		def execute(self,c):
+			vgs = c.active_object.vertex_groups
+			vgs.remove(vgs[self.vertex_map])
+			return {'FINISHED'}
+
+	bpy.utils.register_class(SelectVertexMap)
+	bpy.utils.register_class(CreateVertexMap)
+	bpy.utils.register_class(RemoveVertexMap)
 
 class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_label = get_id('exportables_title')
@@ -474,18 +541,55 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					title += " ({})".format(context.active_object.data.name)
 
 				col = self.makeSettingsBox(text=title, icon='VPAINT_HLT')
+				
+				r = col.row()
+				r.label(text="Color Maps")
+				
 				for map_name in vertex_maps:
-					r = col.row().split(factor=0.55)
-					r.label(text=get_id(map_name),icon='GROUP_VCOL')
+					r = col.row()#.split(factor=0.80)
+					#r.label(text=get_id(map_name),icon='GROUP_VCOL')
+					r.operator(SMD_OT_SelectVertexMap_idname + map_name, text=get_id(map_name),icon='GROUP_VCOL')
 					
 					r = r.row()
 					add_remove = r.row(align=True)
 					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ADD',text="")
 					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='REMOVE',text="")
-					r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
+					#r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
+					
+				col.separator()
+				r = col.row()
+				r.label(text="Float Maps")
+				
+				for map_name in vertex_float_maps:
+					r = col.row().split(factor=0.50)
+					r.operator(SMD_OT_SelectVertexMap_idname + map_name, text=map_name,icon='GROUP_VERTEX')
+					
+					r = r.row()
+					add_remove = r.row(align=True)
+					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ADD',text="")
+					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='REMOVE',text="")
+					#r = r.row().split(factor=0.15)
+					#r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")					
+					remap = r.row(align=True)
+					
+					found = False
+					for group in context.active_object.vs.vertex_map_remaps:
+						if group.group == map_name:
+							found = True			
+							remap.prop(group, "min")
+							remap.prop(group, "max")
+							break
+							
+					if not found:
+						group = context.active_object.vs.vertex_map_remaps.add()	
+						group.group = map_name
+						group.min = 0.0
+						group.max = 1.0
+						remap.prop(group, "min")
+						remap.prop(group, "max")
 
 				col.separator()
-				col.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/Vertex_animation"
+				col.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/DMX/Source_2_Vertex_attributes"
 		
 		if hasCurves(item):
 			col = self.makeSettingsBox(text=get_id("exportables_curve_props"),icon='OUTLINER_OB_CURVE')

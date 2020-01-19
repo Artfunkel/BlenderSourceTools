@@ -845,6 +845,13 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if id.type == 'MESH':
 			data.use_auto_smooth = id.data.use_auto_smooth
 			data.auto_smooth_angle = id.data.auto_smooth_angle
+			
+			for remap in id.vs.vertex_map_remaps:
+				copy = baked.vs.vertex_map_remaps.add()
+				copy.group = remap.group
+				copy.min = remap.min
+				copy.max = remap.max
+				
 
 		for vgroup in id.vertex_groups:
 			baked.vertex_groups.new(name=vgroup.name)
@@ -1481,7 +1488,7 @@ skeleton
 			have_weightmap = False
 			cloth_groups = None
 			
-			if source2 and ob.vertex_groups["cloth_enable"]: # Only read cloth groups if we have cloth_enable
+			if source2:
 				cloth_groups = findDmxClothVertexGroups(ob)
 
 			if type(bake.envelope) is bpy.types.ArmatureModifier:
@@ -1542,7 +1549,10 @@ skeleton
 
 			uv_layer = ob.data.uv_layers.active.data
 			
-			bench.report("object setup")			
+			bench.report("object setup")
+
+			def	remap(input, a, b, c, d):
+				return (((input - a) * (d - c)) / (b - a)) + c
 			
 			for vert in ob.data.vertices:
 				pos[vert.index] = datamodel.Vector3(vert.co)
@@ -1554,8 +1564,19 @@ skeleton
 					
 				if cloth_groups:
 					for vgroup in cloth_groups:
-						try: cloth_weights[vgroup.name][vert.index] = vgroup.weight(vert.index)
-						except: pass
+						try:
+							cloth_weights[vgroup.name][vert.index] = vgroup.weight(vert.index)
+							for r in ob.vs.vertex_map_remaps:
+								if r.group == vgroup.name:
+									val = remap(vgroup.weight(vert.index), 0.0, 1.0, r.min, r.max)
+									cloth_weights[vgroup.name][vert.index] = val
+									break
+						except:
+							# Still remap 0 if no value is found
+							for r in ob.vs.vertex_map_remaps:
+								if r.group == vgroup.name:
+									cloth_weights[vgroup.name][vert.index] = r.min
+									break
 				
 				if have_weightmap:
 					weights = [0.0] * jointCount
@@ -1607,8 +1628,6 @@ skeleton
 			
 			if cloth_groups:
 				for keyword in cloth_weights:
-					print(keyword)
-					print(cloth_weights[keyword])
 					vertex_data[keyword + "$0"] = datamodel.make_array(cloth_weights[keyword],float)
 					vertex_data[keyword + "$0Indices"] = datamodel.make_array(Indices,int)
 			

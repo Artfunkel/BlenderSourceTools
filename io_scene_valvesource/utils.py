@@ -193,8 +193,8 @@ def getDmxVersionsForSDK():
 
 vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesource_vertex_blend1"]
 
-# Per vertex Source 2 DMX cloth maps
-cloth_maps = [
+# Per vertex Source 2 DMX maps
+vertex_float_maps = [
 	"cloth_enable",
 	"cloth_animation_attract",
 	"cloth_animation_force_attract",
@@ -222,12 +222,16 @@ cloth_maps = [
 	"cloth_shear_resistance",
 	"cloth_stretch",
 	"cloth_friction"
+	
+	# TODO add way to set up groups manually
+	# cloth_collision_layer_%d - 0 through 15
+	# cloth_vertex_set_%s - name
 ]
 
 def findDmxClothVertexGroups(ob):
 	groups = []
 	for vgroup in ob.vertex_groups:
-		if vgroup.name in cloth_maps:
+		if vgroup.name in vertex_float_maps:
 			groups.append(vgroup)
 			
 		elif vgroup.name.startswith("cloth_collision_layer_"):
