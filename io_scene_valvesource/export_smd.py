@@ -193,9 +193,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 				context.scene.frame_set(context.scene.rigidbody_world.point_cache.frame_start)
 			
 			# lots of operators only work on visible objects
-			for object in context.scene.objects:
-				object.hide_viewport = False
-
+			for ob in context.scene.objects:
+				ob.hide_viewport = False
+			# this seems to recursively enable all collections in the scene
+			context.view_layer.active_layer_collection.exclude = False
+			
 			self.files_exported = self.attemptedExports = 0
 			
 			if self.export_scene:
