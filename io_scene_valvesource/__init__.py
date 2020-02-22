@@ -1,4 +1,4 @@
-﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -270,7 +270,7 @@ _classes = (
 	GUI.SMD_PT_VertexAnimation,
 	GUI.SMD_PT_Armature,
 	GUI.SMD_PT_ShapeKeys,
-	GUI.SMD_PT_VertexAnimations,
+	GUI.SMD_PT_VertexMaps,
 	GUI.SMD_PT_Curves,
 	GUI.SMD_PT_Scene_QC_Complie,
 	flex.DmxWriteFlexControllers,

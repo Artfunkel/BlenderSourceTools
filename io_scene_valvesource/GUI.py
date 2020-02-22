@@ -539,7 +539,7 @@ class SMD_PT_ShapeKeys(ExportableConfigurationPanel):
 		row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
 		row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
 
-class SMD_PT_VertexAnimations(ExportableConfigurationPanel):
+class SMD_PT_VertexMaps(ExportableConfigurationPanel):
 	bl_label = " "
 
 	@classmethod
@@ -569,9 +569,6 @@ class SMD_PT_VertexAnimations(ExportableConfigurationPanel):
 			add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ADD',text="")
 			add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='REMOVE',text="")
 			r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
-
-		l.separator()
-		l.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/Vertex_animation"
 			
 class SMD_PT_Curves(ExportableConfigurationPanel):
 	bl_label = get_id("exportables_curve_props")
