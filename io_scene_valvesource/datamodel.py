@@ -917,7 +917,8 @@ def load(path = None, in_file = None, element_path = None):
 										break
 										
 									line = parse_line(line)
-									arr.append(read_value(arr_name,arr_type_str,line[0]))
+									if line:
+										arr.append(read_value(arr_name,arr_type_str,line[0]))
 						
 						elif len(line) == 2: # inline element or binary
 							if line[1] == "binary":
