@@ -1,4 +1,4 @@
-﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -196,14 +196,11 @@ vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesou
 def getDmxKeywords(format_version):
 	if format_version >= 22:
 		return {
-		  'pos': "position$0", 'norm': "normal$0", 'texco':"texcoord$0", 'wrinkle':"wrinkle$0",
-		  'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0",
-		  'valvesource_vertex_blend':"VertexPaintBlendParams$0",
-		  'valvesource_vertex_blend1':"VertexPaintBlendParams1$0",
-		  'valvesource_vertex_paint':"VertexPaintTintColor$0"
+		  'pos': "position$0", 'norm': "normal$0", 'wrinkle':"wrinkle$0",
+		  'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0"
 		  }
 	else:
-		return { 'pos': "positions", 'norm': "normals", 'texco':"textureCoordinates", 'wrinkle':"wrinkle",
+		return { 'pos': "positions", 'norm': "normals", 'wrinkle':"wrinkle",
 		  'balance':"balance", 'weight':"jointWeights", 'weight_indices':"jointIndices" }
 
 def count_exports(context):

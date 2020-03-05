@@ -1,4 +1,4 @@
-﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bmesh, random, collections
+import bpy, bmesh, random, collections, re
 from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import *
@@ -1445,31 +1445,54 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Vertices
 					for pos in positions:
 						bm.verts.new( Vector(pos) )
-
-					if hasattr(bm.verts,'ensure_lookup_table'):
 						bm.verts.ensure_lookup_table()
 					
 					# Faces, Materials, Colours
 					skipfaces = set()
-					vertex_colour_layers = []
+					vertex_layer_infos = []
 
-					class VertexColourInfo():
-						def __init__(self, layer, indices, colours):
+					class VertexLayerInfo():
+						def __init__(self, layer, indices, values):
 							self.layer = layer
 							self.indices = indices
-							self.colours = colours
+							self.values = values
 
-						def get_loop_color(self, loop_index):
-							return self.colours[self.indices[loop_index]]
+						def get_loop_value(self, loop_index):
+							return self.values[self.indices[loop_index]]
 
-					for map_name in vertex_maps:
-						attribute_name = keywords.get(map_name)
-						if attribute_name and attribute_name in DmeVertexData["vertexFormat"]:
-							vertex_colour_layers.append(VertexColourInfo(
-								bm.loops.layers.color.new(map_name),
-								DmeVertexData[attribute_name + "Indices"],
-								DmeVertexData[attribute_name]
-							))
+					# Arbitrary vertex data
+					vertexDataAttributes = list([prop for prop in DmeVertexData.keys() if prop not in keywords.values()])
+
+					def warnUneditableVertexData(name): self.warning("Vertex data '{}' was imported, but cannot be edited in Blender (as of 2.82)".format(name))
+
+					for vertexMap in vertexDataAttributes:
+						indices = DmeVertexData.get(vertexMap + "Indices")
+						if not indices:
+							continue
+						print(vertexMap)
+						values = DmeVertexData.get(vertexMap)
+						if not isinstance(values, list) or len(values) == 0:
+							continue
+
+						if isinstance(values[0], float):
+							layers = bm.loops.layers.float
+							warnUneditableVertexData(vertexMap)
+						elif isinstance(values[0], int):
+							layers = bm.loops.layers.int
+							warnUneditableVertexData(vertexMap)
+						elif isinstance(values[0], str):
+							layers = bm.loops.layers.string
+							warnUneditableVertexData(vertexMap)
+						elif isinstance(values[0], datamodel.Vector2):
+							layers = bm.loops.layers.uv
+						elif isinstance(values[0], datamodel.Vector4) or isinstance(values[0], datamodel.Color):
+							layers = bm.loops.layers.color
+						else:
+							self.warning("Could not import vertex data '{}'; Blender does not support {} data layers.".format(vertexMap, type(values[0]).__name__))
+							continue
+
+						vertex_layer_infos.append(VertexLayerInfo(layers.new(vertexMap), DmeVertexData[vertexMap + "Indices"], values))
+
 						if DatamodelFormatVersion() < 22:
 							bpy.context.scene.vs.dmx_format = '22'
 					
@@ -1490,10 +1513,15 @@ class SmdImporter(bpy.types.Operator, Logger):
 								face.smooth = True
 								face.material_index = mat_ind
 
-								# Apply Source 2 vertex colours
-								for colour_layer in vertex_colour_layers:
+								# Apply Source 2 vertex data
+								for layer_info in vertex_layer_infos:
+									is_uv_layer = layer_info.layer.name in bm.loops.layers.uv
 									for i, loop in enumerate(face.loops):
-										loop[colour_layer.layer] = colour_layer.get_loop_color(face_loops[i])
+										value = layer_info.get_loop_value(face_loops[i])
+										if is_uv_layer:
+											loop[layer_info.layer].uv = value
+										else:	
+											loop[layer_info.layer] = value
 
 							except ValueError: # Can't have an overlapping face...this will be painful later
 								skipfaces.add(dmx_face)
@@ -1580,25 +1608,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 						ob.data.vs.flex_stereo_mode = 'VGROUP'
 						ob.data.vs.flex_stereo_vg = vg.name
-					# UV
-					if keywords['texco'] in DmeVertexData["vertexFormat"]:
-						ob.data.uv_layers.new()
-						uv_data = ob.data.uv_layers[0].data
-						textureCoordinatesIndices = DmeVertexData[keywords['texco'] + "Indices"]
-						textureCoordinates = DmeVertexData[keywords['texco']]
-						uv_vert=0
-						dmx_face=0
-						skipping = False
-						for faceset in DmeMesh["faceSets"]:
-							for vert in faceset["faces"]:
-								if vert == -1:
-									dmx_face += 1
-									skipping = dmx_face in skipfaces
-								if skipping: continue # need to skip overlapping faces which couldn't be imported
-								
-								if vert != -1:				
-									uv_data[uv_vert].uv = textureCoordinates[ textureCoordinatesIndices[vert] ]
-									uv_vert+=1
 
 					# Shapes
 					if DmeMesh.get("deltaStates"):
