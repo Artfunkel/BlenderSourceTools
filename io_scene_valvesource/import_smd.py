@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -21,7 +21,7 @@
 import bpy, bmesh, random, collections, re
 from bpy import ops
 from bpy.app.translations import pgettext
-from bpy.props import *
+from bpy.props import StringProperty, CollectionProperty, BoolProperty, EnumProperty
 from .utils import *
 from . import datamodel
 
@@ -299,7 +299,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			self.warning(get_id("importer_err_bonelimit_smd"))
 
 	@classmethod
-	def findArmature(self):
+	def findArmature(cls):
 		# Search the current scene for an existing armature - there can only be one skeleton in a Source model
 		if bpy.context.active_object and bpy.context.active_object.type == 'ARMATURE':
 			return bpy.context.active_object
@@ -1445,7 +1445,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Vertices
 					for pos in positions:
 						bm.verts.new( Vector(pos) )
-						bm.verts.ensure_lookup_table()
+					bm.verts.ensure_lookup_table()
 					
 					# Faces, Materials, Colours
 					skipfaces = set()

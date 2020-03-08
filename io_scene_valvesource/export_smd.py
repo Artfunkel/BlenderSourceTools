@@ -24,7 +24,7 @@ from bpy.app.translations import pgettext
 from mathutils import *
 from math import *
 from bpy.types import Collection
-from bpy.props import *
+from bpy.props import CollectionProperty, StringProperty, BoolProperty
 
 from .utils import *
 from . import datamodel, ordered_set, flex

@@ -244,7 +244,7 @@ class _ColorArray(_Vector4Array):
 	
 class Time(float):
 	@classmethod
-	def from_int(self,int_value):
+	def from_int(cls,int_value):
 		return Time(int_value / 10000)
 		
 	def tobytes(self):
@@ -795,8 +795,13 @@ def load(path = None, in_file = None, element_path = None):
 		check_support(encoding,encoding_ver)
 		dm = DataModel(format,format_ver)
 		
-		global line_number
-		line_number = 0
+		class LineTracker():
+			line = 0
+
+			def __next__(self):
+				self.line += 1
+
+		line_tracker = LineTracker()
 
 		max_elem_path = len(element_path) + 1 if element_path else 0
 		
@@ -810,8 +815,7 @@ def load(path = None, in_file = None, element_path = None):
 			def parse_line(line):
 				return re.findall("\"(.*?)\"",line.strip("\n\t ") )
 				
-			def read_element(elem_type):
-				global line_number
+			def read_element(elem_type, line_tracker):
 				id = None
 				name = None
 				prefix = elem_type == "$prefix_element$"
@@ -837,7 +841,7 @@ def load(path = None, in_file = None, element_path = None):
 				
 				new_elem = None
 				for line_raw in in_file:
-					line_number += 1
+					next(line_tracker)
 					if line_raw.strip("\n\t, ").endswith("}"):
 						#print("{}- {}".format('\t' * (len(element_chain)-1),element_chain[-1].name))
 						return element_chain.pop()
@@ -865,7 +869,7 @@ def load(path = None, in_file = None, element_path = None):
 						if skip:
 							child_level = 0
 							for line_raw in in_file:
-								line_number += 1
+								next(line_tracker)
 								if "{" in line_raw: child_level += 1
 								if "}" in line_raw:
 									if child_level == 0: return
@@ -884,13 +888,13 @@ def load(path = None, in_file = None, element_path = None):
 							
 							if "[" not in line_raw: # immediate "[" means and empty array; elements must be on separate lines
 								for line in in_file:
-									line_number += 1
+									next(line_tracker)
 									if "[" in line: continue
 									if "]" in line: break
 									line = parse_line(line)
 									
 									if len(line) == 1:
-										arr.append( read_element(line[0]) )
+										arr.append( read_element(line[0], line_tracker) )
 									elif len(line) == 2:
 										arr.append( read_value(arr_name,"element",line[1],index=len(arr)) )
 							
@@ -909,7 +913,7 @@ def load(path = None, in_file = None, element_path = None):
 								
 							else: # multi-line array
 								for line in in_file:
-									line_number += 1
+									next(line_tracker)
 									if "[" in line:
 										continue
 									if "]" in line:
@@ -925,15 +929,15 @@ def load(path = None, in_file = None, element_path = None):
 								num_quotes = 0
 								value = Binary()
 								for line in in_file:
-									line_number += 1
+									next(line_tracker)
 									if "\"" in line:
 										num_quotes += 1
 										if num_quotes == 2: break
 									else:				
 										value = read_value(line[0],line[1], in_file.readline().strip())
-										line_number += 1
+										next(line_tracker)
 							else:
-								value = read_element(line[1])
+								value = read_element(line[1], line_tracker)
 							element_chain[-1][line[0]] = value
 						elif len(line) == 3: # ordinary attribute or element ID
 							element_chain[-1][line[0]] = read_value(line[0],line[1],line[2])
@@ -947,14 +951,14 @@ def load(path = None, in_file = None, element_path = None):
 			element_users = collections.defaultdict(list)
 			for line in in_file:
 				try:
-					line_number += 1
+					next(line_tracker)
 					line = parse_line(line)
 					if len(line) == 0: continue
 				
 					if len(element_chain) == 0 and len(line) == 1:
-						read_element(line[0])
+						read_element(line[0], line_tracker)
 				except Exception as ex:
-					raise DatamodelParseError("Parsing of {} failed on line {}".format(path, line_number)) from ex
+					raise DatamodelParseError("Parsing of {} failed on line {}".format(path, line_tracker.line)) from ex
 			
 			for element in dm.elements:
 				if element._is_placeholder == True: continue

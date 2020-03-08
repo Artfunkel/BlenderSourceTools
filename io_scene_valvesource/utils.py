@@ -20,7 +20,7 @@
 
 import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools
 from bpy.app.translations import pgettext
-from mathutils import *
+from mathutils import Matrix, Vector, Euler, Quaternion
 from math import *
 from . import datamodel
 
@@ -646,8 +646,7 @@ class Cache:
 		cls.validObs.clear()
 
 global p_cache
-if not "p_cache" in globals():
-	p_cache = Cache() # package cached data
+p_cache = globals().get("p_cache", Cache()) # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	bl_idname = "smd.launch_hlmv"
@@ -655,7 +654,7 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	bl_description = get_id("launch_hlmv_tip")
 
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return bool(context.scene.vs.engine_path)
 		
 	def execute(self,context):
@@ -674,7 +673,7 @@ class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
 	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
 	
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return len(context.visible_objects)
 	
 	def invoke(self, context, event):

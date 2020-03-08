@@ -32,7 +32,7 @@ bl_info = {
 
 import bpy, os
 from bpy import ops
-from bpy.props import *
+from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, CollectionProperty, FloatProperty, PointerProperty
 
 # get rid of the old module
 for script_path in bpy.utils.script_paths():

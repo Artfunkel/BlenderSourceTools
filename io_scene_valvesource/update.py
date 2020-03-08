@@ -38,7 +38,7 @@ class SmdToolsUpdate(bpy.types.Operator):
 	bl_description = get_id("updater_title_tip")
 	
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return updater_supported
 
 	def execute(self,context):	
