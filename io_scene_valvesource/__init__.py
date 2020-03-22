@@ -34,18 +34,12 @@ import bpy, os
 from bpy import ops
 from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, CollectionProperty, FloatProperty, PointerProperty
 
-# get rid of the old module
-for script_path in bpy.utils.script_paths():
-	for file_path in [ os.path.join("modules","datamodel.py"), os.path.join("addons","io_smd_tools.py") ]:
-		try: os.remove(os.path.abspath(os.path.join(script_path,file_path)))
-		except: pass
-
 # Python doesn't reload package sub-modules at the same time as __init__.py!
-import imp, sys
+import importlib, sys
 for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file__))) if f.endswith(".py") ]:
 	if filename == os.path.basename(__file__): continue
-	mod = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
-	if mod: imp.reload(mod)
+	module = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
+	if module: importlib.reload(module)
 
 # clear out any scene update funcs hanging around, e.g. after a script reload
 from bpy.app.handlers import depsgraph_update_pre, depsgraph_update_post
