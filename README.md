@@ -9,7 +9,7 @@ The removing of collections can give you problems if you work with .dmx files, s
 
 ## How to install
 
-1. Install Blender 2.8x.
+Install Blender 2.8x.
 Download Blender Source Tools on the [Release page](https://github.com/Devostated/BlenderSourceTools/releases/).
 Do NOT unzip it.
 
