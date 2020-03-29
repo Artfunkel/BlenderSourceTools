@@ -29,7 +29,7 @@ class _AddonTests():
 		return self.bpy.context.scene.vs
 	@property
 	def expectedResultsPath(self):
-		return join("ExpectedResults",self.blend)
+		return join(src_path,"ExpectedResults",self.blend)
 
 	@property
 	def outputPath(self):
@@ -48,16 +48,24 @@ class _AddonTests():
 		self.bpy_version = ".".join(str(i) for i in self.bpy.app.version)			
 		print("Blender version",self.bpy_version)
 
-	def compareResults(self):
+	def compareResults(self, outputDir):
 		if self.compare_results:
 			if os.path.exists(self.expectedResultsPath):
 				self.maxDiff = None
-				for dirpath,dirnames,filenames in os.walk(self.sceneSettings.export_path):
+				for dirpath,dirnames,filenames in os.walk(outputDir):
 					for f in filenames:
+						error_message = "Export did not match expected output @ {}.".format(join(dirpath,f))
 						with open(join(dirpath,f),'rb') as out_file:
 							with open(join(self.expectedResultsPath,f),'rb') as expected_file:
-								self.assertEqual(out_file.read(),expected_file.read(), "Export did not match expected output.")
-			print("Output matches expected results")
+								if expected_file.read() != out_file.read():
+									out_file.seek(0)
+									expected_file.seek(0)
+									if f.endswith(".dmx"):
+										self.assertEqual(datamodel.load(in_file=expected_file).echo("keyvalues2", 1), datamodel.load(in_file=out_file).echo("keyvalues2", 1), error_message)
+									else:
+										def to_string(file): file.read().decode('utf-8').replace('\r\n','\n')
+										self.assertEqual(to_string(expected_file), to_string(out_file), error_message)
+				print("Output matches expected results")
 
 	def setupTest(self, blend):
 		self.blend = blend
@@ -78,18 +86,31 @@ class _AddonTests():
 		def section(*args):
 			print("\n\n********\n********  {} {}".format(self.bpy.context.scene.name,*args),"\n********")
 
+		export_path_base = self.sceneSettings.export_path
+		section("DMX Source 2")
+		self.sceneSettings.export_path = join(export_path_base, "Source2")
+		self.sceneSettings.export_format = 'DMX'
+		self.sceneSettings.dmx_encoding = '9'
+		self.sceneSettings.dmx_format = '22'
+		self.sceneSettings.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64") if steam_common_path else ""
+		ex(True)
+
 		section("DMX Source 1")
+		self.sceneSettings.export_path = join(export_path_base, "Source")
 		self.sceneSettings.export_format = 'DMX'
 		self.sceneSettings.dmx_encoding = '5'
 		self.sceneSettings.dmx_format = '18'
+		self.sceneSettings.engine_path = ''
 		ex(True)
 
 		section("SMD GoldSrc")
+		self.sceneSettings.export_path = join(export_path_base, "GoldSrc")
 		self.sceneSettings.export_format = 'SMD'
 		self.sceneSettings.smd_format = 'GOLDSOURCE'
 		ex(True)
 
 		section("SMD Source")
+		self.sceneSettings.export_path = join(export_path_base, "SourceSMD")
 		self.sceneSettings.smd_format = 'SOURCE'
 		ex(True)
 
@@ -100,17 +121,8 @@ class _AddonTests():
 			self.sceneSettings.engine_path = os.path.realpath(join(self.sceneSettings.game_path,"..","bin"))
 			self.assertEqual(self.bpy.ops.smd.compile_qc(filepath=join(self.sceneSettings.export_path, blend_name + ".qc")), {'FINISHED'})
 
-
-		section("DMX Source 2")
-		self.sceneSettings.export_path = join(self.sceneSettings.export_path, "Source2")
-		self.sceneSettings.export_format = 'DMX'
-		self.sceneSettings.dmx_encoding = '9'
-		self.sceneSettings.dmx_format = '22'
-		
-		self.sceneSettings.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64") if steam_common_path else ""
-		ex(True)
-
-		self.compareResults()	
+		self.compareResults(join(export_path_base, "Source2"))
+		self.compareResults(join(export_path_base, "SourceSMD"))	
 
 	def runExportTest_Single(self,ob_name):
 		self.bpy.ops.object.mode_set(mode='OBJECT')
@@ -121,7 +133,7 @@ class _AddonTests():
 			self.sceneSettings.export_format = fmt
 			self.bpy.ops.export_scene.smd()
 
-		self.compareResults()
+		self.compareResults(self.sceneSettings.export_path)
 
 	def test_Export_Armature_Mesh(self):
 		self.runExportTest("Cube_Armature")
@@ -141,7 +153,7 @@ class _AddonTests():
 		self.runExportTest("Armature_NoBones")
 	def test_Export_AllTypes(self):
 		self.runExportTest("AllTypes_Armature")
-		jointList = datamodel.load(join(self.outputPath,"AllTypes.dmx")).root["skeleton"]["jointList"]
+		jointList = datamodel.load(join(self.outputPath,"Source2", "AllTypes.dmx")).root["skeleton"]["jointList"]
 		if any(elem.name == "Bone_NonDeforming" for elem in jointList):
 			self.fail("Export contained 'Bone_NonDeforming'. This should have been excluded.")
 
@@ -169,7 +181,6 @@ class _AddonTests():
 		self.assertEqual(target_dmx,self.bpy.data.texts[-1].as_string())
 
 	def runImportTest(self, test_name, *files):
-		self.loadBlender()
 		out_dir = join(results_path,self.bpy_version,test_name)
 		if os.path.isdir(out_dir):
 			shutil.rmtree(out_dir)
@@ -208,7 +219,7 @@ class _AddonTests():
 		result = self.bpy.ops.export_scene.smd(export_scene=True)
 		self.assertTrue(result == {'FINISHED'})
 
-		self.compareResults()
+		self.compareResults(self.sceneSettings.export_path)
 
 class Blender(_AddonTests, unittest.TestCase):
 	pass

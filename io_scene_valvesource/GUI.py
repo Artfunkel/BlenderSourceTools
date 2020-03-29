@@ -494,7 +494,7 @@ class SMD_PT_ShapeKeys(ExportableConfigurationPanel):
 	@classmethod
 	def poll(cls, context):
 		item = cls.get_item(context)
-		return item.vs.export and hasShapes(item) and context.scene.vs.export_format == 'DMX'
+		return item and item.vs.export and hasShapes(item) and context.scene.vs.export_format == 'DMX'
 	
 	def draw(self, context):
 		item = self.get_item(context)

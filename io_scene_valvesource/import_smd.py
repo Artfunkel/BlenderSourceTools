@@ -18,12 +18,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bmesh, random, collections, re
+import bpy, bmesh, random, collections
 from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import StringProperty, CollectionProperty, BoolProperty, EnumProperty
 from .utils import *
-from . import datamodel
+from . import datamodel, ordered_set
 
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
@@ -1461,11 +1461,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 							return self.values[self.indices[loop_index]]
 
 					# Arbitrary vertex data
-					vertexDataAttributes = list([prop for prop in DmeVertexData.keys() if prop not in keywords.values()])
-
 					def warnUneditableVertexData(name): self.warning("Vertex data '{}' was imported, but cannot be edited in Blender (as of 2.82)".format(name))
 
-					for vertexMap in vertexDataAttributes:
+					for vertexMap in [prop for prop in DmeVertexData["vertexFormat"] if prop not in keywords.values()]:
 						indices = DmeVertexData.get(vertexMap + "Indices")
 						if not indices:
 							continue
@@ -1495,6 +1493,23 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 						if DatamodelFormatVersion() < 22:
 							bpy.context.scene.vs.dmx_format = '22'
+
+					# Weightmap
+					if have_weightmap:
+						jointWeights = DmeVertexData[keywords["weight"]]
+						jointIndices = DmeVertexData[keywords["weight_indices"]]
+						jointRange = range(DmeVertexData["jointCount"])
+						deformLayer = bm.verts.layers.deform.new()
+						weighted_bone_indices = ordered_set.OrderedSet()
+
+						joint_index = 0
+						for vert in bm.verts:
+							for i in jointRange:
+								weight = jointWeights[joint_index]
+								if weight > 0:
+									vg_index = weighted_bone_indices.add(jointIndices[joint_index])
+									vert[deformLayer][vg_index] = weight
+								joint_index += 1
 					
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]
@@ -1527,9 +1542,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 								skipfaces.add(dmx_face)
 							dmx_face += 1
 							face_loops.clear()
+
+					if have_weightmap:
+						joints = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"];
+						for i in weighted_bone_indices:
+							ob.vertex_groups.new(name=joints[i].name) # must create vertex groups before loading bmesh data
+					elif last_bone: # bone parent
+						ob.parent_type = 'BONE'
+						ob.parent_bone = last_bone.name
 					
 					# Move from BMesh to Blender
 					bm.to_mesh(ob.data)
+					del bm
 					ob.data.update()
 					ob.matrix_world @= matrix
 					if ob.parent:
@@ -1557,38 +1581,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 						i += 1
 
 					ob.data.normals_split_custom_set(normals_ordered[:i])
-					
-					# Weightmap
-					if have_weightmap:
-						jointList = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"]
-						jointWeights = DmeVertexData[keywords["weight"]]
-						jointIndices = DmeVertexData[keywords["weight_indices"]]
-						jointRange = range(DmeVertexData["jointCount"])
-						full_weights = collections.defaultdict(list)
-						joint_index = 0
-						for vert_index in range(len(ob.data.vertices)):
-							for i in jointRange:
-								weight = jointWeights[joint_index]
-								if weight > 0:
-									bone_id = jointList[jointIndices[joint_index]].id
-									if dm.format_ver >= 11:
-										bone_name = smd.boneIDs[bone_id]
-									else:
-										bone_name = smd.boneTransformIDs[bone_id]
-									vg = ob.vertex_groups.get(bone_name)
-									if not vg:
-										vg = ob.vertex_groups.new(name=bone_name)
-									if weight == 1:
-										full_weights[vg].append(vert_index)
-									elif weight > 0:
-										vg.add([vert_index],weight,'REPLACE')
-								joint_index += 1
-								
-						for vg,verts in iter(full_weights.items()):
-							vg.add(verts,1,'REPLACE')
-					elif last_bone: # bone parent
-						ob.parent_type = 'BONE'
-						ob.parent_bone = last_bone.name
 					
 					# Stereo balance
 					if keywords['balance'] in DmeVertexData["vertexFormat"]:

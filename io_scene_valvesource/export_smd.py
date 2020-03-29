@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bmesh, subprocess, collections
+import bpy, bmesh, subprocess, collections, re
 from bpy import ops
 from bpy.app.translations import pgettext
 from mathutils import *
@@ -262,7 +262,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 	def sanitiseFilename(self,name):
 		new_name = name
-		for badchar in "/?<>\:*|\"":
+		for badchar in "/?<>\\:*|\"":
 			new_name = new_name.replace(badchar,"_")
 		if new_name != name:
 			self.warning(get_id("exporter_warn_sanitised_filename",True).format(name,new_name))
@@ -633,11 +633,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 			out.append(weights)
 		return out
 		
-	def GetMaterialName(self, ob, poly):
+	def GetMaterialName(self, ob, material_index):
 		mat_name = None
 		mat_id = None
-		if len(ob.material_slots) > poly.material_index:
-			mat_id = ob.material_slots[poly.material_index].material
+		if len(ob.material_slots) > material_index:
+			mat_id = ob.material_slots[material_index].material
 			if mat_id:
 				mat_name = mat_id.name
 		if mat_name:
@@ -1079,7 +1079,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				p = 0
 				for poly in data.polygons:
 					if p % 10 == 0: bpy.context.window_manager.progress_update(p / len(data.polygons))
-					mat_name, mat_success = self.GetMaterialName(ob, poly)
+					mat_name, mat_success = self.GetMaterialName(ob, poly.material_index)
 					if not mat_success:
 						bad_face_mats += 1
 					
@@ -1506,20 +1506,19 @@ skeleton
 				self.warning(get_id("exporter_warn_weightlinks_excess",True).format(badJointCounts,bake.src.name,weight_link_limit))
 			if culled_weight_links:
 				self.warning(get_id("exporter_warn_weightlinks_culled",True).format(culled_weight_links,cull_threshold,bake.src.name))
+
+			uv_map_name = ob.data.uv_layers.active.name
 			
-			format = vertex_data["vertexFormat"] = datamodel.make_array( [ keywords['pos'], keywords['norm'], keywords['texco'] ], str)
-			if have_weightmap: format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
-			if bake.shapes and bake.balance_vg:
-				format.append(keywords["balance"])
+			format = vertex_data["vertexFormat"] = datamodel.make_array( [ keywords['pos'], keywords['norm'] ], str)
 			
 			vertex_data["flipVCoordinates"] = True
 			vertex_data["jointCount"] = jointCount
 			
 			num_verts = len(ob.data.vertices)
 			num_loops = len(ob.data.loops)
-			pos = [None] * num_verts
 			norms = [None] * num_loops
 			texco = ordered_set.OrderedSet()
+			face_sets = collections.OrderedDict()
 			texcoIndices = [None] * num_loops
 			jointWeights = []
 			jointIndices = []
@@ -1533,8 +1532,8 @@ skeleton
 			
 			bench.report("object setup")			
 			
+			v=0
 			for vert in ob.data.vertices:
-				pos[vert.index] = datamodel.Vector3(vert.co)
 				vert.select = False
 				
 				if bake.shapes and bake.balance_vg:
@@ -1558,98 +1557,134 @@ skeleton
 					
 					jointWeights.extend(weights)
 					jointIndices.extend(indices)
-				if len(pos) % 50 == 0:
-					bpy.context.window_manager.progress_update(len(pos) / num_verts)
+					v += 1
+				if v % 50 == 0:
+					bpy.context.window_manager.progress_update(v / num_verts)
 
 			bench.report("verts")
-
-			ob.data.calc_normals_split()
 
 			for loop in [ob.data.loops[i] for poly in ob.data.polygons for i in poly.loop_indices]:
 				texcoIndices[loop.index] = texco.add(datamodel.Vector2(uv_layer[loop.index].uv))
 				norms[loop.index] = datamodel.Vector3(loop.normal)
-				Indices[loop.index] = loop.vertex_index
-			
+				Indices[loop.index] = loop.vertex_index					
+
 			bench.report("loops")
+
+			bpy.context.view_layer.objects.active = ob
+			bpy.ops.object.mode_set(mode='EDIT')
+			bm = bmesh.from_edit_mesh(ob.data)
+			bm.verts.ensure_lookup_table()
+			bm.faces.ensure_lookup_table()
+
+			vertex_data[keywords['pos']] = datamodel.make_array((v.co for v in bm.verts),datamodel.Vector3)
+			vertex_data[keywords['pos'] + "Indices"] = datamodel.make_array((l.vert.index for f in bm.faces for l in f.loops),int)
+
+			if source2: # write out arbitrary vertex data
+				loops = [loop for face in bm.faces for loop in face.loops]
+				loop_indices = datamodel.make_array([loop.index for loop in loops], int)
+				layerGroups = bm.loops.layers
+
+				def get_bmesh_layers(layerGroup):
+					# use items() to avoid a Blender 2.80 exception
+					return [l for l in layerGroup.items() if re.match(l[0], r"\$[0-9]+$")]
+
+				defaultUvLayer = "texcoord$0"
+				uv_layers_to_export = list(get_bmesh_layers(layerGroups.uv))
+				if not defaultUvLayer in [l[0] for l in uv_layers_to_export]: # select a default UV map
+					uv_render_layer = next((l.name for l in ob.data.uv_layers if l.active_render and not l in uv_layers_to_export), None)
+					if uv_render_layer:
+						uv_layers_to_export.append((defaultUvLayer, layerGroups.uv[uv_render_layer]))
+						print("- Exporting '{}' as {}".format(uv_render_layer, defaultUvLayer))
+					else:
+						self.warning("'{}' does not contain a UV Map called {} and no suitable fallback map could be found. The model may be missing UV data.".format(bake.name, defaultUvLayer))
+
+				for layer in uv_layers_to_export:
+					uv_set = ordered_set.OrderedSet()
+					uv_indices = []
+					for uv in (loop[layer[1]].uv for loop in loops):
+						uv_indices.append(uv_set.add(datamodel.Vector2(uv)))
+						
+					vertex_data[layer[0]] = datamodel.make_array(uv_set, datamodel.Vector2)
+					vertex_data[layer[0] + "Indices"] = datamodel.make_array(uv_indices, int)
+					format.append(layer[0])
+
+				def make_vertex_layer(layer, arrayType):
+					vertex_data[layer[0]] = datamodel.make_array([loop[layer[1]] for loop in loops], arrayType)
+					vertex_data[layer[0] + "Indices"] = loop_indices
+					format.append(layer[0])
+
+				for layer in get_bmesh_layers(layerGroups.color):
+					make_vertex_layer(layer, datamodel.Vector4)
+				for layer in get_bmesh_layers(layerGroups.float):
+					make_vertex_layer(layer, float)
+				for layer in get_bmesh_layers(layerGroups.int):
+					make_vertex_layer(layer, int)
+				for layer in get_bmesh_layers(layerGroups.string):
+					make_vertex_layer(layer, str)
+
+				bench.report("Source 2 vertex data")
 			
-			vertex_data[keywords['pos']] = datamodel.make_array(pos,datamodel.Vector3)
-			vertex_data[keywords['pos'] + "Indices"] = datamodel.make_array(Indices,int)
-			
-			vertex_data[keywords['texco']] = datamodel.make_array(texco,datamodel.Vector2)
-			vertex_data[keywords['texco'] + "Indices"] = datamodel.make_array(texcoIndices,int)
-			
+			else:
+				format.append("textureCoordinates")
+				vertex_data["textureCoordinates"] = datamodel.make_array(texco,datamodel.Vector2)
+				vertex_data["textureCoordinatesIndices"] = datamodel.make_array(texcoIndices,int)
+								
 			if have_weightmap:
 				vertex_data[keywords["weight"]] = datamodel.make_array(jointWeights,float)
 				vertex_data[keywords["weight_indices"]] = datamodel.make_array(jointIndices,int)
+				format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
 			
-			if bake.shapes:
+			if bake.shapes and bake.balance_vg:
 				vertex_data[keywords["balance"]] = datamodel.make_array(balance,float)
 				vertex_data[keywords["balance"] + "Indices"] = datamodel.make_array(Indices,int)
+				format.append(keywords["balance"])
 						
 			vertex_data[keywords['norm']] = datamodel.make_array(norms,datamodel.Vector3)
 			vertex_data[keywords['norm'] + "Indices"] = datamodel.make_array(range(len(norms)),int)
 			
 			bench.report("insert")
-
-			# Hammer data
-			for map_name in vertex_maps:
-				attribute_name = keywords.get(map_name)
-				vert_map = ob.data.vertex_colors.get(map_name)
-
-				if not attribute_name or not vert_map:
-					continue
-				
-				colours = []
-				for loopColour in vert_map.data:
-					colour = list(loopColour.color)
-					colours.append(datamodel.Vector4(colour))
-
-				vertex_data[attribute_name] = datamodel.make_array(colours,datamodel.Vector4)
-				vertex_data[attribute_name + "Indices"] = datamodel.make_array(range(len(colours)),int)
-				format.append(attribute_name)
-
-			face_sets = collections.OrderedDict()
-			bad_face_mats = 0
-			v = 0
-			p = 0
-			num_polys = len(ob.data.polygons)
 			
+			bad_face_mats = 0
+			p = 0
+			num_polys = len(bm.faces)
+
 			two_percent = int(num_polys / 50)
 			print("Polygons: ",debug_only=True,newline=False)
-			for poly in ob.data.polygons:
-				mat_name, mat_success = self.GetMaterialName(ob, poly)
+
+			bm_face_sets = collections.defaultdict(list)
+			for face in bm.faces:
+				mat_name, mat_success = self.GetMaterialName(ob, face.material_index)
 				if not mat_success:
 					bad_face_mats += 1
-					
-				face_set = face_sets.get(mat_name)
-				if face_set:
-					face_list = face_set["faces"]
-				else:
-					material_elem = materials.get(mat_name)
-					if not material_elem:
-						materials[mat_name] = material_elem = dm.add_element(mat_name,"DmeMaterial",id=mat_name + "mat")
-						material_elem["mtlName"] = os.path.join(bpy.context.scene.vs.material_path, mat_name).replace('\\','/')
-					
-					face_set = dm.add_element(mat_name,"DmeFaceSet",id=bake.name+mat_name+"faces")
-					face_sets[mat_name] = face_set
-
-					face_set["material"] = material_elem
-					face_list = face_set["faces"] = datamodel.make_array([],int)					
-
-				face_list.extend(poly.loop_indices)
-				face_list.append(-1)				
+				bm_face_sets[mat_name].extend((*(l.index for l in face.loops),-1))
 				
 				p+=1
 				if two_percent and p % two_percent == 0:
 					print(".", debug_only=True, newline=False)
-					bpy.context.window_manager.progress_update(len(face_list) / num_polys)
-			
+					bpy.context.window_manager.progress_update(p / num_polys)
+
+			for (mat_name,indices) in bm_face_sets.items():
+				material_elem = materials.get(mat_name)
+				if not material_elem:
+					materials[mat_name] = material_elem = dm.add_element(mat_name,"DmeMaterial",id=mat_name + "mat")
+					material_elem["mtlName"] = os.path.join(bpy.context.scene.vs.material_path, mat_name).replace('\\','/')
+					
+				face_set = dm.add_element(mat_name,"DmeFaceSet",id=bake.name+mat_name+"faces")
+				face_sets[mat_name] = face_set
+
+				face_set["material"] = material_elem
+				face_list = face_set["faces"] = datamodel.make_array(indices,int)
+
 			print(debug_only=True)
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
 			
 			if bad_face_mats:
 				self.warning(get_id("exporter_err_facesnotex_ormat").format(bad_face_mats, bake.name))
 			bench.report("polys")
+
+			bpy.ops.object.mode_set(mode='OBJECT')
+			del bm
+			ob.data.calc_normals_split()
 
 			two_percent = int(len(bake.shapes) / 50)
 			print("Shapes: ",debug_only=True,newline=False)

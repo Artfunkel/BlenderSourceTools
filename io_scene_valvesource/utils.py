@@ -73,8 +73,6 @@ dmx_versions_source1 = { # [encoding, format]
 'Portal 2':[5,18],
 'Counter-Strike Global Offensive':[5,18],
 'Source Filmmaker':[5,18],
-'Dota 2 Beta':[5,18],
-'Dota 2':[5,18],
 # and now back to 2/1 for some reason...
 'Half-Life 2':[2,1],
 'Source SDK Base 2013 Singleplayer':[2,1],
@@ -83,6 +81,7 @@ dmx_versions_source1 = { # [encoding, format]
 
 dmx_versions_source2 = {
 'dota2': ("Dota 2",[9,22]),
+'steamtours': ("SteamVR",[9,22]),
 }
 
 def print(*args, newline=True, debug_only=False):
