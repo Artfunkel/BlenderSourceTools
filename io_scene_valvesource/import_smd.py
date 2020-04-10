@@ -1195,9 +1195,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		smd.startTime = time.time()
 		smd.layer = target_layer
 		smd.rotMode = rotMode
-		if smd.jobType != ANIM:
-			smd.g = bpy.data.collections.new(smd.jobName)
-			bpy.context.scene.collection.children.link(smd.g)
+		self.createCollection()
 		if self.qc:
 			smd.upAxis = self.qc.upAxis
 			smd.a = self.qc.a
@@ -1205,6 +1203,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 			smd.upAxis = upAxis
 
 		return smd
+
+	def createCollection(self):
+		if self.smd.jobType and self.smd.jobType != ANIM:
+			self.smd.g = bpy.data.collections.new(self.smd.jobName)
+			bpy.context.scene.collection.children.link(self.smd.g)
 
 	# Parses an SMD file
 	def readSMD(self, filepath, upAxis, rotMode, newscene = False, smd_type = None, target_layer = 0):
@@ -1236,6 +1239,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		if smd.jobType == None:
 			self.scanSMD() # What are we dealing with?
+			self.createCollection()
 
 		for line in file:
 			if line == "nodes\n": self.readNodes()
@@ -1280,7 +1284,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			keywords = getDmxKeywords(dm.format_ver)
 			
-			if not smd_type: smd.jobType = REF if dm.root.get("model") else ANIM
+			if not smd_type:
+				smd.jobType = REF if dm.root.get("model") else ANIM
+			self.createCollection()
 			self.ensureAnimationBonesValidated()
 			
 			DmeModel = dm.root["skeleton"]
