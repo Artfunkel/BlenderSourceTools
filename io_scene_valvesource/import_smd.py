@@ -394,11 +394,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 			values[0] = int(values[0])
 			try:
 				bone = smd.a.pose.bones[ smd.boneIDs[values[0]] ]
-				if not bone.parent:
+				if smd.jobType == REF and not bone.parent:
 					keyframe.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 				keyframes[bone].append(keyframe)
 			except KeyError:
-				if not smd.phantomParentIDs.get(values[0]):
+				if smd.jobType == REF and not smd.phantomParentIDs.get(values[0]):
 					keyframe.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 				phantom_keyframes[values[0]].append(keyframe)
 			
