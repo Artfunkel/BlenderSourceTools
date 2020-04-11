@@ -241,7 +241,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				if append:
 					bpy.context.view_layer.objects.active = smd.a
-					smd.a.hide_viewport = False
+					smd.a.hide_set(False)
 					ops.object.mode_set(mode='EDIT',toggle=False)
 					self.existingBones.extend([b.name for b in smd.a.data.bones])
 				
@@ -1352,7 +1352,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							validateSkeleton(elem["children"], elem)
 
 				bpy.context.view_layer.objects.active = smd.a
-				smd.a.hide_viewport = False
+				smd.a.hide_set(False)
 				ops.object.mode_set(mode='EDIT')
 				validateSkeleton(DmeModel["children"], None)
 
@@ -1686,7 +1686,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							keyframe.matrix @= getBlenderQuat(frame_value).to_matrix().to_4x4()
 							keyframe.rot = True
 				
-				smd.a.hide_viewport = False
+				smd.a.hide_set(False)
 				bpy.context.view_layer.objects.active = smd.a
 				if unknown_bones:
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
