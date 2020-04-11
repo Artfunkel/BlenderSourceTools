@@ -1473,7 +1473,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 						indices = DmeVertexData.get(vertexMap + "Indices")
 						if not indices:
 							continue
-						print(vertexMap)
 						values = DmeVertexData.get(vertexMap)
 						if not isinstance(values, list) or len(values) == 0:
 							continue
@@ -1497,7 +1496,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 						vertex_layer_infos.append(VertexLayerInfo(layers.new(vertexMap), DmeVertexData[vertexMap + "Indices"], values))
 
-						if DatamodelFormatVersion() < 22:
+						if vertexMap != "textureCoordinates" and DatamodelFormatVersion() < 22:
 							bpy.context.scene.vs.dmx_format = '22'
 
 					# Weightmap
