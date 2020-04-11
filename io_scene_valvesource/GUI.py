@@ -502,6 +502,11 @@ class SMD_PT_ShapeKeys(ExportableConfigurationPanel):
 
 		col = self.layout
 		col.row().prop(item.vs,"flex_controller_mode",expand=True)
+
+		def insertCorrectiveUi(parent):
+			col = parent.column(align=True)
+			col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER',text=get_id("gen_drivers",True))
+			col.operator(RenameShapesToMatchCorrectiveDrivers.bl_idname, icon='SYNTAX_OFF',text=get_id("apply_drivers",True))
 			
 		if item.vs.flex_controller_mode == 'ADVANCED':
 			controller_source = col.row()
@@ -512,7 +517,7 @@ class SMD_PT_ShapeKeys(ExportableConfigurationPanel):
 			row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text=get_id("exportables_flex_generate", True))
 			row.operator("wm.url_open",text=get_id("exportables_flex_help", True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
 			
-			col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER',text=get_id("gen_drivers",True))
+			insertCorrectiveUi(col)
 			
 			datablocks_dispayed = []
 			
@@ -530,6 +535,8 @@ class SMD_PT_ShapeKeys(ExportableConfigurationPanel):
 					r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Sharpness")
 				r2.prop(ob.data.vs,"flex_stereo_mode",text="")
 				datablocks_dispayed.append(ob.data)
+		else:
+			insertCorrectiveUi(col)
 		
 		num_shapes, num_correctives = countShapes(objects)
 		

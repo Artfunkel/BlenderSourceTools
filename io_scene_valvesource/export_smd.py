@@ -1689,6 +1689,7 @@ skeleton
 			two_percent = int(len(bake.shapes) / 50)
 			print("Shapes: ",debug_only=True,newline=False)
 			delta_states = []
+			corrective_shapes_seen = []
 			if bake.shapes:
 				shape_names = []
 				num_shapes = len(bake.shapes)
@@ -1696,11 +1697,26 @@ skeleton
 				num_wrinkles = 0
 				
 				for shape_name,shape in bake.shapes.items():
-					shape_names.append(shape_name)
-					
 					wrinkle_scale = 0
 					corrective = "_" in shape_name
 					if corrective:
+						# drivers always override shape name to avoid name truncation issues
+						corrective_targets_driver = ordered_set.OrderedSet(flex.getCorrectiveShapeKeyDrivers(bake.src.data.shape_keys.key_blocks[shape_name]) or [])
+						corrective_targets_name = ordered_set.OrderedSet(shape_name.split("_"))
+						corrective_targets = corrective_targets_driver or corrective_targets_name
+						corrective_targets.source = shape_name
+
+						if(corrective_targets in corrective_shapes_seen):
+							previous_shape = next(x for x in corrective_shapes_seen if x == corrective_targets)
+							self.warning(get_id("exporter_warn_correctiveshape_duplicate", True).format(shape_name, "+".join(corrective_targets), previous_shape.source))
+							continue
+						else:
+							corrective_shapes_seen.append(corrective_targets)
+						
+						if corrective_targets_driver and corrective_targets_driver != corrective_targets_name:
+							generated_shape_name = "_".join(corrective_targets_driver)
+							print("- Renamed shape key '{}' to '{}' to match its corrective shape drivers.".format(shape_name, generated_shape_name))
+							shape_name = generated_shape_name
 						num_correctives += 1
 					else:
 						if self.flex_controller_mode == 'ADVANCED':
@@ -1716,7 +1732,8 @@ skeleton
 							except ValueError:
 								self.warning(get_id("exporter_err_flexctrl_missing", True).format(shape_name))
 							pass
-
+					
+					shape_names.append(shape_name)
 					DmeVertexDeltaData = dm.add_element(shape_name,"DmeVertexDeltaData",id=ob.name+shape_name)
 					delta_states.append(DmeVertexDeltaData)
 
@@ -1753,7 +1770,7 @@ skeleton
 
 					if corrective:
 						corrective_target_shapes = []
-						for corrective_shape_name in shape_name.split("_"):
+						for corrective_shape_name in corrective_targets:
 							corrective_target = bake.shapes.get(corrective_shape_name)
 							if corrective_target:
 								corrective_target_shapes.append(corrective_target)

@@ -269,6 +269,7 @@ _classes = (
 	GUI.SMD_PT_Scene_QC_Complie,
 	flex.DmxWriteFlexControllers,
 	flex.AddCorrectiveShapeDrivers,
+	flex.RenameShapesToMatchCorrectiveDrivers,
 	flex.ActiveDependencyShapes,
 	update.SmdToolsUpdate,
 	export_smd.SMD_OT_Compile, 

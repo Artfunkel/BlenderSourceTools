@@ -453,6 +453,9 @@ _data = {
 'exporter_warn_sanitised_filename': {
 	'en': "Sanitised exportable name \"{0}\" to \"{1}\"",
 },
+'exporter_warn_correctiveshape_duplicate': {
+	'en': "Corrective shape key \"{0}\" has the same activation conditions ({1}) as \"{2}\". Skipping.",
+},
 'exporter_err_flexctrl_missing': {
 	'en': "No flex controller defined for shape {0}.",
 	'ru': "Для ключа формы {0} не задано ни одного контроллера",
@@ -809,6 +812,15 @@ _data = {
 	'ja': "是正シェイプキーのドライバーを生成します",
 	'en': "Generate Corrective Shape Key Drivers",
 	'ru': "Создать драйверы для ключей форм коррекции",
+},
+'apply_drivers':{
+	'en': "Regenerate Shape Key Names From Drivers",
+},
+'apply_drivers_tip':{
+	'en': "Renames corrective shape keys so that each their names are a combination of the shape keys that control them (via Blender animation drivers)",
+},
+'apply_drivers_success':{
+	'en': "{0} shapes renamed.",
 },
 'vca_qcgen': {
 	'ja': "QCの抜粋を生成します",

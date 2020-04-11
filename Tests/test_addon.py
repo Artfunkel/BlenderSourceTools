@@ -1,4 +1,4 @@
-﻿# see http://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule
+﻿# see https://wiki.blender.org/wiki/Building_Blender/Other/BlenderAsPyModule
 import os, shutil, unittest, sys
 from os.path import join
 from importlib import import_module
@@ -172,13 +172,42 @@ class _AddonTests():
 	def test_Generate_FlexControllers(self):
 		self.bpy.ops.wm.open_mainfile(filepath=join(src_path, "Scout.blend"))
 		self.bpy.context.view_layer.objects.active = self.bpy.data.objects['head=zero']
-		self.bpy.ops.export_scene.dmx_flex_controller()
+		self.assertEqual(self.bpy.ops.export_scene.dmx_flex_controller(), {'FINISHED'})
 
 		with open(join(src_path, "flex_scout_morphs_low.dmx"),encoding='ASCII') as f:
 			target_dmx = f.read()
 
 		self.maxDiff = None
 		self.assertEqual(target_dmx,self.bpy.data.texts[-1].as_string())
+
+	def _setupCorrectiveShapes(self):
+		self.bpy.ops.mesh.primitive_cube_add(enter_editmode=False)
+		ob = self.bpy.context.active_object
+		ob.shape_key_add(name="k1")
+		ob.shape_key_add(name="k2")
+		ob.shape_key_add(name="k1_k2")
+		ob.active_shape_key_index = 0
+
+	def test_GenerateCorrectiveDrivers(self):
+		self._setupCorrectiveShapes()
+		self.assertEqual(self.bpy.ops.object.sourcetools_generate_corrective_drivers(), {'FINISHED'})
+
+		driver = self.bpy.context.active_object.data.shape_keys.animation_data.drivers[0].driver
+		self.assertTrue(driver.is_valid)
+		self.assertEqual(driver.type, 'MIN')
+		self.assertEqual(len(driver.variables), 2)
+
+	def test_RenameShapesToMatchCorrectiveDrivers(self):
+		try:
+			self.test_GenerateCorrectiveDrivers()
+		except:
+			self.skipTest("GenerateCorrectiveDrivers test failed")
+
+		corrective_key = self.bpy.context.active_object.data.shape_keys.key_blocks[2]
+
+		corrective_key.name = "badname"
+		self.bpy.ops.object.sourcetools_rename_to_corrective_drivers()
+		self.assertEqual(corrective_key.name, "k1_k2")
 
 	def runImportTest(self, test_name, *files):
 		out_dir = join(results_path,self.bpy_version,test_name)

@@ -23,7 +23,7 @@ from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import StringProperty, CollectionProperty, BoolProperty, EnumProperty
 from .utils import *
-from . import datamodel, ordered_set
+from . import datamodel, ordered_set, flex
 
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
@@ -1620,6 +1620,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 								deltaPositions = DmeVertexDeltaData[keywords['pos']]
 								for i,posIndex in enumerate(DmeVertexDeltaData[keywords['pos'] + "Indices"]):
 									shape_key.data[posIndex].co += Vector(deltaPositions[i])
+
+							if "_" in DmeVertexDeltaData.name:
+								flex.AddCorrectiveShapeDrivers.addDrivers(shape_key, DmeVertexDeltaData.name.split("_"))
 			
 			if smd.jobType in [REF,PHYS]:
 				parseModel(DmeModel)
