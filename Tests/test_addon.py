@@ -209,6 +209,10 @@ class _AddonTests():
 		self.bpy.ops.object.sourcetools_rename_to_corrective_drivers()
 		self.assertEqual(corrective_key.name, "k1_k2")
 
+	def test_Import_SMD_Overlapping_DifferentWeights(self):
+		self.assertEqual(self.bpy.ops.import_scene.smd(filepath=join(src_path, "Overlapping_DifferentWeights.smd")), {'FINISHED'})
+		self.assertEqual(6, len(self.bpy.data.meshes['Overlapping_DifferentWeights'].vertices), "Incorrect vertex count")
+
 	def runImportTest(self, test_name, *files):
 		out_dir = join(results_path,self.bpy_version,test_name)
 		if os.path.isdir(out_dir):
