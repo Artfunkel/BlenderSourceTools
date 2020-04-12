@@ -712,6 +712,12 @@ _data = {
 	'en': "Import Animations",
 	'ru': "Импортировать анимации",
 },
+'importer_use_collections':{
+	'en': "Create Collections",	
+},
+'importer_use_collections_tip':{
+	'en': "Create a Blender collection for each imported mesh file. This retains the original file structure (important for DMX) and makes it easy to switch between LODs etc. with the number keys",
+},
 'importer_err_missingbones': {
 	'en': "{0} contains {1} bones not present in {2}. Check the console for a list.",
 	'ru': "{1} костей из {0} не найдены в {2}.",

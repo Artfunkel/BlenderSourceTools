@@ -43,6 +43,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	# Custom properties
 	doAnim : BoolProperty(name=get_id("importer_doanims"), default=True)
+	createCollections : BoolProperty(name=get_id("importer_use_collections"), description=get_id("importer_use_collections_tip"), default=True)
 	makeCamera : BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	append : EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
 		('VALIDATE',get_id("importer_bones_validate"),get_id("importer_bones_validate_desc")),
@@ -1196,8 +1197,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	def createCollection(self):
 		if self.smd.jobType and self.smd.jobType != ANIM:
-			self.smd.g = bpy.data.collections.new(self.smd.jobName)
-			bpy.context.scene.collection.children.link(self.smd.g)
+			if self.createCollections:
+				self.smd.g = bpy.data.collections.new(self.smd.jobName)
+				bpy.context.scene.collection.children.link(self.smd.g)
+			else:
+				self.smd.g = bpy.context.scene.collection
 
 	# Parses an SMD file
 	def readSMD(self, filepath, upAxis, rotMode, newscene = False, smd_type = None, target_layer = 0):
