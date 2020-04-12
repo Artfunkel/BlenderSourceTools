@@ -685,7 +685,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		countPolys = 0
 		badWeights = 0
 		vertMap = {}
-		allVertexWeights = set()
 
 		WeightLink = collections.namedtuple("WeightLink", ["group", "weight"])
 
@@ -702,10 +701,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 			# ***************************************************************
 			# Enter the vertex loop. This will run three times for each poly.
 			vertexCount = 0
-			faceVerts = []
-			faceWeights = []
 			faceUVs = []
-			splitVerts = [] # which of these vertices are weighted uniquely and should thus be imported without merging?
+			vertKeys = []
 			for line in smd.file:
 				if smdBreak(line):
 					break
@@ -723,7 +720,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 					norm[i-1] = float(values[i+3])
 				
 				co = tuple(co)
-				faceVerts.append(co)
 				norms.append(norm)
 
 				# Can't do these in the above for loop since there's only two
@@ -745,36 +741,31 @@ class SmdImporter(bpy.types.Operator, Logger):
 					except KeyError:
 						badWeights += 1
 
-				faceWeights.append(vertWeights)
-
-				coWeight = tuple([co] + vertWeights)
-				splitVerts.append(coWeight not in allVertexWeights)
-				allVertexWeights.add(coWeight)
+				vertKeys.append((co, tuple(vertWeights)))
 
 				# Three verts? It's time for a new poly
 				if vertexCount == 3:
-					for _ in range(2):
+					def createFace(use_cache = True):
 						bmVerts = []
 						newWeights = collections.defaultdict(list)
-						for i in range(3):
-							bmv = None if splitVerts[i] else vertMap.get(faceVerts[i]) # if a vertex in this position with these bone weights exists, re-use it.
+						for vertKey in vertKeys:
+							bmv = vertMap.get(vertKey, None) if use_cache else None # if a vertex in this position with these bone weights exists, re-use it.
 							if bmv is None:
-								bmv = bm.verts.new(faceVerts[i])
-								for link in faceWeights[i]:
-									bmv[weightLayer][link[0]] = link[1]
-								vertMap[faceVerts[i]] = bmv
+								bmv = bm.verts.new(vertKey[0])
+								for (bone,weight) in vertKey[1]:
+									bmv[weightLayer][bone] = weight
+								vertMap[vertKey] = bmv
 							bmVerts.append(bmv)
-						try:
-							face = bm.faces.new(bmVerts)
-						except ValueError: # face overlaps another, try again with all-new vertices
-							splitVerts = [True] * 3
-							continue
 
+						face = bm.faces.new(bmVerts)
 						face.material_index = mat_ind
 						for i in range(3):
 							face.loops[i][uvLayer].uv = faceUVs[i]
 
-						break
+					try:
+						createFace()
+					except ValueError: # face overlaps another, try again with all-new vertices
+						createFace(use_cache = False)
 					break
 
 			# Back in polyland now, with three verts processed.
