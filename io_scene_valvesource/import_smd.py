@@ -452,7 +452,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
 					bone_vis.use_fake_user = True
 					bone_vis.empty_display_type = 'ARROWS'
-					bone_vis.empty_draw_size = 5
+					bone_vis.empty_display_size = 5
 				
 			# Calculate armature dimensions...Blender should be doing this!
 			maxs = [0,0,0]
@@ -747,7 +747,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if vertexCount == 3:
 					def createFace(use_cache = True):
 						bmVerts = []
-						newWeights = collections.defaultdict(list)
 						for vertKey in vertKeys:
 							bmv = vertMap.get(vertKey, None) if use_cache else None # if a vertex in this position with these bone weights exists, re-use it.
 							if bmv is None:
@@ -1125,7 +1124,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				print("QC IMPORTER: created {} at $origin\n".format(name))
 
 				origin = bpy.data.objects.new(qc.jobName + "_origin",data)
-				smd.g.objects.link(origin)
+				bpy.context.scene.collection.objects.link(origin)
 
 				origin.rotation_euler = Vector([pi/2,0,pi]) + Vector(getUpAxisMat(qc.upAxis).inverted().to_euler()) # works, but adding seems very wrong!
 				ops.object.select_all(action="DESELECT")
@@ -1171,9 +1170,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if qc.ref_mesh:
 				size = min(qc.ref_mesh.dimensions) / 15
 				if qc.makeCamera:
-					qc.origin.data.draw_size = size
+					qc.origin.data.display_size = size
 				else:
-					qc.origin.empty_draw_size = size
+					qc.origin.empty_display_size = size
 
 		if outer_qc:
 			printTimeMessage(qc.startTime,filename,"import","QC")
