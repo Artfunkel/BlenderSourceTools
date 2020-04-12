@@ -272,6 +272,7 @@ _classes = (
 	flex.RenameShapesToMatchCorrectiveDrivers,
 	flex.ActiveDependencyShapes,
 	update.SmdToolsUpdate,
+	update.SMD_MT_Updated,
 	export_smd.SMD_OT_Compile, 
 	export_smd.SmdExporter, 
 	import_smd.SmdImporter)
