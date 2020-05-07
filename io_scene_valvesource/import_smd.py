@@ -1,4 +1,4 @@
-#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -21,9 +21,9 @@
 import bpy, bmesh, random, collections
 from bpy import ops
 from bpy.app.translations import pgettext
-from bpy.props import *
+from bpy.props import StringProperty, CollectionProperty, BoolProperty, EnumProperty
 from .utils import *
-from . import datamodel
+from . import datamodel, ordered_set, flex
 
 class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
@@ -43,6 +43,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	# Custom properties
 	doAnim : BoolProperty(name=get_id("importer_doanims"), default=True)
+	createCollections : BoolProperty(name=get_id("importer_use_collections"), description=get_id("importer_use_collections_tip"), default=True)
 	makeCamera : BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	append : EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
 		('VALIDATE',get_id("importer_bones_validate"),get_id("importer_bones_validate_desc")),
@@ -241,7 +242,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				if append:
 					bpy.context.view_layer.objects.active = smd.a
-					smd.a.hide_viewport = False
+					smd.a.hide_set(False)
 					ops.object.mode_set(mode='EDIT',toggle=False)
 					self.existingBones.extend([b.name for b in smd.a.data.bones])
 				
@@ -299,7 +300,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			self.warning(get_id("importer_err_bonelimit_smd"))
 
 	@classmethod
-	def findArmature(self):
+	def findArmature(cls):
 		# Search the current scene for an existing armature - there can only be one skeleton in a Source model
 		if bpy.context.active_object and bpy.context.active_object.type == 'ARMATURE':
 			return bpy.context.active_object
@@ -394,11 +395,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 			values[0] = int(values[0])
 			try:
 				bone = smd.a.pose.bones[ smd.boneIDs[values[0]] ]
-				if not bone.parent:
+				if smd.jobType == REF and not bone.parent:
 					keyframe.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 				keyframes[bone].append(keyframe)
 			except KeyError:
-				if not smd.phantomParentIDs.get(values[0]):
+				if smd.jobType == REF and not smd.phantomParentIDs.get(values[0]):
 					keyframe.matrix = getUpAxisMat(smd.upAxis) @ keyframe.matrix
 				phantom_keyframes[values[0]].append(keyframe)
 			
@@ -452,7 +453,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					bone_vis = bpy.data.objects.new("smd_bone_vis",None)
 					bone_vis.use_fake_user = True
 					bone_vis.empty_display_type = 'ARROWS'
-					bone_vis.empty_draw_size = 5
+					bone_vis.empty_display_size = 5
 				
 			# Calculate armature dimensions...Blender should be doing this!
 			maxs = [0,0,0]
@@ -655,7 +656,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		# Create a new mesh object, disable double-sided rendering, link it to the current scene
 		smd.m = bpy.data.objects.new(mesh_name,bpy.data.meshes.new(mesh_name))
 		smd.m.parent = smd.a
-		bpy.context.scene.collection.objects.link(smd.m)
+		smd.g.objects.link(smd.m)
 		if smd.jobType == REF: # can only have flex on a ref mesh
 			if self.qc:
 				self.qc.ref_mesh = smd.m # for VTA import
@@ -685,7 +686,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		countPolys = 0
 		badWeights = 0
 		vertMap = {}
-		allVertexWeights = set()
 
 		WeightLink = collections.namedtuple("WeightLink", ["group", "weight"])
 
@@ -702,10 +702,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 			# ***************************************************************
 			# Enter the vertex loop. This will run three times for each poly.
 			vertexCount = 0
-			faceVerts = []
-			faceWeights = []
 			faceUVs = []
-			splitVerts = [] # which of these vertices are weighted uniquely and should thus be imported without merging?
+			vertKeys = []
 			for line in smd.file:
 				if smdBreak(line):
 					break
@@ -723,7 +721,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 					norm[i-1] = float(values[i+3])
 				
 				co = tuple(co)
-				faceVerts.append(co)
 				norms.append(norm)
 
 				# Can't do these in the above for loop since there's only two
@@ -745,36 +742,30 @@ class SmdImporter(bpy.types.Operator, Logger):
 					except KeyError:
 						badWeights += 1
 
-				faceWeights.append(vertWeights)
-
-				coWeight = tuple([co] + vertWeights)
-				splitVerts.append(coWeight not in allVertexWeights)
-				allVertexWeights.add(coWeight)
+				vertKeys.append((co, tuple(vertWeights)))
 
 				# Three verts? It's time for a new poly
 				if vertexCount == 3:
-					for _ in range(2):
+					def createFace(use_cache = True):
 						bmVerts = []
-						newWeights = collections.defaultdict(list)
-						for i in range(3):
-							bmv = None if splitVerts[i] else vertMap.get(faceVerts[i]) # if a vertex in this position with these bone weights exists, re-use it.
+						for vertKey in vertKeys:
+							bmv = vertMap.get(vertKey, None) if use_cache else None # if a vertex in this position with these bone weights exists, re-use it.
 							if bmv is None:
-								bmv = bm.verts.new(faceVerts[i])
-								for link in faceWeights[i]:
-									bmv[weightLayer][link[0]] = link[1]
-								vertMap[faceVerts[i]] = bmv
+								bmv = bm.verts.new(vertKey[0])
+								for (bone,weight) in vertKey[1]:
+									bmv[weightLayer][bone] = weight
+								vertMap[vertKey] = bmv
 							bmVerts.append(bmv)
-						try:
-							face = bm.faces.new(bmVerts)
-						except ValueError: # face overlaps another, try again with all-new vertices
-							splitVerts = [True] * 3
-							continue
 
+						face = bm.faces.new(bmVerts)
 						face.material_index = mat_ind
 						for i in range(3):
 							face.loops[i][uvLayer].uv = faceUVs[i]
 
-						break
+					try:
+						createFace()
+					except ValueError: # face overlaps another, try again with all-new vertices
+						createFace(use_cache = False)
 					break
 
 			# Back in polyland now, with three verts processed.
@@ -865,6 +856,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					vd = bpy.data.meshes.new(name="VTA vertices")
 					vta_ref = smd.vta_ref = bpy.data.objects.new(name=vd.name,object_data=vd)
 					vta_ref.matrix_world = smd.m.matrix_world
+					smd.g.objects.link(vta_ref)
 
 					vta_err_vg = vta_ref.vertex_groups.new(name=get_id("importer_name_unmatchedvta"))
 				elif making_base_shape:
@@ -939,6 +931,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 		filename = os.path.basename(filepath)
 		filedir = os.path.dirname(filepath)
 
+		def normalisePath(path):
+			if (os.path.sep == '/'):
+				path = path.replace('\\','/')
+			return os.path.normpath(path)
+
 		if outer_qc:
 			print("\nQC IMPORTER: now working on",filename)
 			
@@ -1010,7 +1007,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				pass # TODO
 
 			def import_file(word_index,default_ext,smd_type,append='APPEND',layer=0,in_file_recursion = False):
-				path = os.path.join( qc.cd(), appendExt(line[word_index],default_ext) )
+				path = os.path.join( qc.cd(), appendExt(normalisePath(line[word_index]),default_ext) )
 				
 				if not in_file_recursion and not os.path.exists(path):
 					return import_file(word_index,"dmx",smd_type,append,layer,True)
@@ -1128,6 +1125,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				print("QC IMPORTER: created {} at $origin\n".format(name))
 
 				origin = bpy.data.objects.new(qc.jobName + "_origin",data)
+				bpy.context.scene.collection.objects.link(origin)
 
 				origin.rotation_euler = Vector([pi/2,0,pi]) + Vector(getUpAxisMat(qc.upAxis).inverted().to_euler()) # works, but adding seems very wrong!
 				ops.object.select_all(action="DESELECT")
@@ -1154,7 +1152,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			# QC inclusion
 			if line[0] == "$include":
-				path = os.path.join(qc.root_filedir,line[1]) # special case: ignores dir stack
+				path = os.path.join(qc.root_filedir,normalisePath(line[1])) # special case: ignores dir stack
 
 				if not path.endswith(".qc") and not path.endswith(".qci"):
 					if os.path.exists(appendExt(path,".qci")):
@@ -1173,9 +1171,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if qc.ref_mesh:
 				size = min(qc.ref_mesh.dimensions) / 15
 				if qc.makeCamera:
-					qc.origin.data.draw_size = size
+					qc.origin.data.display_size = size
 				else:
-					qc.origin.empty_draw_size = size
+					qc.origin.empty_display_size = size
 
 		if outer_qc:
 			printTimeMessage(qc.startTime,filename,"import","QC")
@@ -1188,6 +1186,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		smd.startTime = time.time()
 		smd.layer = target_layer
 		smd.rotMode = rotMode
+		self.createCollection()
 		if self.qc:
 			smd.upAxis = self.qc.upAxis
 			smd.a = self.qc.a
@@ -1195,6 +1194,14 @@ class SmdImporter(bpy.types.Operator, Logger):
 			smd.upAxis = upAxis
 
 		return smd
+
+	def createCollection(self):
+		if self.smd.jobType and self.smd.jobType != ANIM:
+			if self.createCollections:
+				self.smd.g = bpy.data.collections.new(self.smd.jobName)
+				bpy.context.scene.collection.children.link(self.smd.g)
+			else:
+				self.smd.g = bpy.context.scene.collection
 
 	# Parses an SMD file
 	def readSMD(self, filepath, upAxis, rotMode, newscene = False, smd_type = None, target_layer = 0):
@@ -1226,6 +1233,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		if smd.jobType == None:
 			self.scanSMD() # What are we dealing with?
+			self.createCollection()
 
 		for line in file:
 			if line == "nodes\n": self.readNodes()
@@ -1270,7 +1278,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			keywords = getDmxKeywords(dm.format_ver)
 			
-			if not smd_type: smd.jobType = REF if dm.root.get("model") else ANIM
+			if not smd_type:
+				smd.jobType = REF if dm.root.get("model") else ANIM
+			self.createCollection()
 			self.ensureAnimationBonesValidated()
 			
 			DmeModel = dm.root["skeleton"]
@@ -1336,7 +1346,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							validateSkeleton(elem["children"], elem)
 
 				bpy.context.view_layer.objects.active = smd.a
-				smd.a.hide_viewport = False
+				smd.a.hide_set(False)
 				ops.object.mode_set(mode='EDIT')
 				validateSkeleton(DmeModel["children"], None)
 
@@ -1356,6 +1366,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					for elem in elem_array:
 						if elem.type =="DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
 							atch = smd.atch = bpy.data.objects.new(name=self.truncate_id_name(elem["shape"].name, "Attachment"), object_data=None)
+							smd.g.objects.link(atch)
 							atch.show_in_front = True
 							atch.empty_display_type = 'ARROWS'
 
@@ -1408,6 +1419,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 						ops.object.mode_set(mode='OBJECT')
 					mesh_name = self.truncate_id_name(DmeMesh.name,bpy.types.Mesh)
 					ob = smd.m = bpy.data.objects.new(name=mesh_name, object_data=bpy.data.meshes.new(name=mesh_name))
+					smd.g.objects.link(ob)
 					ob.show_wire = smd.jobType == PHYS
 
 					DmeVertexData = DmeMesh["currentState"]
@@ -1433,33 +1445,70 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Vertices
 					for pos in positions:
 						bm.verts.new( Vector(pos) )
-
-					if hasattr(bm.verts,'ensure_lookup_table'):
-						bm.verts.ensure_lookup_table()
+					bm.verts.ensure_lookup_table()
 					
 					# Faces, Materials, Colours
 					skipfaces = set()
-					vertex_colour_layers = []
+					vertex_layer_infos = []
 
-					class VertexColourInfo():
-						def __init__(self, layer, indices, colours):
+					class VertexLayerInfo():
+						def __init__(self, layer, indices, values):
 							self.layer = layer
 							self.indices = indices
-							self.colours = colours
+							self.values = values
 
-						def get_loop_color(self, loop_index):
-							return self.colours[self.indices[loop_index]]
+						def get_loop_value(self, loop_index):
+							return self.values[self.indices[loop_index]]
 
-					for map_name in vertex_maps:
-						attribute_name = keywords.get(map_name)
-						if attribute_name and attribute_name in DmeVertexData["vertexFormat"]:
-							vertex_colour_layers.append(VertexColourInfo(
-								bm.loops.layers.color.new(map_name),
-								DmeVertexData[attribute_name + "Indices"],
-								DmeVertexData[attribute_name]
-							))
-						if DatamodelFormatVersion() < 22:
+					# Arbitrary vertex data
+					def warnUneditableVertexData(name): self.warning("Vertex data '{}' was imported, but cannot be edited in Blender (as of 2.82)".format(name))
+
+					for vertexMap in [prop for prop in DmeVertexData["vertexFormat"] if prop not in keywords.values()]:
+						indices = DmeVertexData.get(vertexMap + "Indices")
+						if not indices:
+							continue
+						values = DmeVertexData.get(vertexMap)
+						if not isinstance(values, list) or len(values) == 0:
+							continue
+
+						if isinstance(values[0], float):
+							layers = bm.loops.layers.float
+							warnUneditableVertexData(vertexMap)
+						elif isinstance(values[0], int):
+							layers = bm.loops.layers.int
+							warnUneditableVertexData(vertexMap)
+						elif isinstance(values[0], str):
+							layers = bm.loops.layers.string
+							warnUneditableVertexData(vertexMap)
+						elif isinstance(values[0], datamodel.Vector2):
+							layers = bm.loops.layers.uv
+						elif isinstance(values[0], datamodel.Vector4) or isinstance(values[0], datamodel.Color):
+							layers = bm.loops.layers.color
+						else:
+							self.warning("Could not import vertex data '{}'; Blender does not support {} data layers.".format(vertexMap, type(values[0]).__name__))
+							continue
+
+						vertex_layer_infos.append(VertexLayerInfo(layers.new(vertexMap), DmeVertexData[vertexMap + "Indices"], values))
+
+						if vertexMap != "textureCoordinates" and DatamodelFormatVersion() < 22:
 							bpy.context.scene.vs.dmx_format = '22'
+
+					# Weightmap
+					if have_weightmap:
+						jointWeights = DmeVertexData[keywords["weight"]]
+						jointIndices = DmeVertexData[keywords["weight_indices"]]
+						jointRange = range(DmeVertexData["jointCount"])
+						deformLayer = bm.verts.layers.deform.new()
+						weighted_bone_indices = ordered_set.OrderedSet()
+
+						joint_index = 0
+						for vert in bm.verts:
+							for i in jointRange:
+								weight = jointWeights[joint_index]
+								if weight > 0:
+									vg_index = weighted_bone_indices.add(jointIndices[joint_index])
+									vert[deformLayer][vg_index] = weight
+								joint_index += 1
 					
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]
@@ -1478,18 +1527,32 @@ class SmdImporter(bpy.types.Operator, Logger):
 								face.smooth = True
 								face.material_index = mat_ind
 
-								# Apply Source 2 vertex colours
-								for colour_layer in vertex_colour_layers:
+								# Apply Source 2 vertex data
+								for layer_info in vertex_layer_infos:
+									is_uv_layer = layer_info.layer.name in bm.loops.layers.uv
 									for i, loop in enumerate(face.loops):
-										loop[colour_layer.layer] = colour_layer.get_loop_color(face_loops[i])
+										value = layer_info.get_loop_value(face_loops[i])
+										if is_uv_layer:
+											loop[layer_info.layer].uv = value
+										else:	
+											loop[layer_info.layer] = value
 
 							except ValueError: # Can't have an overlapping face...this will be painful later
 								skipfaces.add(dmx_face)
 							dmx_face += 1
 							face_loops.clear()
+
+					if have_weightmap:
+						joints = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"];
+						for i in weighted_bone_indices:
+							ob.vertex_groups.new(name=joints[i].name) # must create vertex groups before loading bmesh data
+					elif last_bone: # bone parent
+						ob.parent_type = 'BONE'
+						ob.parent_bone = last_bone.name
 					
 					# Move from BMesh to Blender
 					bm.to_mesh(ob.data)
+					del bm
 					ob.data.update()
 					ob.matrix_world @= matrix
 					if ob.parent:
@@ -1518,38 +1581,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 					ob.data.normals_split_custom_set(normals_ordered[:i])
 					
-					# Weightmap
-					if have_weightmap:
-						jointList = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"]
-						jointWeights = DmeVertexData[keywords["weight"]]
-						jointIndices = DmeVertexData[keywords["weight_indices"]]
-						jointRange = range(DmeVertexData["jointCount"])
-						full_weights = collections.defaultdict(list)
-						joint_index = 0
-						for vert_index in range(len(ob.data.vertices)):
-							for i in jointRange:
-								weight = jointWeights[joint_index]
-								if weight > 0:
-									bone_id = jointList[jointIndices[joint_index]].id
-									if dm.format_ver >= 11:
-										bone_name = smd.boneIDs[bone_id]
-									else:
-										bone_name = smd.boneTransformIDs[bone_id]
-									vg = ob.vertex_groups.get(bone_name)
-									if not vg:
-										vg = ob.vertex_groups.new(name=bone_name)
-									if weight == 1:
-										full_weights[vg].append(vert_index)
-									elif weight > 0:
-										vg.add([vert_index],weight,'REPLACE')
-								joint_index += 1
-								
-						for vg,verts in iter(full_weights.items()):
-							vg.add(verts,1,'REPLACE')
-					elif last_bone: # bone parent
-						ob.parent_type = 'BONE'
-						ob.parent_bone = last_bone.name
-					
 					# Stereo balance
 					if keywords['balance'] in DmeVertexData["vertexFormat"]:
 						vg = ob.vertex_groups.new(name=get_id("importer_balance_group", data=True))
@@ -1568,25 +1599,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 						ob.data.vs.flex_stereo_mode = 'VGROUP'
 						ob.data.vs.flex_stereo_vg = vg.name
-					# UV
-					if keywords['texco'] in DmeVertexData["vertexFormat"]:
-						ob.data.uv_layers.new()
-						uv_data = ob.data.uv_layers[0].data
-						textureCoordinatesIndices = DmeVertexData[keywords['texco'] + "Indices"]
-						textureCoordinates = DmeVertexData[keywords['texco']]
-						uv_vert=0
-						dmx_face=0
-						skipping = False
-						for faceset in DmeMesh["faceSets"]:
-							for vert in faceset["faces"]:
-								if vert == -1:
-									dmx_face += 1
-									skipping = dmx_face in skipfaces
-								if skipping: continue # need to skip overlapping faces which couldn't be imported
-								
-								if vert != -1:				
-									uv_data[uv_vert].uv = textureCoordinates[ textureCoordinatesIndices[vert] ]
-									uv_vert+=1
 
 					# Shapes
 					if DmeMesh.get("deltaStates"):
@@ -1601,6 +1613,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 								deltaPositions = DmeVertexDeltaData[keywords['pos']]
 								for i,posIndex in enumerate(DmeVertexDeltaData[keywords['pos'] + "Indices"]):
 									shape_key.data[posIndex].co += Vector(deltaPositions[i])
+
+							if "_" in DmeVertexDeltaData.name:
+								flex.AddCorrectiveShapeDrivers.addDrivers(shape_key, DmeVertexDeltaData.name.split("_"))
 			
 			if smd.jobType in [REF,PHYS]:
 				parseModel(DmeModel)
@@ -1665,7 +1680,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							keyframe.matrix @= getBlenderQuat(frame_value).to_matrix().to_4x4()
 							keyframe.rot = True
 				
-				smd.a.hide_viewport = False
+				smd.a.hide_set(False)
 				bpy.context.view_layer.objects.active = smd.a
 				if unknown_bones:
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))

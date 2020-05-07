@@ -1,4 +1,4 @@
-﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (3, 0, 3),
+	"version": (3, 1, 0),
 	"blender": (2, 80, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -32,20 +32,14 @@ bl_info = {
 
 import bpy, os
 from bpy import ops
-from bpy.props import *
-
-# get rid of the old module
-for script_path in bpy.utils.script_paths():
-	for file_path in [ os.path.join("modules","datamodel.py"), os.path.join("addons","io_smd_tools.py") ]:
-		try: os.remove(os.path.abspath(os.path.join(script_path,file_path)))
-		except: pass
+from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, CollectionProperty, FloatProperty, PointerProperty
 
 # Python doesn't reload package sub-modules at the same time as __init__.py!
-import imp, sys
+import importlib, sys
 for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file__))) if f.endswith(".py") ]:
 	if filename == os.path.basename(__file__): continue
-	mod = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
-	if mod: imp.reload(mod)
+	module = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
+	if module: importlib.reload(module)
 
 # clear out any scene update funcs hanging around, e.g. after a script reload
 from bpy.app.handlers import depsgraph_update_pre, depsgraph_update_post
@@ -266,11 +260,19 @@ _classes = (
 	GUI.SMD_OT_GenerateVertexAnimationQCSnippet,
 	GUI.SMD_OT_LaunchHLMV,
 	GUI.SMD_PT_Object_Config,
+	GUI.SMD_PT_Group,
+	GUI.SMD_PT_VertexAnimation,
+	GUI.SMD_PT_Armature,
+	GUI.SMD_PT_ShapeKeys,
+	GUI.SMD_PT_VertexMaps,
+	GUI.SMD_PT_Curves,
 	GUI.SMD_PT_Scene_QC_Complie,
 	flex.DmxWriteFlexControllers,
 	flex.AddCorrectiveShapeDrivers,
+	flex.RenameShapesToMatchCorrectiveDrivers,
 	flex.ActiveDependencyShapes,
 	update.SmdToolsUpdate,
+	update.SMD_MT_Updated,
 	export_smd.SMD_OT_Compile, 
 	export_smd.SmdExporter, 
 	import_smd.SmdImporter)

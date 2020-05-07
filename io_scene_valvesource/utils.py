@@ -1,4 +1,4 @@
-﻿#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
+#  Copyright (c) 2014 Tom Edwards contact@steamreview.org
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -20,7 +20,7 @@
 
 import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools
 from bpy.app.translations import pgettext
-from mathutils import *
+from mathutils import Matrix, Vector, Euler, Quaternion
 from math import *
 from . import datamodel
 
@@ -73,8 +73,6 @@ dmx_versions_source1 = { # [encoding, format]
 'Portal 2':[5,18],
 'Counter-Strike Global Offensive':[5,18],
 'Source Filmmaker':[5,18],
-'Dota 2 Beta':[5,18],
-'Dota 2':[5,18],
 # and now back to 2/1 for some reason...
 'Half-Life 2':[2,1],
 'Source SDK Base 2013 Singleplayer':[2,1],
@@ -83,6 +81,7 @@ dmx_versions_source1 = { # [encoding, format]
 
 dmx_versions_source2 = {
 'dota2': ("Dota 2",[9,22]),
+'steamtours': ("SteamVR",[9,22]),
 }
 
 def print(*args, newline=True, debug_only=False):
@@ -196,14 +195,11 @@ vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesou
 def getDmxKeywords(format_version):
 	if format_version >= 22:
 		return {
-		  'pos': "position$0", 'norm': "normal$0", 'texco':"texcoord$0", 'wrinkle':"wrinkle$0",
-		  'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0",
-		  'valvesource_vertex_blend':"VertexPaintBlendParams$0",
-		  'valvesource_vertex_blend1':"VertexPaintBlendParams1$0",
-		  'valvesource_vertex_paint':"VertexPaintTintColor$0"
+		  'pos': "position$0", 'norm': "normal$0", 'wrinkle':"wrinkle$0",
+		  'balance':"balance$0", 'weight':"blendweights$0", 'weight_indices':"blendindices$0"
 		  }
 	else:
-		return { 'pos': "positions", 'norm': "normals", 'texco':"textureCoordinates", 'wrinkle':"wrinkle",
+		return { 'pos': "positions", 'norm': "normals", 'wrinkle':"wrinkle",
 		  'balance':"balance", 'weight':"jointWeights", 'weight_indices':"jointIndices" }
 
 def count_exports(context):
@@ -649,8 +645,7 @@ class Cache:
 		cls.validObs.clear()
 
 global p_cache
-if not "p_cache" in globals():
-	p_cache = Cache() # package cached data
+p_cache = globals().get("p_cache", Cache()) # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	bl_idname = "smd.launch_hlmv"
@@ -658,7 +653,7 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	bl_description = get_id("launch_hlmv_tip")
 
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return bool(context.scene.vs.engine_path)
 		
 	def execute(self,context):
@@ -677,7 +672,7 @@ class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
 	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
 	
 	@classmethod
-	def poll(self,context):
+	def poll(cls,context):
 		return len(context.visible_objects)
 	
 	def invoke(self, context, event):

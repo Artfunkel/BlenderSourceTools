@@ -14,6 +14,9 @@
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterId>Global|PythonCore|3.7</InterpreterId>
+    <TestFramework>unittest</TestFramework>
+    <UnitTestPattern>test*.py</UnitTestPattern>
+    <UnitTestRootDirectory>.\Tests</UnitTestRootDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,10 +39,12 @@
     <Compile Include="io_scene_valvesource\utils.py" />
     <Compile Include="io_scene_valvesource\__init__.py" />
     <Compile Include="interactive_startup.py" />
-    <Compile Include="tests.py" />
+    <Compile Include="Tests\test_addon.py" />
+    <Compile Include="Tests\test_datamodel.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="io_scene_valvesource\" />
+    <Folder Include="Tests\" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.7" />
