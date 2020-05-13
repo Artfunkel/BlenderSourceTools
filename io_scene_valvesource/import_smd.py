@@ -42,7 +42,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 	filter_glob : StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
 
 	# Custom properties
-	doAnim : BoolProperty(name=get_id("importer_doanims"), default=True)
+	doAnim : BoolProperty(name=get_id("importer_doanims"), default=False)
 	createCollections : BoolProperty(name=get_id("importer_use_collections"), description=get_id("importer_use_collections_tip"), default=True)
 	makeCamera : BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	append : EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
