@@ -13,6 +13,23 @@ sys.path.append(_addon_path)
 datamodel = import_module("datamodel")
 sys.path.remove(_addon_path)
 
+def stableRound(f):
+	r = round(f, 4)
+	return 0 if r == 0 else r # eliminate -0.0
+
+baseVectorInit = datamodel._Vector.__init__
+def _VectorRoundedInit(self, l):
+	l = [stableRound(i) for i in l]
+	baseVectorInit(self,l)
+datamodel._Vector.__init__ = _VectorRoundedInit
+
+baseMatrixInit = datamodel.Matrix.__init__
+def _MatrixRoundedInit(self, matrix=None):
+	if matrix:
+		matrix = [[stableRound(i) for i in l] for l in matrix]
+	baseMatrixInit(self,matrix)
+datamodel.Matrix.__init__ = _MatrixRoundedInit
+
 sdk_content_path = os.getenv("SOURCESDK")
 steam_common_path = None
 if sdk_content_path:
@@ -54,30 +71,36 @@ class _AddonTests():
 				self.maxDiff = None
 				for dirpath,dirnames,filenames in os.walk(outputDir):
 					for f in filenames:
-						error_message = "Export did not match expected output @ {}.".format(join(dirpath,f))
-						with open(join(dirpath,f),'rb') as out_file:
-							with open(join(self.expectedResultsPath,f),'rb') as expected_file:
-								if expected_file.read() != out_file.read():
-									out_file.seek(0)
-									expected_file.seek(0)
-									if f.endswith(".dmx"):
-										self.assertEqual(datamodel.load(in_file=expected_file).echo("keyvalues2", 1), datamodel.load(in_file=out_file).echo("keyvalues2", 1), error_message)
-									else:
-										def to_string(file): file.read().decode('utf-8').replace('\r\n','\n')
-										self.assertEqual(to_string(expected_file), to_string(out_file), error_message)
+						self.compareFiles(join(dirpath,f), join(self.expectedResultsPath,f))
 				print("Output matches expected results")
 
-	def setupTest(self, blend):
+	def compareFiles(self, output, expected):
+		error_message = "Export did not match expected output @ {}.".format(output)
+		with open(output,'rb') as out_file:
+			with open(expected,'rb') as expected_file:
+				if expected_file.read() != out_file.read():
+					out_file.seek(0)
+					expected_file.seek(0)
+					if output.endswith(".dmx"):
+						self.assertEqual(datamodel.load(in_file=expected_file).echo("keyvalues2", 1), datamodel.load(in_file=out_file).echo("keyvalues2", 1), error_message)
+					else:
+						def to_string(file): file.read().decode('utf-8').replace('\r\n','\n')
+						self.assertEqual(to_string(expected_file), to_string(out_file), error_message)
+
+	def setupExportTest(self, blend):
 		self.blend = blend
 		self.bpy.ops.wm.open_mainfile(filepath=join(src_path, blend + ".blend"))
 		blend_name = os.path.splitext(blend)[0]
-		self.sceneSettings.export_path = os.path.realpath(join(results_path,self.bpy_version, blend_name))
-		if os.path.isdir(self.sceneSettings.export_path):
-			shutil.rmtree(self.sceneSettings.export_path)
+		self.setupExport(blend_name)
 		return blend_name
 
+	def setupExport(self, dir):
+		self.sceneSettings.export_path = os.path.realpath(join(results_path,self.bpy_version, dir))
+		if os.path.isdir(self.sceneSettings.export_path):
+			shutil.rmtree(self.sceneSettings.export_path)
+
 	def runExportTest(self,blend):
-		blend_name = self.setupTest(blend)
+		blend_name = self.setupExportTest(blend)
 
 		def ex(do_scene):
 			result = self.bpy.ops.export_scene.smd(export_scene=do_scene)
@@ -214,13 +237,14 @@ class _AddonTests():
 		self.assertEqual(6, len(self.bpy.data.meshes['Overlapping_DifferentWeights'].vertices), "Incorrect vertex count")
 
 	def runImportTest(self, test_name, *files):
+		self.bpy.ops.wm.read_homefile(app_template="")
 		out_dir = join(results_path,self.bpy_version,test_name)
 		if os.path.isdir(out_dir):
 			shutil.rmtree(out_dir)
 		os.makedirs(out_dir)
 		
 		for f in files:
-			self.assertEqual(self.bpy.ops.import_scene.smd(filepath=f), {'FINISHED'})
+			self.assertEqual(self.bpy.ops.import_scene.smd(filepath=join(src_path,f)), {'FINISHED'})
 
 		self.bpy.ops.wm.save_mainfile(filepath=join(out_dir,test_name + ".blend"),check_existing=False)
 
@@ -239,8 +263,21 @@ class _AddonTests():
 					 sdk_content_path + "tf/modelsrc/player/heavy/animations/dmx/Die_HeadShot_Deployed.dmx")
 		self.assertEqual(len(self.bpy.data.meshes["head=zero"].shape_keys.key_blocks), 43)
 
+	def test_Source2VertexData_RoundTrips(self):
+		filename = "cloth_test_simple.dmx"
+		testname = "VertexDataRoundTrip"
+		self.runImportTest(testname, filename)
+		self.setupExport(testname)
+		self.bpy.context.view_layer.objects.active = self.bpy.data.objects['cloth_test_simple']
+		self.sceneSettings.export_format = 'DMX'
+		self.sceneSettings.use_kv2 = True
+
+		result = self.bpy.ops.export_scene.smd()
+		self.assertTrue(result == {'FINISHED'})
+		self.compareFiles(join(self.sceneSettings.export_path, filename), join(src_path, filename))
+
 	def test_export_SMD_GoldSrc(self):
-		self.setupTest("Cube_Armature")
+		self.setupExportTest("Cube_Armature")
 
 		# override setupTest's values
 		self.blend = "Cube_Armature_GoldSource"
