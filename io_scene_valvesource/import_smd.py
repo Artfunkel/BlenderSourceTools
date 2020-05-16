@@ -1472,6 +1472,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 							continue
 
 						if isinstance(values[0], float):
+							if vertexMap == "cloth_enable$0":
+								continue # will be imported later as a weightmap
 							layers = bm.loops.layers.float
 							warnUneditableVertexData(vertexMap)
 						elif isinstance(values[0], int):
@@ -1493,13 +1495,15 @@ class SmdImporter(bpy.types.Operator, Logger):
 						if vertexMap != "textureCoordinates" and DatamodelFormatVersion() < 22:
 							bpy.context.scene.vs.dmx_format = '22'
 
+					deform_group_names = ordered_set.OrderedSet()
+
 					# Weightmap
 					if have_weightmap:
+						weighted_bone_indices = ordered_set.OrderedSet()
 						jointWeights = DmeVertexData[keywords["weight"]]
 						jointIndices = DmeVertexData[keywords["weight_indices"]]
 						jointRange = range(DmeVertexData["jointCount"])
 						deformLayer = bm.verts.layers.deform.new()
-						weighted_bone_indices = ordered_set.OrderedSet()
 
 						joint_index = 0
 						for vert in bm.verts:
@@ -1509,6 +1513,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 									vg_index = weighted_bone_indices.add(jointIndices[joint_index])
 									vert[deformLayer][vg_index] = weight
 								joint_index += 1
+					
+						joints = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"];
+						for boneName in (joints[i].name for i in weighted_bone_indices):
+							deform_group_names.add(boneName)
 					
 					for face_set in DmeMesh["faceSets"]:
 						mat_path = face_set["material"]["mtlName"]
@@ -1541,12 +1549,24 @@ class SmdImporter(bpy.types.Operator, Logger):
 								skipfaces.add(dmx_face)
 							dmx_face += 1
 							face_loops.clear()
+					
 
-					if have_weightmap:
-						joints = DmeModel["jointList"] if dm.format_ver >= 11 else DmeModel["jointTransforms"];
-						for i in weighted_bone_indices:
-							ob.vertex_groups.new(name=joints[i].name) # must create vertex groups before loading bmesh data
-					elif last_bone: # bone parent
+					for cloth_enable in (name for name in DmeVertexData["vertexFormat"] if name.startswith("cloth_enable$")):
+						deformLayer = bm.verts.layers.deform.verify()
+						vg_index = deform_group_names.add(cloth_enable)
+						data = DmeVertexData[cloth_enable]
+						indices = DmeVertexData[cloth_enable + "Indices"]
+						i = 0
+						for face in bm.faces:
+							for loop in face.loops:
+								weight = data[indices[i]]
+								loop.vert[deformLayer][vg_index] = weight
+								i += 1
+					
+					for groupName in deform_group_names:
+						ob.vertex_groups.new(name=groupName) # must create vertex groups before loading bmesh data
+
+					if last_bone and not have_weightmap: # bone parent
 						ob.parent_type = 'BONE'
 						ob.parent_bone = last_bone.name
 					
