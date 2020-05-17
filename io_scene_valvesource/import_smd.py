@@ -1462,7 +1462,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 					# Arbitrary vertex data
 					def warnUneditableVertexData(name): self.warning("Vertex data '{}' was imported, but cannot be edited in Blender (as of 2.82)".format(name))
-
+					def isClothEnableMap(name): return name.startswith("cloth_enable$")
+					
 					for vertexMap in [prop for prop in DmeVertexData["vertexFormat"] if prop not in keywords.values()]:
 						indices = DmeVertexData.get(vertexMap + "Indices")
 						if not indices:
@@ -1472,7 +1473,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							continue
 
 						if isinstance(values[0], float):
-							if vertexMap == "cloth_enable$0":
+							if isClothEnableMap(vertexMap):
 								continue # will be imported later as a weightmap
 							layers = bm.loops.layers.float
 							warnUneditableVertexData(vertexMap)
@@ -1554,7 +1555,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							face_loops.clear()
 					
 
-					for cloth_enable in (name for name in DmeVertexData["vertexFormat"] if name.startswith("cloth_enable$")):
+					for cloth_enable in (name for name in DmeVertexData["vertexFormat"] if isClothEnableMap(name)):
 						deformLayer = bm.verts.layers.deform.verify()
 						vg_index = deform_group_names.add(cloth_enable)
 						data = DmeVertexData[cloth_enable]
