@@ -1492,8 +1492,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 						vertex_layer_infos.append(VertexLayerInfo(layers.new(vertexMap), DmeVertexData[vertexMap + "Indices"], values))
 
-						if vertexMap != "textureCoordinates" and DatamodelFormatVersion() < 22:
-							bpy.context.scene.vs.dmx_format = '22'
+						if vertexMap != "textureCoordinates":
+							if DatamodelFormatVersion() < 22:
+								bpy.context.scene.vs.dmx_format = '22'
+							if (DatamodelEncodingVersion() < 9):
+								bpy.context.scene.vs.dmx_encoding = '9'
 
 					deform_group_names = ordered_set.OrderedSet()
 
