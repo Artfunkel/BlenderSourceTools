@@ -560,6 +560,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 			except UnicodeEncodeError:
 				self.warning(get_id("exporter_warn_unicode", format_string=True).format(pgettext(display_type), name))
 
+		# Meanwhile, Source 2 wants only lowercase characters, digits, and underscore in model names
+		if getEngineVersion() == 2 or DatamodelFormatVersion() >= 22:
+			if re.match(r'[^a-z0-9_]', id.name):
+				self.warning(get_id("exporter_warn_source2names", format_string=True).format(id.name))
+
 		for bake in bake_results:
 			test_for_unicode(bake.name, bake, type(bake.src).__name__)
 			for shape_name, shape_id in bake.shapes.items():
