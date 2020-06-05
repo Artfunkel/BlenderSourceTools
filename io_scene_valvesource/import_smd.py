@@ -1579,7 +1579,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 					del bm
 					ob.data.update()
 					ob.matrix_world @= matrix
-					if ob.parent:
+					if ob.parent_bone:
+						ob.matrix_world = ob.parent.matrix_world @ ob.parent.data.bones[ob.parent_bone].matrix_local @ ob.matrix_world
+					elif ob.parent:
 						ob.matrix_world = ob.parent.matrix_world @ ob.matrix_world
 					if smd.jobType == PHYS:
 						ob.display_type = 'SOLID'
