@@ -33,20 +33,20 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 	def draw(self, context):
 		l = self.layout
 		l.operator_context = 'EXEC_DEFAULT'
-		
+
 		exportables = list(getSelectedExportables())
 		if len(exportables):
 			single_obs = list([ex for ex in exportables if ex.ob_type != 'COLLECTION'])
 			groups = list([ex for ex in exportables if ex.ob_type == 'COLLECTION'])
 			groups.sort(key=lambda g: g.name.lower())
-				
+
 			group_layout = l
 			for i,group in enumerate(groups): # always display all possible groups, as an object could be part of several
 				if type(self) == SMD_PT_Scene:
 					if i == 0: group_col = l.column(align=True)
 					if i % 2 == 0: group_layout = group_col.row(align=True)
 				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').collection = group.get_id().name
-				
+
 			if len(exportables) > 1:
 				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(len(exportables)), icon='OBJECT_DATA')
 			elif len(single_obs):
@@ -74,11 +74,11 @@ class SMD_PT_Scene(bpy.types.Panel):
 		num_to_export = 0
 
 		l.operator(SmdExporter.bl_idname,text="Export")
-		
+
 		row = l.row()
 		row.alert = len(scene.vs.export_path) == 0
 		row.prop(scene.vs,"export_path")
-		
+
 		if allowDMX():
 			row = l.row().split(factor=0.33)
 			row.label(text=GetCustomPropName(scene.vs,"export_format",":"))
@@ -86,15 +86,15 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row = l.row().split(factor=0.33)
 		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
 		row.row().prop(scene.vs,"up_axis", expand=True)
-		
+
 		if shouldExportDMX() and bpy.app.debug_value > 0 or scene.vs.use_kv2:
 			l.prop(scene.vs,"use_kv2")
 			l.separator()
-		
+
 		row = l.row()
 		row.alert = len(scene.vs.engine_path) > 0 and not p_cache.enginepath_valid
 		row.prop(scene.vs,"engine_path")
-		
+
 		if scene.vs.export_format == 'DMX':
 			version = getDmxVersionsForSDK()
 			if version == None:
@@ -111,11 +111,15 @@ class SMD_PT_Scene(bpy.types.Panel):
 					pass
 				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
 				col.enabled = shouldExportDMX()
+
+				l.row().prop(scene.vs,"model_scale", expand=True)
+				l.row().prop(scene.vs,"bone_swap_forward_axis", expand=True)
+
 		else:
 			row = l.split(factor=0.33)
 			row.label(text=GetCustomPropName(scene.vs,"smd_format",":"))
 			row.row().prop(scene.vs,"smd_format", expand=True)
-		
+
 		col = l.column(align=True)
 		row = col.row(align=True)
 		self.HelpButton(row)
@@ -139,11 +143,11 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 		if id is None: return
 
 		enabled = not (type(id) == bpy.types.Collection and id.vs.mute)
-		
+
 		row = layout.row(align=True)
 		row.alignment = 'LEFT'
 		row.enabled = enabled
-			
+
 		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
 		row.label(text=item.name,icon=item.icon)
 
@@ -175,7 +179,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		r = layout.row(align=True)
 		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
 		r.label(text=item.name,translate=False,icon=MakeObjectIcon(item,suffix="_DATA"))
-	
+
 	def filter_items(self, context, data, propname):
 		fname = self.filter_name.lower()
 		cache = gui_cache.get(data)
@@ -186,7 +190,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
 			cache.fname = fname
 			gui_cache[data] = cache
-			
+
 		return cache.filter, cache.order if self.use_filter_sort_alpha else []
 
 class SMD_UL_VertexAnimationItem(bpy.types.UIList):
@@ -210,7 +214,7 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 	@classmethod
 	def poll(cls,c):
 		return type(get_active_exportable(c).get_id()) in [bpy.types.Object, bpy.types.Collection]
-	
+
 	def execute(self,c):
 		id = get_active_exportable(c).get_id()
 		id.vs.vertex_animations.add()
@@ -229,13 +233,13 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 	def poll(cls,c):
 		id = get_active_exportable(c).get_id()
 		return type(id) in [bpy.types.Object, bpy.types.Collection] and len(id.vs.vertex_animations)
-	
+
 	def execute(self,c):
 		id = get_active_exportable(c).get_id()
 		id.vs.vertex_animations.remove(self.index)
 		id.vs.active_vertex_animation -= 1
 		return {'FINISHED'}
-		
+
 class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
 	bl_idname = "smd.vertexanim_preview"
 	bl_label = get_id("vca_preview")
@@ -262,7 +266,7 @@ class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
 	@classmethod
 	def poll(cls,c):
 		return get_active_exportable(c) is not None
-	
+
 	def execute(self,c): # FIXME: DMX syntax
 		id = get_active_exportable(c).get_id()
 		fps = c.scene.render.fps / c.scene.render.fps_base
@@ -294,7 +298,7 @@ for map_name in vertex_maps:
 		bl_label = bl_description = get_id("vertmap_select")
 		bl_options = {'INTERNAL'}
 		vertex_map = map_name
-	
+
 		@classmethod
 		def poll(cls,c):
 			if not is_mesh(c.active_object): return False
@@ -311,7 +315,7 @@ for map_name in vertex_maps:
 		bl_label = bl_description = get_id("vertmap_create")
 		bl_options = {'INTERNAL'}
 		vertex_map = map_name
-	
+
 		@classmethod
 		def poll(cls,c):
 			return is_mesh(c.active_object) and not cls.vertex_map in c.active_object.data.vertex_colors
@@ -327,7 +331,7 @@ for map_name in vertex_maps:
 		bl_label = bl_description = get_id("vertmap_remove")
 		bl_options = {'INTERNAL'}
 		vertex_map = map_name
-	
+
 		@classmethod
 		def poll(cls,c):
 			return is_mesh(c.active_object) and cls.vertex_map in c.active_object.data.vertex_colors
@@ -340,7 +344,7 @@ for map_name in vertex_maps:
 	bpy.utils.register_class(SelectVertexMap)
 	bpy.utils.register_class(CreateVertexMap)
 	bpy.utils.register_class(RemoveVertexMap)
-	
+
 for map_name in vertex_float_maps:
 	def is_mesh(ob):
 		return ob is not None and ob.type == 'MESH'
@@ -350,7 +354,7 @@ for map_name in vertex_float_maps:
 		bl_label = bl_description = get_id("vertmap_select")
 		bl_options = {'INTERNAL'}
 		vertex_map = map_name
-	
+
 		@classmethod
 		def poll(cls,c):
 			if not is_mesh(c.active_object): return False
@@ -367,25 +371,25 @@ for map_name in vertex_float_maps:
 		bl_label = bl_description = get_id("vertmap_create")
 		bl_options = {'INTERNAL'}
 		vertex_map = map_name
-	
+
 		@classmethod
 		def poll(cls,c):
 			return is_mesh(c.active_object) and not cls.vertex_map in c.active_object.vertex_groups
 
 		def execute(self,c):
 			vc = c.active_object.vertex_groups.new(name=self.vertex_map)
-			
+
 			found = False
 			for remap in c.active_object.vs.vertex_map_remaps:
 				if remap.group == map_name:
 					found = True
 					break
-			
-			remap = c.active_object.vs.vertex_map_remaps.add()	
+
+			remap = c.active_object.vs.vertex_map_remaps.add()
 			remap.group = map_name
 			remap.min = 0.0
 			remap.max = 1.0
-			
+
 			SelectVertexMap.execute(self,c)
 			return {'FINISHED'}
 
@@ -394,7 +398,7 @@ for map_name in vertex_float_maps:
 		bl_label = bl_description = get_id("vertmap_remove")
 		bl_options = {'INTERNAL'}
 		vertex_map = map_name
-	
+
 		@classmethod
 		def poll(cls,c):
 			return is_mesh(c.active_object) and cls.vertex_map in c.active_object.vertex_groups
@@ -414,7 +418,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
 	bl_default_closed = True
-	
+
 	def makeSettingsBox(self,text,icon='NONE'):
 		box = self.layout.box()
 		col = box.column()
@@ -423,13 +427,13 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		title_row.label(text=text,icon=icon)
 		col.separator()
 		return col
-	
+
 	def draw(self,context):
 		l = self.layout
 		scene = context.scene
-		
+
 		l.template_list("SMD_UL_ExportItems","",scene.vs,"export_list",scene.vs,"export_list_active",rows=3,maxrows=8)
-				
+
 		active_exportable = get_active_exportable(context)
 		if not active_exportable:
 			return
@@ -438,13 +442,13 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		is_group = type(item) == bpy.types.Collection
 
 		col = l.column()
-		
+
 		if not (is_group and item.vs.mute):
 			col.prop(item.vs,"subdir",icon='FILE_FOLDER')
 
 		if is_group or item.type in mesh_compatible:
 			col = self.makeSettingsBox(text=get_id("vca_group_props"),icon=vca_icon)
-			
+
 			r = col.row(align=True)
 			r.operator(SMD_OT_AddVertexAnimation.bl_idname,icon="ADD",text="Add")
 			op = r.operator(SMD_OT_RemoveVertexAnimation.bl_idname,icon="REMOVE",text="Remove")
@@ -454,12 +458,12 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				op.index = item.vs.active_vertex_animation
 				col.template_list("SMD_UL_VertexAnimationItem","",item.vs,"vertex_animations",item.vs,"active_vertex_animation",rows=2,maxrows=4)
 				col.operator(SMD_OT_GenerateVertexAnimationQCSnippet.bl_idname,icon='SCRIPT')
-		
+
 		if is_group:
 			col = self.makeSettingsBox(text=get_id("exportables_group_props"),icon='GROUP')
-			if not item.vs.mute:				
+			if not item.vs.mute:
 				col.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2,rows=2,maxrows=10)
-			
+
 			r = col.row()
 			r.alignment = 'CENTER'
 			r.prop(item.vs,"mute")
@@ -467,7 +471,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				return
 			elif shouldExportDMX():
 				r.prop(item.vs,"automerge")
-			
+
 		elif item:
 			armature = item.find_armature()
 			if item.type == 'ARMATURE': armature = item
@@ -486,31 +490,31 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					if not col: col = _makebox()
 					col.prop(armature.data.vs,"implicit_zero_bone")
 					col.prop(armature.data.vs,"legacy_rotation")
-					
+
 				if armature.animation_data and not 'ActLib' in dir(bpy.types):
 					if not col: col = _makebox()
 					col.template_ID(armature.animation_data, "action", new="action.new")
-		
+
 		objects = p_cache.validObs.intersection(item.objects) if is_group else [item]
 
 		if item.vs.export and hasShapes(item) and bpy.context.scene.vs.export_format == 'DMX':
 			col = self.makeSettingsBox(text=get_id("exportables_flex_props"),icon='SHAPEKEY_DATA')
-			
+
 			col.row().prop(item.vs,"flex_controller_mode",expand=True)
-			
+
 			if item.vs.flex_controller_mode == 'ADVANCED':
 				controller_source = col.row()
 				controller_source.alert = hasFlexControllerSource(item.vs.flex_controller_source) == False
 				controller_source.prop(item.vs,"flex_controller_source",text=get_id("exportables_flex_src"),icon = 'TEXT' if item.vs.flex_controller_source in bpy.data.texts else 'NONE')
-				
+
 				row = col.row(align=True)
 				row.operator(DmxWriteFlexControllers.bl_idname,icon='TEXT',text=get_id("exportables_flex_generate", True))
 				row.operator("wm.url_open",text=get_id("exportables_flex_help", True),icon='HELP').url = "http://developer.valvesoftware.com/wiki/Blender_SMD_Tools_Help#Flex_properties"
-				
+
 				col.operator(AddCorrectiveShapeDrivers.bl_idname, icon='DRIVER',text=get_id("gen_drivers",True))
-				
+
 				datablocks_dispayed = []
-				
+
 				for ob in [ob for ob in objects if ob.vs.export and ob.type in shape_types and ob.active_shape_key and ob.data not in datablocks_dispayed]:
 					if not len(datablocks_dispayed):
 						col.label(text=get_id("exportables_flex_split"))
@@ -525,15 +529,15 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 						r2.prop(ob.data.vs,"flex_stereo_sharpness",text="Sharpness")
 					r2.prop(ob.data.vs,"flex_stereo_mode",text="")
 					datablocks_dispayed.append(ob.data)
-			
+
 			num_shapes, num_correctives = countShapes(objects)
-			
+
 			col.separator()
 			row = col.row()
 			row.alignment = 'CENTER'
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count", True).format(num_shapes))
 			row.label(icon='SHAPEKEY_DATA',text = get_id("exportables_flex_count_corrective", True).format(num_correctives))
-		
+
 		if shouldExportDMX() and DatamodelFormatVersion() >= 22 and context.active_object:
 			if context.active_object.type == 'MESH':
 				title = get_id("vertmap_group_props")
@@ -541,47 +545,47 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 					title += " ({})".format(context.active_object.data.name)
 
 				col = self.makeSettingsBox(text=title, icon='VPAINT_HLT')
-				
+
 				r = col.row()
 				r.label(text="Color Maps")
-				
+
 				for map_name in vertex_maps:
 					r = col.row()#.split(factor=0.80)
 					#r.label(text=get_id(map_name),icon='GROUP_VCOL')
 					r.operator(SMD_OT_SelectVertexMap_idname + map_name, text=get_id(map_name),icon='GROUP_VCOL')
-					
+
 					r = r.row()
 					add_remove = r.row(align=True)
 					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ADD',text="")
 					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='REMOVE',text="")
 					#r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
-					
+
 				col.separator()
 				r = col.row()
 				r.label(text="Float Maps")
-				
+
 				for map_name in vertex_float_maps:
 					r = col.row().split(factor=0.50)
 					r.operator(SMD_OT_SelectVertexMap_idname + map_name, text=map_name,icon='GROUP_VERTEX')
-					
+
 					r = r.row()
 					add_remove = r.row(align=True)
 					add_remove.operator(SMD_OT_CreateVertexMap_idname + map_name,icon='ADD',text="")
 					add_remove.operator(SMD_OT_RemoveVertexMap_idname + map_name,icon='REMOVE',text="")
 					#r = r.row().split(factor=0.15)
-					#r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")					
+					#r.operator(SMD_OT_SelectVertexMap_idname + map_name,text="Activate")
 					remap = r.row(align=True)
-					
+
 					found = False
 					for group in context.active_object.vs.vertex_map_remaps:
 						if group.group == map_name:
-							found = True			
+							found = True
 							remap.prop(group, "min")
 							remap.prop(group, "max")
 							break
-							
+
 					if not found:
-						group = context.active_object.vs.vertex_map_remaps.add()	
+						group = context.active_object.vs.vertex_map_remaps.add()
 						group.group = map_name
 						group.min = 0.0
 						group.max = 1.0
@@ -590,7 +594,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 
 				col.separator()
 				col.operator("wm.url_open", text=get_id("help",True), icon='HELP').url = "http://developer.valvesoftware.com/wiki/DMX/Source_2_Vertex_attributes"
-		
+
 		if hasCurves(item):
 			col = self.makeSettingsBox(text=get_id("exportables_curve_props"),icon='OUTLINER_OB_CURVE')
 			col.label(text=get_id("exportables_curve_polyside"))
@@ -600,18 +604,18 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 				row.label(text=ob.data.name + ":",icon=MakeObjectIcon(ob,suffix='_DATA'),translate=False)
 				row.prop(ob.data.vs,"faces",text="")
 				done.add(ob.data)
-			
+
 class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 	bl_label = get_id("qc_title")
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
-	bl_default_closed = True				
-		
+	bl_default_closed = True
+
 	def draw(self,context):
 		l = self.layout
 		scene = context.scene
-		
+
 		if not p_cache.enginepath_valid:
 			if len(scene.vs.engine_path):
 				l.label(icon='ERROR',text=get_id("qc_bad_enginepath"))
@@ -623,41 +627,41 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			l.enabled = False
 			l.label(icon='INFO',text=get_id("qc_invalid_source2"))
 			return
-			
+
 		row = l.row()
 		row.alert = len(scene.vs.game_path) > 0 and not p_cache.gamepath_valid
 		row.prop(scene.vs,"game_path")
-		
+
 		if len(scene.vs.game_path) == 0 and not p_cache.gamepath_valid:
 			row = l.row()
 			row.label(icon='ERROR',text=get_id("qc_nogamepath"))
 			row.enabled = False
 			return
-		
-		# QCs		
+
+		# QCs
 		p_cache.qc_lastPath_row = l.row()
 		if scene.vs.qc_path != p_cache.qc_lastPath or len(p_cache.qc_paths) == 0 or time.time() > p_cache.qc_lastUpdate + 2:
 			p_cache.qc_paths = SMD_OT_Compile.getQCs()
 			p_cache.qc_lastPath = scene.vs.qc_path
 		p_cache.qc_lastUpdate = time.time()
 		have_qcs = len(p_cache.qc_paths) > 0
-	
+
 		if have_qcs or isWild(p_cache.qc_lastPath):
 			c = l.column_flow(columns=2)
 			c.operator_context = 'EXEC_DEFAULT'
 			for path in p_cache.qc_paths:
 				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
-		
+
 		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
 		compile_row.operator_context = 'EXEC_DEFAULT'
 		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT').filepath="*"
-		
+
 		if not have_qcs:
 			if scene.vs.qc_path:
 				p_cache.qc_lastPath_row.alert = True
 			compile_row.enabled = False
 		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path") # can't add this until the above test completes!
-		
+
 		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='PREFERENCES',text=get_id("launch_hlmv",True))

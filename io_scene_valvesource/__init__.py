@@ -60,7 +60,7 @@ class ValveSource_Exportable(bpy.types.PropertyGroup):
 	ob_type : StringProperty()
 	icon : StringProperty()
 	item_name : StringProperty()
-	
+
 	def get_id(self):
 		try:
 			if self.ob_type == 'COLLECTION':
@@ -94,11 +94,11 @@ def scene_load_post(_):
 				val = id.get("smd_" + (prop_map[prop] if prop in prop_map else prop))
 				if val != None:
 					id.vs[prop] = val
-			
+
 		for prop in id.keys():
 			if prop.startswith("smd_"):
 				del id[prop]
-				
+
 	for s in bpy.data.scenes:
 		if hasattr(s,"vs"):
 			convert(s,ValveSource_SceneProps)
@@ -128,10 +128,10 @@ def export_active_changed(self, context):
 		return
 
 	id = get_active_exportable(context).get_id()
-	
+
 	if type(id) == bpy.types.Collection and id.vs.mute: return
 	for ob in context.scene.objects: ob.select_set(False)
-	
+
 	if type(id) == bpy.types.Collection:
 		context.view_layer.objects.active = id.objects[0]
 		for ob in id.objects: ob.select_set(True)
@@ -170,12 +170,14 @@ class ValveSource_SceneProps(PropertyGroup):
 	qc_compile : BoolProperty(name=get_id("qc_compileall"),description=get_id("qc_compileall_tip"),default=False)
 	qc_path : StringProperty(name=get_id("qc_path"),description=get_id("qc_path_tip"),default="//*.qc",subtype="FILE_PATH")
 	engine_path : StringProperty(name=get_id("engine_path"),description=get_id("engine_path_tip"), subtype="DIR_PATH",update=engine_path_changed)
-	
+
 	dmx_encoding : EnumProperty(name=get_id("dmx_encoding"),description=get_id("dmx_encoding_tip"),items=tuple(encodings),default='2')
 	dmx_format : EnumProperty(name=get_id("dmx_format"),description=get_id("dmx_format_tip"),items=tuple(formats),default='1')
-	
+
 	export_format : EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
 	up_axis : EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
+	bone_swap_forward_axis : BoolProperty(name=get_id("bone_swap_forward_axis"),default=False,description=get_id("bone_swap_forward_axis_tip"))
+	model_scale : FloatProperty(name=get_id("model_scale"),default=1.0,soft_min=0.1,soft_max=100,step=10,description=get_id("model_scale_tip"))
 	material_path : StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
 	export_list_active : IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)
 	export_list : CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})
@@ -278,18 +280,18 @@ _classes = (
 	flex.AddCorrectiveShapeDrivers,
 	flex.ActiveDependencyShapes,
 	update.SmdToolsUpdate,
-	export_smd.SMD_OT_Compile, 
-	export_smd.SmdExporter, 
+	export_smd.SMD_OT_Compile,
+	export_smd.SmdExporter,
 	import_smd.SmdImporter)
 
 def register():
 	from bpy.utils import register_class
 	for cls in _classes:
 		register_class(cls)
-	
+
 	from . import translations
 	bpy.app.translations.register(__name__,translations.translations)
-	
+
 	bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_context_menu.append(menu_func_shapekeys)
@@ -297,13 +299,13 @@ def register():
 	hook_scene_update()
 	bpy.app.handlers.load_post.append(scene_load_post)
 	depsgraph_update_post.append(scene_load_post) # handles enabling the add-on after the scene is loaded
-		
+
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
-	
+
 	def make_pointer(prop_type):
 		return PointerProperty(name=get_id("settings_prop"),type=prop_type)
-		
+
 	bpy.types.Scene.vs = make_pointer(ValveSource_SceneProps)
 	bpy.types.Object.vs = make_pointer(ValveSource_ObjectProps)
 	bpy.types.Armature.vs = make_pointer(ValveSource_ArmatureProps)
@@ -323,7 +325,7 @@ def unregister():
 	bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
 
 	bpy.app.translations.unregister(__name__)
-	
+
 	from bpy.utils import unregister_class
 	for cls in reversed(_classes):
 		unregister_class(cls)
