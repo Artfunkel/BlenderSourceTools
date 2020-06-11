@@ -864,6 +864,9 @@ _data = {
 	'en': "Target Up Axis",
 	'ru': "Направление \"Вверх\"",
 },
+'forward_parity': {
+	'en': "Forward Parity",
+},
 'bone_swap_forward_axis': {
 	'en': "Rotate Bone X-axis Forward",
 },
@@ -901,6 +904,9 @@ _data = {
 'up_axis_tip': {
 	'en': "Use for compatibility with data from other 3D tools",
 	'ru': "Используется для совместимости с экспортами из Maya и других 3D-пакетов",
+},
+'forward_parity_tip': {
+	'en': "Which axis is forward on the model. The Source 2 tools will map this to the positive X-axis",
 },
 'bone_swap_forward_axis_tip': {
 	'en': "Rotates all bones so that the resulting X-axis faces the direction of the bone (Y-axis in Blender), per the Source engine convension. Used for better compatibility with some Source engine features",

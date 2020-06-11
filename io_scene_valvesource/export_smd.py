@@ -1319,8 +1319,8 @@ skeleton
 		if source2:
 			DmeAxisSystem = DmeModel["axisSystem"] = dm.add_element("axisSystem","DmeAxisSystem","AxisSys" + armature_name)
 			DmeAxisSystem["upAxis"] = axes_lookup_source2[bpy.context.scene.vs.up_axis]
-			DmeAxisSystem["forwardParity"] = 1 # ??
-			DmeAxisSystem["coordSys"] = 0 # ??
+			DmeAxisSystem["forwardParity"] = axes_lookup_source2_signed[bpy.context.scene.vs.forward_parity]
+			DmeAxisSystem["coordSys"] = 0 # ?? - Maybe global vs local coordinates
 
 		DmeModel["transform"] = makeTransform("",Matrix(),DmeModel.name + "transform")
 

@@ -112,6 +112,9 @@ class SMD_PT_Scene(bpy.types.Panel):
 				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
 				col.enabled = shouldExportDMX()
 
+				row = l.row().split(factor=0.33)
+				row.label(text=GetCustomPropName(scene.vs,"forward_parity",":"))
+				row.row().prop(scene.vs,"forward_parity", expand=True)
 				l.row().prop(scene.vs,"model_scale", expand=True)
 				l.row().prop(scene.vs,"bone_swap_forward_axis", expand=True)
 

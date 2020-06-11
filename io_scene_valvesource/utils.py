@@ -56,8 +56,10 @@ exportable_types.append('ARMATURE')
 exportable_types = tuple(exportable_types)
 
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
+axes_signed = (('-X','-X',''),('+X','+X',''),('-Y','-Y',''),('+Y','+Y',''),('-Z','-Z',''),('+Z','+Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
 axes_lookup_source2 = { 'X':1, 'Y':2, 'Z':3 }
+axes_lookup_source2_signed = { '-X':-1, '-Y':-2, '-Z':-3, '+X':1, '+Y':2, '+Z':3 }
 
 dmx_model_versions = [1,15,18,22]
 
@@ -98,7 +100,7 @@ def get_id(id, format_string = False, data = False):
 
 def get_active_exportable(context = None):
 	if not context: context = bpy.context
-	
+
 	if not context.scene.vs.export_list_active < len(context.scene.vs.export_list):
 		return None
 
@@ -113,7 +115,7 @@ class BenchMarker:
 
 	def reset(self):
 		self._last = self._start = time.time()
-		
+
 	def report(self,label = None, threshold = 0.0):
 		now = time.time()
 		elapsed = now - self._last
@@ -133,7 +135,7 @@ class BenchMarker:
 def smdBreak(line):
 	line = line.rstrip('\n')
 	return line == "end" or line == ""
-	
+
 def smdContinue(line):
 	return line.startswith("//")
 
@@ -170,8 +172,8 @@ def getEngineBranch():
 
 	# Source 1 SFM special case
 	if path.lower().find("sourcefilmmaker") != -1:
-		return ("Source Filmmaker", dmx_versions_source1["Source Filmmaker"], 1) # hack for weird SFM folder structure, add a space too	
-	
+		return ("Source Filmmaker", dmx_versions_source1["Source Filmmaker"], 1) # hack for weird SFM folder structure, add a space too
+
 	# Source 1 standard: use parent dir's name
 	name = os.path.basename(os.path.dirname(bpy.path.abspath(path))).title().replace("Sdk","SDK")
 	dmx_versions = dmx_versions_source1.get(name)
@@ -222,7 +224,7 @@ vertex_float_maps = [
 	"cloth_shear_resistance",
 	"cloth_stretch",
 	"cloth_friction"
-	
+
 	# TODO add way to set up groups manually
 	# cloth_collision_layer_%d - 0 through 15
 	# cloth_vertex_set_%s - name
@@ -233,13 +235,13 @@ def findDmxClothVertexGroups(ob):
 	for vgroup in ob.vertex_groups:
 		if vgroup.name in vertex_float_maps:
 			groups.append(vgroup)
-			
+
 		elif vgroup.name.startswith("cloth_collision_layer_"):
 			for n in range(16):
 				if vgroup.name == f"cloth_collision_layer_{n}":
 					groups.append(vgroup)
 					break
-			
+
 		elif vgroup.name.startswith("cloth_vertex_set_"):
 			groups.append(vgroup)
 
@@ -275,7 +277,7 @@ def animationLength(ad):
 			return int(max(strips))
 		else:
 			return 0
-	
+
 def getFileExt(flex=False):
 	if allowDMX() and bpy.context.scene.vs.export_format == 'DMX':
 		return ".dmx"
@@ -383,7 +385,7 @@ def removeObject(obj):
 				bpy.data.armatures.remove(d)
 
 	return None if d else type
-	
+
 def select_only(ob):
 	bpy.context.view_layer.objects.active = ob
 	bpy.ops.object.mode_set(mode='OBJECT')
@@ -394,7 +396,7 @@ def select_only(ob):
 def hasShapes(id, valid_only = True):
 	def _test(id_):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
-	
+
 	if type(id) == bpy.types.Collection:
 		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in p_cache.validObs) and _test(ob)]:
 			return True
@@ -473,16 +475,16 @@ def getSelectedExportables():
 def make_export_list():
 	s = bpy.context.scene
 	s.vs.export_list.clear()
-	
+
 	def makeDisplayName(item,name=None):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else "", (name if name else item.name) + getFileExt())
-	
+
 	if len(p_cache.validObs):
 		ungrouped_objects = p_cache.validObs.copy()
-		
+
 		groups_sorted = bpy.data.collections[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
-		
+
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
@@ -492,7 +494,7 @@ def make_export_list():
 				valid = True
 			if valid:
 				scene_groups.append(group)
-				
+
 		for g in scene_groups:
 			i = s.vs.export_list.add()
 			if g.vs.mute:
@@ -502,14 +504,14 @@ def make_export_list():
 			i.item_name = g.name
 			i.ob_type = "COLLECTION"
 			i.icon = "GROUP"
-			
-		
+
+
 		ungrouped_objects = list(ungrouped_objects)
 		ungrouped_objects.sort(key=lambda ob: ob.name.lower())
 		for ob in ungrouped_objects:
 			if ob.type == 'FONT':
 				ob.vs.triangulate = True # preserved if the user converts to mesh
-			
+
 			i_name = i_type = i_icon = None
 			if ob.type == 'ARMATURE':
 				ad = ob.animation_data
@@ -539,7 +541,7 @@ last_export_refresh = 0
 @persistent
 def scene_update(scene, immediate = False):
 	global last_export_refresh
-		
+
 	if not hasattr(scene,"vs"):
 		return
 
@@ -549,7 +551,7 @@ def scene_update(scene, immediate = False):
 
 	# dupli groups etc.
 	#p_cache.validObs = p_cache.validObs.union(set([ob for ob in scene.objects if (ob.type == 'MESH' and ob.dupli_type in ['VERTS','FACES'] and ob.children) or (ob.dupli_type == 'GROUP' and ob.dupli_group)]))
-	
+
 	p_cache.validObs_version += 1
 
 	now = time.time()
@@ -581,7 +583,7 @@ class Logger:
 		message = " ".join(str(s) for s in string)
 		print(" ERROR:",message)
 		self.log_errors.append(message)
-	
+
 	def list_errors(self, menu, context):
 		l = menu.layout
 		if len(self.log_errors):
@@ -600,11 +602,11 @@ class Logger:
 			message += get_id("exporter_report_suffix",True).format(len(self.log_errors),len(self.log_warnings))
 			if not bpy.app.background:
 				bpy.context.window_manager.popup_menu(self.list_errors,title=get_id("exporter_report_menu"))
-			
+
 			print("{} Errors and {} Warnings".format(len(self.log_errors),len(self.log_warnings)))
 			for msg in self.log_errors: print("Error:",msg)
 			for msg in self.log_warnings: print("Warning:",msg)
-		
+
 		self.report({'INFO'},message)
 		print(message)
 
@@ -622,7 +624,7 @@ class SmdInfo:
 	in_block_comment = False
 	upAxis = 'Z'
 	rotMode = 'EULER' # for creating keyframes during import
-	
+
 	def __init__(self):
 		self.upAxis = bpy.context.scene.vs.up_axis
 		self.amod = {} # Armature modifiers
@@ -657,7 +659,7 @@ class QcInfo:
 	in_block_comment = False
 	jobName = ""
 	root_filedir = ""
-	
+
 	def __init__(self):
 		self.imported_smds = []
 		self.vars = {}
@@ -665,7 +667,7 @@ class QcInfo:
 
 	def cd(self):
 		return os.path.join(self.root_filedir,*self.dir_stack)
-		
+
 class KeyFrame:
 	def __init__(self):
 		self.frame = None
@@ -676,7 +678,7 @@ class Cache:
 	qc_lastPath = ""
 	qc_paths = {}
 	qc_lastUpdate = 0
-	
+
 	action_filter = ""
 
 	@classmethod
@@ -712,7 +714,7 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	@classmethod
 	def poll(self,context):
 		return bool(context.scene.vs.engine_path)
-		
+
 	def execute(self,context):
 		args = [os.path.normpath(os.path.join(bpy.path.abspath(context.scene.vs.engine_path),"hlmv"))]
 		if context.scene.vs.game_path:
@@ -724,25 +726,25 @@ class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
 	bl_idname = "smd.toggle_export"
 	bl_label = get_id("exportstate")
 	bl_options = {'REGISTER','UNDO'}
-	
+
 	pattern = bpy.props.StringProperty(name=get_id("exportstate_pattern"),description=get_id("exportstate_pattern_tip"))
 	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
-	
+
 	@classmethod
 	def poll(self,context):
 		return len(context.visible_objects)
-	
+
 	def invoke(self, context, event):
 		context.window_manager.invoke_props_dialog(self)
 		return {'RUNNING_MODAL'}
-		
+
 	def execute(self,context):
 		if self.action == 'TOGGLE': target_state = None
 		elif self.action == 'ENABLE': target_state = True
 		elif self.action == 'DISABLE': target_state = False
-		
+
 		import fnmatch
-		
+
 		for ob in context.visible_objects:
 			if fnmatch.fnmatch(ob.name,self.pattern):
 				if target_state == None: target_state = not ob.vs.export

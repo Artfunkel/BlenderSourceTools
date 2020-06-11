@@ -176,6 +176,7 @@ class ValveSource_SceneProps(PropertyGroup):
 
 	export_format : EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
 	up_axis : EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
+	forward_parity : EnumProperty(name=get_id("forward_parity"),items=axes_signed,default='+X',description=get_id("forward_parity_tip"))
 	bone_swap_forward_axis : BoolProperty(name=get_id("bone_swap_forward_axis"),default=False,description=get_id("bone_swap_forward_axis_tip"))
 	model_scale : FloatProperty(name=get_id("model_scale"),default=1.0,soft_min=0.1,soft_max=100,step=10,description=get_id("model_scale_tip"))
 	material_path : StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
