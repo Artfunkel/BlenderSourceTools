@@ -749,6 +749,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() @ getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() @ id.matrix_world
 
+		if shouldExportDMX() and bpy.context.scene.vs.model_scale != 1.0:
+			id.matrix_world @= Matrix.Diagonal(Vector.Fill(4, bpy.context.scene.vs.model_scale))
+
 		if id.type == 'ARMATURE':
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
 			if self.armature and self.armature != id:
