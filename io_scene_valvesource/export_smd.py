@@ -147,10 +147,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		# Misconfiguration?
 		if allowDMX() and context.scene.vs.export_format == 'DMX':
 			datamodel.check_support("binary",DatamodelEncodingVersion())
-			if DatamodelEncodingVersion() < 3 and DatamodelFormatVersion() > 11:
+			if DatamodelEncodingVersion() < 3 and DatamodelFormatVersion() > 11 and not context.scene.vs.use_kv2:
 				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
 				return {'CANCELLED' }
-		if len(context.scene.vs.export_path) == 0:
+		if not context.scene.vs.export_path:
 			bpy.ops.wm.call_menu(name="SMD_MT_ConfigureScene")
 			return {'CANCELLED'}
 		if context.scene.vs.export_path.startswith("//") and not context.blend_data.filepath:
@@ -559,6 +559,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 				name.encode('ascii')
 			except UnicodeEncodeError:
 				self.warning(get_id("exporter_warn_unicode", format_string=True).format(pgettext(display_type), name))
+
+		# Meanwhile, Source 2 wants only lowercase characters, digits, and underscore in model names
+		if getEngineVersion() == 2 or DatamodelFormatVersion() >= 22:
+			if re.match(r'[^a-z0-9_]', id.name):
+				self.warning(get_id("exporter_warn_source2names", format_string=True).format(id.name))
 
 		for bake in bake_results:
 			test_for_unicode(bake.name, bake, type(bake.src).__name__)
@@ -1583,10 +1588,10 @@ skeleton
 				loops = [loop for face in bm.faces for loop in face.loops]
 				loop_indices = datamodel.make_array([loop.index for loop in loops], int)
 				layerGroups = bm.loops.layers
-
+				
 				def get_bmesh_layers(layerGroup):
 					# use items() to avoid a Blender 2.80 exception
-					return [l for l in layerGroup.items() if re.match(l[0], r"\$[0-9]+$")]
+					return [l for l in layerGroup.items() if re.match(r".*\$[0-9]+", l[0])]
 
 				defaultUvLayer = "texcoord$0"
 				uv_layers_to_export = list(get_bmesh_layers(layerGroups.uv))
@@ -1633,6 +1638,15 @@ skeleton
 				vertex_data[keywords["weight"]] = datamodel.make_array(jointWeights,float)
 				vertex_data[keywords["weight_indices"]] = datamodel.make_array(jointIndices,int)
 				format.extend( [ keywords['weight'], keywords["weight_indices"] ] )
+
+			deform_layer = bm.verts.layers.deform.active
+			if deform_layer:
+				for cloth_enable in (group for group in ob.vertex_groups if re.match(r"cloth_enable\$[0-9]+", group.name)):
+					format.append(cloth_enable.name)
+					values = [v[deform_layer].get(cloth_enable.index, 0) for v in bm.verts]
+					valueSet = ordered_set.OrderedSet(values)
+					vertex_data[cloth_enable.name] = datamodel.make_array(valueSet, float)
+					vertex_data[cloth_enable.name + "Indices"] = datamodel.make_array((valueSet.index(values[i]) for i in Indices), int)
 			
 			if bake.shapes and bake.balance_vg:
 				vertex_data[keywords["balance"]] = datamodel.make_array(balance,float)
