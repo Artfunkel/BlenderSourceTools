@@ -1654,8 +1654,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 				frameRate = animation.get("frameRate",30) # very, very old DMXs don't have this
 				timeFrame = animation["timeFrame"]
 				scale = timeFrame.get("scale",1.0)
-				duration = timeFrame["duration" if dm.format_ver >= 11 else "durationTime"]
-				offset = timeFrame.get("offset" if dm.format_ver >= 11 else "offsetTime",0.0)
+				duration = timeFrame["duration" if dm.format_ver >= 9 else "durationTime"]
+				offset = timeFrame.get("offset" if dm.format_ver >= 9 else "offsetTime",0.0)
 				start = timeFrame.get("start", 0)
 				
 				if type(duration) == int: duration = datamodel.Time.from_int(duration)
