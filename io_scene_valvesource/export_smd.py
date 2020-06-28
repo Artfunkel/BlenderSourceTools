@@ -657,6 +657,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 			top_parent = top_parent.parent
 		return top_parent
 
+	def getEvaluatedPoseBones(self):
+		depsgraph = bpy.context.evaluated_depsgraph_get()
+		evaluated_armature = self.armature.evaluated_get(depsgraph)
+
+		return [evaluated_armature.pose.bones[bone.name] for bone in self.exportable_bones]
+
 	class BakedVertexAnimation(list):
 		def __init__(self):
 			self.export_sequence = False
@@ -1032,9 +1038,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if is_anim:
 						bpy.context.scene.frame_set(i)
 
-					for posebone in self.exportable_bones:
+					evaluated_bones = self.getEvaluatedPoseBones()
+					for posebone in evaluated_bones:
 						parent = posebone.parent
-						while parent and not parent in self.exportable_bones:
+						while parent and not parent in evaluated_bones:
 							parent = parent.parent
 				
 						# Get the bone's Matrix from the current pose
@@ -1984,7 +1991,7 @@ skeleton
 			channels = DmeChannelsClip["channels"] = datamodel.make_array([],datamodel.Element)
 			bone_channels = {}
 			def makeChannel(bone):
-				bone_channels[bone] = []
+				bone_channels[bone.name] = []
 				channel_template = [
 					[ "_p", "position", "Vector3", datamodel.Vector3 ],
 					[ "_o", "orientation", "Quaternion", datamodel.Quaternion ]
@@ -1999,7 +2006,7 @@ skeleton
 					cur["log"]["layers"] = datamodel.make_array([val_arr],datamodel.Element)				
 					val_arr["times"] = datamodel.make_array([],datamodel.Time if dm.format_ver > 11 else int)
 					val_arr["values"] = datamodel.make_array([],template[3])
-					if bone: bone_channels[bone].append(val_arr)
+					if bone: bone_channels[bone.name].append(val_arr)
 					channels.append(cur)
 			
 			for bone in self.exportable_bones:
@@ -2017,11 +2024,12 @@ skeleton
 				bpy.context.window_manager.progress_update(frame/num_frames)
 				bpy.context.scene.frame_set(frame)
 				keyframe_time = datamodel.Time(frame / fps) if dm.format_ver > 11 else int(frame/fps * 10000)
-				for bone in self.exportable_bones:
-					channel = bone_channels[bone]
+				evaluated_bones = self.getEvaluatedPoseBones()
+				for bone in evaluated_bones:
+					channel = bone_channels[bone.name]
 
 					cur_p = bone.parent
-					while cur_p and not cur_p in self.exportable_bones: cur_p = cur_p.parent
+					while cur_p and not cur_p in evaluated_bones: cur_p = cur_p.parent
 					if cur_p:
 						relMat = cur_p.matrix.inverted() @ bone.matrix
 					else:
