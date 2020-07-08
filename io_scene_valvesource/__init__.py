@@ -178,6 +178,8 @@ class ValveSource_SceneProps(PropertyGroup):
 	up_axis : EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
 	forward_parity : EnumProperty(name=get_id("forward_parity"),items=axes_signed,default='+X',description=get_id("forward_parity_tip"))
 	bone_swap_forward_axis : BoolProperty(name=get_id("bone_swap_forward_axis"),default=False,description=get_id("bone_swap_forward_axis_tip"))
+	export_keyframe_scale : BoolProperty(name=get_id("export_keyframe_scale"),default=False,description=get_id("export_keyframe_scale_tip"))
+	export_keyframe_flex : BoolProperty(name=get_id("export_keyframe_flex"),default=False,description=get_id("export_keyframe_flex_tip"))
 	model_scale : FloatProperty(name=get_id("model_scale"),default=1.0,soft_min=0.1,soft_max=100,step=10,description=get_id("model_scale_tip"))
 	material_path : StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
 	export_list_active : IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)

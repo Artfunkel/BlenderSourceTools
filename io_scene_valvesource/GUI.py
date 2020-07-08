@@ -117,6 +117,8 @@ class SMD_PT_Scene(bpy.types.Panel):
 				row.row().prop(scene.vs,"forward_parity", expand=True)
 				l.row().prop(scene.vs,"model_scale", expand=True)
 				l.row().prop(scene.vs,"bone_swap_forward_axis", expand=True)
+				l.row().prop(scene.vs,"export_keyframe_scale", expand=True)
+				l.row().prop(scene.vs,"export_keyframe_flex", expand=True)
 
 		else:
 			row = l.split(factor=0.33)

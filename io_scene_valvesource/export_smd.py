@@ -672,6 +672,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.armature = None
 			self.balance_vg = None
 			self.shapes = collections.OrderedDict()
+			self.shape_keys = collections.OrderedDict()
 			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
 
 	# Creates a mesh with object transformations and modifiers applied
@@ -758,6 +759,17 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.warning(get_id("exporter_warn_multiarmature"))
 			result.armature = result
 			result.object = id
+
+			# Find all shape keys used un the current action
+			if bpy.context.scene.vs.export_keyframe_flex:
+				result.shape_keys = {}
+				for obj in bpy.data.objects:
+					if obj.type == 'MESH' and result.src in [mod.object for mod in obj.modifiers if mod.type == 'ARMATURE'] and obj.data.shape_keys and obj.animation_data and obj.animation_data.action == result.src.animation_data.action:
+						print(obj)
+						for i, shape_key in enumerate(obj.data.shape_keys.key_blocks):
+							if i == 0: continue
+							result.shape_keys[shape_key.name] = shape_key
+
 			return result
 
 		if id.type == 'CURVE':
@@ -1303,6 +1315,11 @@ skeleton
 			trfm = dm.add_element(name,"DmeTransform",id=object_name+"transform")
 			trfm["position"] = datamodel.Vector3(matrix.to_translation())
 			trfm["orientation"] = getDatamodelQuat(matrix.to_quaternion())
+
+			if bpy.context.scene.vs.export_keyframe_scale:
+				scale_vec = matrix.to_scale()
+				trfm["scale"] = (scale_vec.x + scale_vec.y + scale_vec.z) / 3
+
 			return trfm
 
 		dm = datamodel.DataModel("model",DatamodelFormatVersion())
@@ -1972,12 +1989,17 @@ skeleton
 
 			channels = DmeChannelsClip["channels"] = datamodel.make_array([],datamodel.Element)
 			bone_channels = {}
+			flex_channels = {}
 			def makeChannel(bone):
 				bone_channels[bone] = []
 				channel_template = [
 					[ "_p", "position", "Vector3", datamodel.Vector3 ],
 					[ "_o", "orientation", "Quaternion", datamodel.Quaternion ]
 				]
+
+				if bpy.context.scene.vs.export_keyframe_scale:
+					channel_template.append([ "_s", "scale", "Float", float ])
+
 				for template in channel_template:
 					cur = dm.add_element(bone.name + template[0],"DmeChannel",id=bone.name+template[0])
 					cur["toAttribute"] = template[1]
@@ -1988,17 +2010,48 @@ skeleton
 					cur["log"]["layers"] = datamodel.make_array([val_arr],datamodel.Element)
 					val_arr["times"] = datamodel.make_array([],datamodel.Time if dm.format_ver > 11 else int)
 					val_arr["values"] = datamodel.make_array([],template[3])
+					if template[1] == "scale":
+						cur["toIndex"] = 0
+						cur["fromIndex"] = 0
 					if bone: bone_channels[bone].append(val_arr)
 					channels.append(cur)
 
 			for bone in self.exportable_bones:
 				makeChannel(bone)
+
+			def makeFlexChannel(flex_name):
+				cur = dm.add_element(flex_name + "_flex_channel","DmeChannel",id = flex_name + "_flex_channel")
+				cur["fromIndex"] = 0
+				cur["toAttribute"] = "flexWeight"
+				cur["toElement"] = dm.add_element(flex_name,"DmElement",id=flex_name )
+				cur["toElement"]["flexWeight"] = 0.0
+				cur["toIndex"] = 0
+				cur["mode"] = 3 # unknown, but SFM exports it like this
+				val_arr = dm.add_element("float log","DmeFloatLogLayer",cur.name+"loglayer")
+				cur["log"] = dm.add_element("float log","DmeFloatLog",cur.name+"log")
+				cur["log"]["layers"] = datamodel.make_array([val_arr],datamodel.Element)
+				val_arr["times"] = datamodel.make_array([],datamodel.Time if dm.format_ver > 11 else int)
+				val_arr["values"] = datamodel.make_array([], float)
+				flex_channels[flex_name] = val_arr
+				channels.append(cur)
+
+			if bpy.context.scene.vs.export_keyframe_flex:
+				for shape_name in bake_results[0].shape_keys:
+					makeFlexChannel(shape_name)
+
 			num_frames = int(anim_len + 1)
 			bench.report("Animation setup")
 			prev_pos = {}
 			prev_rot = {}
 			skipped_pos = {}
 			skipped_rot = {}
+
+			if bpy.context.scene.vs.export_keyframe_scale:
+				make_scale = True
+				prev_scale = {}
+				skipped_scale = {}
+			else:
+				make_scale = False
 
 			two_percent = num_frames / 50
 			print("Frames: ",debug_only=True,newline=False)
@@ -2032,6 +2085,9 @@ skeleton
 					rot = relMat.to_quaternion()
 					rot_vec = Vector(rot.to_euler())
 
+					if make_scale:
+						scale_vec = relMat.to_scale()
+
 					if not prev_pos.get(bone) or pos - prev_pos[bone] > epsilon:
 						skip_time = skipped_pos.get(bone)
 						if skip_time != None:
@@ -2057,8 +2113,32 @@ skeleton
 					else:
 						skipped_rot[bone] = keyframe_time
 
+
+					if make_scale:
+						if not prev_scale.get(bone) or scale_vec - prev_scale[bone] > epsilon:
+							skip_time = skipped_scale.get(bone)
+							if skip_time != None:
+								channel[2]["times"].append(skip_time)
+								channel[2]["values"].append(channel[2]["values"][-1])
+								del skipped_scale[bone]
+
+							channel[2]["times"].append(keyframe_time)
+							scale = (scale_vec.x + scale_vec.y + scale_vec.z) / 3.0
+							channel[2]["values"].append(scale)
+						else:
+							skipped_scale[bone] = keyframe_time
+
+
 					prev_pos[bone] = pos
 					prev_rot[bone] = rot_vec
+					if make_scale: prev_scale[bone] = scale_vec
+
+				if bpy.context.scene.vs.export_keyframe_flex:
+					for shape_name in bake_results[0].shape_keys:
+						channel = flex_channels[shape_name]
+						key = bake_results[0].shape_keys[shape_name]
+						channel["times"].append(keyframe_time)
+						channel["values"].append(key.value)
 
 				if two_percent and frame % two_percent:
 					print(".",debug_only=True,newline=False)

@@ -870,6 +870,12 @@ _data = {
 'bone_swap_forward_axis': {
 	'en': "Rotate Bone X-axis Forward",
 },
+'export_keyframe_scale': {
+	'en': "Export Bone Scale Keyframes (non-functional)",
+},
+'export_keyframe_flex': {
+	'en': "Export Direct Flex Keyframes",
+},
 'model_scale': {
 	'en': "Model Scale",
 },
@@ -910,6 +916,12 @@ _data = {
 },
 'bone_swap_forward_axis_tip': {
 	'en': "Rotates all bones so that the resulting X-axis faces the direction of the bone (Y-axis in Blender), per the Source engine convension. Used for better compatibility with some Source engine features",
+},
+'export_keyframe_scale_tip': {
+	'en': "Export skeletal animations with scale in addition to location and rotation",
+},
+'export_keyframe_flex_tip': {
+	'en': "Export keyframes that directly drive flexes, instead of ones indirectly driven through bones",
 },
 'model_scale_tip': {
 	'en': "Scales the model by a multiplier",
