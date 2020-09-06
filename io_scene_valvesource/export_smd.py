@@ -925,14 +925,14 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		# project a UV map
 		if generate_uvs and not baked.data.uv_layers:
+			ops.object.mode_set(mode='EDIT')
+			ops.mesh.select_all(action='SELECT')
 			if len(result.object.data.vertices) < 2000:
-				ops.object.mode_set(mode='OBJECT')
+				result.object.data.uv_layers.new()
 				ops.uv.smart_project()
 			else:
-				ops.object.mode_set(mode='EDIT')
-				ops.mesh.select_all(action='SELECT')
 				ops.uv.unwrap()
-				ops.object.mode_set(mode='OBJECT')
+			ops.object.mode_set(mode='OBJECT')
 				
 		return result
 
