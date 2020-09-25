@@ -115,7 +115,6 @@ class _AddonTests():
 		self.sceneSettings.export_format = 'DMX'
 		self.sceneSettings.dmx_encoding = '9'
 		self.sceneSettings.dmx_format = '22'
-		self.sceneSettings.engine_path = join(steam_common_path,"dota 2 beta","game","bin","win64") if steam_common_path else ""
 		ex(True)
 
 		section("DMX Source 1")
@@ -138,11 +137,15 @@ class _AddonTests():
 		ex(True)
 
 		qc_name = self.bpy.path.abspath("//" + blend_name + ".qc")
+		sfm_usermod = join(steam_common_path,"SourceFilmmaker","game","usermod")
 		if steam_common_path and os.path.exists(qc_name):
-			shutil.copy2(qc_name, self.sceneSettings.export_path)
-			self.sceneSettings.game_path = join(steam_common_path,"SourceFilmmaker","game","usermod")
-			self.sceneSettings.engine_path = os.path.realpath(join(self.sceneSettings.game_path,"..","bin"))
-			self.assertEqual(self.bpy.ops.smd.compile_qc(filepath=join(self.sceneSettings.export_path, blend_name + ".qc")), {'FINISHED'})
+			if os.path.exists(sfm_usermod):
+				shutil.copy2(qc_name, self.sceneSettings.export_path)
+				self.sceneSettings.game_path = sfm_usermod
+				self.sceneSettings.engine_path = os.path.realpath(join(self.sceneSettings.game_path,"..","bin"))
+				self.assertEqual(self.bpy.ops.smd.compile_qc(filepath=join(self.sceneSettings.export_path, blend_name + ".qc")), {'FINISHED'})
+			else:
+				print("WARNING: Could not locate Source Filmmaker; skipped QC compile test.")
 
 		self.compareResults(join(export_path_base, "Source2"))
 		self.compareResults(join(export_path_base, "SourceSMD"))	

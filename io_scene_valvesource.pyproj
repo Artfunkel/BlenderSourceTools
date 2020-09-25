@@ -13,7 +13,7 @@
     <Name>Blender Source Tools</Name>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
-    <InterpreterId>Global|PythonCore|3.7</InterpreterId>
+    <InterpreterId>Global|PythonCore|3.9</InterpreterId>
     <TestFramework>unittest</TestFramework>
     <UnitTestPattern>test*.py</UnitTestPattern>
     <UnitTestRootDirectory>.\Tests</UnitTestRootDirectory>
@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.7" />
+    <InterpreterReference Include="Global|PythonCore|3.9" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
 </Project>
