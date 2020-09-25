@@ -104,10 +104,7 @@ class ActiveDependencyShapes(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls, context):
-		try:
-			return context.active_object.active_shape_key.name.find('_') != -1
-		except:
-			return False
+		return context.active_object and context.active_object.active_shape_key and context.active_object.active_shape_key.name.find('_') != -1
 
 	def execute(self, context):
 		context.active_object.show_only_shape_key = False

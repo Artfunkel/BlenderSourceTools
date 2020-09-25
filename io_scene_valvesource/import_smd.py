@@ -1364,7 +1364,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 				
 				def parseSkeleton(elem_array, parent_bone):
 					for elem in elem_array:
-						if elem.type =="DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
+						if elem.type == "DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
+							if smd.jobType != REF:
+								continue
 							atch = smd.atch = bpy.data.objects.new(name=self.truncate_id_name(elem["shape"].name, "Attachment"), object_data=None)
 							smd.g.objects.link(atch)
 							atch.show_in_front = True
