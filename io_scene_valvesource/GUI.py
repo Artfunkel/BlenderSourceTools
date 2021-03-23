@@ -81,10 +81,10 @@ class SMD_PT_Scene(bpy.types.Panel):
 		
 		if allowDMX():
 			row = l.row().split(factor=0.33)
-			row.label(text=GetCustomPropName(scene.vs,"export_format",":"))
+			row.label(text=get_id("export_format") + ":")
 			row.row().prop(scene.vs,"export_format",expand=True)
 		row = l.row().split(factor=0.33)
-		row.label(text=GetCustomPropName(scene.vs,"up_axis",":"))
+		row.label(text=get_id("up_axis") + ":")
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
 		if shouldExportDMX() and bpy.app.debug_value > 0 or scene.vs.use_kv2:
@@ -113,7 +113,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 				col.enabled = shouldExportDMX()
 		else:
 			row = l.split(factor=0.33)
-			row.label(text=GetCustomPropName(scene.vs,"smd_format",":"))
+			row.label(text=get_id("smd_format") + ":")
 			row.row().prop(scene.vs,"smd_format", expand=True)
 		
 		col = l.column(align=True)

@@ -296,11 +296,6 @@ def MakeObjectIcon(object,prefix=None,suffix=None):
 		out += suffix
 	return out
 
-def GetCustomPropName(data,prop, suffix=""):
-	'''Looks up the name of the bpy property associated with the given property name'''
-	import typing
-	return "".join([pgettext(typing.get_type_hints(type(data))[prop][1]['name']), suffix])
-
 def getObExportName(ob):
 	return ob.name
 
