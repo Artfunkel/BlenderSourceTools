@@ -382,6 +382,9 @@ _data = {
 	'en': "Object {0} has no polygons, skipping",
 	'ru': "Пропуск объекта {0}: нет геометрии",
 },
+'exporter_err_hidden': {
+	'en': "Skipping {0}: object cannot be selected, probably due to being hidden by an animation driver.",
+},
 'exporter_err_arm_nonuniform': {
 	'en': "Armature \"{0}\" has non-uniform scale. Mesh deformation in Source will differ from Blender.",
 	'ru': "Скелет {0} масштабирован непропорционально. В движке Source скелет будет работать неправильно.",

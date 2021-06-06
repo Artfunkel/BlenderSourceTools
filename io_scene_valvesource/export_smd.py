@@ -375,6 +375,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.flex_controller_mode = id.vs.flex_controller_mode
 			self.flex_controller_source = id.vs.flex_controller_source
 
+		bpy.context.view_layer.objects.active = bake_results[0].object
 		bpy.ops.object.mode_set(mode='OBJECT')
 		mesh_bakes = [bake for bake in bake_results if bake.object.type == 'MESH']
 		
@@ -696,7 +697,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 		result.src = id
 		self.bake_results.append(result)
 
-		select_only(id)
+		try:
+			select_only(id)
+		except RuntimeError:
+			self.warning(get_id("exporter_err_hidden", True).format(id.name))
+			return
 
 		should_triangulate = not shouldExportDMX() or id.vs.triangulate
 
@@ -711,13 +716,18 @@ class SmdExporter(bpy.types.Operator, Logger):
 		id.select_set(False)
 		for dupli in bpy.context.selected_objects[:]:
 			dupli.parent = id
-			duplis.append(self.bakeObj(dupli, generate_uvs = False))
+			bakedDuplis = self.bakeObj(dupli, generate_uvs = False)
+			if bakedDuplis:
+				duplis.append(bakedDuplis)
 		if duplis:
 			for bake in duplis: bake.object.select_set(True)
+			bpy.context.view_layer.objects.active = duplis[0].object
 			del duplis
 			bpy.ops.object.join()
 			if should_triangulate: triangulate()
 			duplis = bpy.context.active_object
+		elif id.type not in exportable_types:
+			return
 		else:
 			duplis = None
 
