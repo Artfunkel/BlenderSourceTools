@@ -590,7 +590,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		except StopIteration as e:
 			raise ValueError("Armature for exportable \"{}\" was not baked".format(bake_result.name)) from e
 		
-		model_mat = amod_ob.matrix_world.inverted() @ ob.matrix_world
+		model_mat = amod_ob.matrix_world.inverted_safe() @ ob.matrix_world
 
 		num_verts = len(ob.data.vertices)
 		for v in ob.data.vertices:
@@ -770,7 +770,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			for posebone in self.armature_src.pose.bones: posebone.matrix_basis.identity()
 
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
-		id.matrix_world = Matrix.Translation(top_parent.location).inverted() @ getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() @ id.matrix_world
+		id.matrix_world = Matrix.Translation(top_parent.location).inverted_safe() @ getUpAxisMat(bpy.context.scene.vs.up_axis).inverted_safe() @ id.matrix_world
 		
 		if id.type == 'ARMATURE':
 			for posebone in id.pose.bones: posebone.matrix_basis.identity()
@@ -1061,7 +1061,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						if parent:
 							parentMat = parent.matrix
 							if self.armature.data.vs.legacy_rotation: parentMat @= mat_BlenderToSMD 
-							PoseMatrix = parentMat.inverted() @ PoseMatrix
+							PoseMatrix = parentMat.inverted_safe() @ PoseMatrix
 						else:
 							PoseMatrix = self.armature.matrix_world @ PoseMatrix
 				
@@ -1296,7 +1296,7 @@ skeleton
 			self.smd_file.write("time {}\n".format(i))
 			if self.armature_src:
 				for root_bone in [b for b in self.exportable_bones if b.parent == None]:
-					mat = getUpAxisMat('Y').inverted() @ self.armature.matrix_world @ root_bone.matrix
+					mat = getUpAxisMat('Y').inverted_safe() @ self.armature.matrix_world @ root_bone.matrix
 					self.smd_file.write("{} {} {}\n".format(self.bone_ids[root_bone.name], getSmdVec(mat.to_translation()), getSmdVec(mat.to_euler())))
 			else:
 				self.smd_file.write("0 0 0 0 {} 0 0\n".format("-1.570797" if bpy.context.scene.vs.up_axis == 'Z' else "0"))
@@ -1379,7 +1379,7 @@ skeleton
 				cur_p = bone.parent
 				while cur_p and not cur_p in self.exportable_bones: cur_p = cur_p.parent
 				if cur_p:
-					relMat = cur_p.matrix.inverted() @ bone.matrix
+					relMat = cur_p.matrix.inverted_safe() @ bone.matrix
 				else:
 					relMat = self.armature.matrix_world @ bone.matrix
 			
@@ -1482,7 +1482,7 @@ skeleton
 				# - Bone parents are calculated from the head of the bone, NOT the tail (even though the tail defines the bone's location in pose mode!)
 				# The simplest way to arrive at the correct value relative to the tail is to perform a world space calculation, like so:
 				bone_parent_matrix_world = self.armature_src.matrix_world @ self.armature_src.data.bones[bake.envelope].matrix_local
-				trfm_mat = bone_parent_matrix_world.normalized().inverted() @ bake.src.matrix_world # normalise to remove armature scale
+				trfm_mat = bone_parent_matrix_world.normalized().inverted_safe() @ bake.src.matrix_world # normalise to remove armature scale
 
 				if not source2 and bake.src.type == 'META': # I have no idea why this is required. Metaballs are weird.
 					trfm_mat @= Matrix.Translation(self.armature_src.location)
@@ -1872,7 +1872,7 @@ skeleton
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 			
 			ob.data.calc_normals_split()
-			vca_matrix = ob.matrix_world.inverted()
+			vca_matrix = ob.matrix_world.inverted_safe()
 			for vca_name,vca in bake_results[0].vertex_animations.items():
 				frame_shapes = []
 
@@ -1926,7 +1926,7 @@ skeleton
 					vca_bone.tail.y = 1
 					
 					bpy.context.scene.frame_set(0)
-					mat = getUpAxisMat('y').inverted()
+					mat = getUpAxisMat('y').inverted_safe()
 					# DMX animations don't handle missing root bones or meshes, so create bones to represent them
 					if self.armature_src:
 						for bone in [bone for bone in self.armature_src.data.bones if bone.parent is None]:
@@ -2041,7 +2041,7 @@ skeleton
 					cur_p = bone.parent
 					while cur_p and not cur_p in evaluated_bones: cur_p = cur_p.parent
 					if cur_p:
-						relMat = cur_p.matrix.inverted() @ bone.matrix
+						relMat = cur_p.matrix.inverted_safe() @ bone.matrix
 					else:
 						relMat = self.armature.matrix_world @ bone.matrix
 					
