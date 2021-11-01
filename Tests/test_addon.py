@@ -60,6 +60,11 @@ class _AddonTests():
 			self.skipTest("Could not import {}: {}".format(self.module, ex))
 			return
 
+		try:
+			self.bpy.context.preferences.filepaths.file_preview_type = 'NONE'
+		except:
+			pass
+
 		self.bpy.ops.preferences.addon_enable(module='io_scene_valvesource')
 		self.bpy.app.debug_value = 1
 		self.bpy_version = ".".join(str(i) for i in self.bpy.app.version)			
@@ -248,7 +253,7 @@ class _AddonTests():
 		
 		for f in files:
 			self.assertEqual(self.bpy.ops.import_scene.smd(filepath=join(src_path,f)), {'FINISHED'})
-
+		
 		self.bpy.ops.wm.save_mainfile(filepath=join(out_dir,test_name + ".blend"),check_existing=False)
 
 	@unittest.skipUnless(sdk_content_path, "Source SDK not found")

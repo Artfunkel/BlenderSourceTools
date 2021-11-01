@@ -712,24 +712,20 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.object.mode_set(mode='OBJECT')
 				
 		duplis = []
-		bpy.ops.object.duplicates_make_real()
-		id.select_set(False)
-		for dupli in bpy.context.selected_objects[:]:
-			dupli.parent = id
-			bakedDuplis = self.bakeObj(dupli, generate_uvs = False)
-			if bakedDuplis:
-				duplis.append(bakedDuplis)
-		if duplis:
-			for bake in duplis: bake.object.select_set(True)
-			bpy.context.view_layer.objects.active = duplis[0].object
-			del duplis
-			bpy.ops.object.join()
-			if should_triangulate: triangulate()
-			duplis = bpy.context.active_object
-		elif id.type not in exportable_types:
-			return
-		else:
-			duplis = None
+		if id.instance_type != 'NONE':
+			bpy.ops.object.duplicates_make_real()
+			id.select_set(False)
+			if bpy.context.selected_objects:
+				bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+				bpy.ops.object.join()
+				duplis = bpy.context.active_object
+				duplis.parent = id
+				duplis = self.bakeObj(duplis, generate_uvs = False).object
+				if should_triangulate: triangulate()		
+			elif id.type not in exportable_types:
+				return
+			else:
+				duplis = None
 
 		if id.type != 'META': # eek, what about lib data?
 			id = id.copy()
