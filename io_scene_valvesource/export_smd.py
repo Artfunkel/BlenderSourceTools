@@ -77,7 +77,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 				out.append(result)
 
 		if not internal and not len(out) and not path.endswith(ext):
-			out = getQCs(path + ext)
+			out = cls.getQCs(path + ext)
 		return out
 	
 	def compileQCs(self,path=None):
@@ -339,7 +339,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if bench.quiet: print("- Baking...")
 
 		if type(id) == Collection:
-			have_baked_metaballs = False
 			group_vertex_maps = valvesource_vertex_maps(id)
 			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
@@ -1082,7 +1081,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				data.calc_normals_split()
 
 				uv_loop = data.uv_layers.active.data
-				uv_tex = data.uv_layers.active.data
 
 				weights = self.getWeightmap(bake)
 				
@@ -1171,10 +1169,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 			self.smd_file.write("vertexanimation\n")
 			
-			vert_offset = 0
 			total_verts = 0
 			vert_id = 0
-			shape_id = 1
 			
 			def _makeVertLine(i,co,norm):
 				return "{} {} {}\n".format(i, getSmdVec(co), getSmdVec(norm))
@@ -1200,7 +1196,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 					shape.calc_normals_split()
 					
 					vert_index = bake.offset
-					num_bad_verts = 0
 					mesh_verts = bake.object.data.vertices
 					shape_verts = shape.vertices
 
@@ -1288,7 +1283,7 @@ skeleton
 		)
 
 		max_frame = float(len(vca)-1)
-		for i, frame in enumerate(vca):
+		for i in range(len(vca)):
 			self.smd_file.write("time {}\n".format(i))
 			if self.armature_src:
 				for root_bone in [b for b in self.exportable_bones if b.parent == None]:
@@ -1524,9 +1519,7 @@ skeleton
 				self.warning(get_id("exporter_warn_weightlinks_excess",True).format(badJointCounts,bake.src.name,weight_link_limit))
 			if culled_weight_links:
 				self.warning(get_id("exporter_warn_weightlinks_culled",True).format(culled_weight_links,cull_threshold,bake.src.name))
-
-			uv_map_name = ob.data.uv_layers.active.name
-			
+						
 			format = vertex_data["vertexFormat"] = datamodel.make_array( [ keywords['pos'], keywords['norm'] ], str)
 			
 			vertex_data["flipVCoordinates"] = True
@@ -1700,7 +1693,7 @@ skeleton
 				face_sets[mat_name] = face_set
 
 				face_set["material"] = material_elem
-				face_list = face_set["faces"] = datamodel.make_array(indices,int)
+				face_set["faces"] = datamodel.make_array(indices,int)
 
 			print(debug_only=True)
 			DmeMesh["faceSets"] = datamodel.make_array(list(face_sets.values()),datamodel.Element)
