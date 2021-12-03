@@ -302,8 +302,8 @@ class _AddonTests():
 class Blender(_AddonTests, unittest.TestCase):
 	pass
 
-class Blender280(_AddonTests, unittest.TestCase):
-	module_subdir = 'bpy280'
+class Blender292(_AddonTests, unittest.TestCase):
+	module_subdir = 'bpy292'
 
 if __name__ == '__main__':
     unittest.main()

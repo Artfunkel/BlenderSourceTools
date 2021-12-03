@@ -1462,6 +1462,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 						def get_loop_value(self, loop_index):
 							return self.values[self.indices[loop_index]]
 
+					# Normals
+					normalsLayer = bm.loops.layers.float_vector.new("__bst_normal")
+					normalsLayerName = normalsLayer.name
+					vertex_layer_infos.append(VertexLayerInfo(normalsLayer, DmeVertexData[keywords['norm'] + "Indices"], DmeVertexData[keywords['norm']]))
+
 					# Arbitrary vertex data
 					def warnUneditableVertexData(name): self.warning("Vertex data '{}' was imported, but cannot be edited in Blender (as of 2.82)".format(name))
 					def isClothEnableMap(name): return name.startswith("cloth_enable$")
@@ -1541,7 +1546,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 								face.smooth = True
 								face.material_index = mat_ind
 
-								# Apply Source 2 vertex data
+								# Apply normals and Source 2 vertex data
 								for layer_info in vertex_layer_infos:
 									is_uv_layer = layer_info.layer.name in bm.loops.layers.uv
 									for i, loop in enumerate(face.loops):
@@ -1591,24 +1596,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Normals					
 					ob.data.create_normals_split()
 					ob.data.use_auto_smooth = True
+					normalsLayer = ob.data.attributes[normalsLayerName]
+					ob.data.normals_split_custom_set([value.vector for value in normalsLayer.data])
+					ob.data.attributes.remove(normalsLayer)
 
-					normals = DmeVertexData[keywords['norm']]
-					normalsIndices = DmeVertexData[keywords['norm'] + "Indices"]
-
-					normals_ordered = [None] * len(ob.data.loops)
-					i = f = 0
-					for vert in [vert for faceset in DmeMesh["faceSets"] for vert in faceset["faces"]]:
-						if vert == -1:
-							f += 1
-							continue
-						if f in skipfaces:
-							continue
-
-						normals_ordered[i] = normals[normalsIndices[vert]]
-						i += 1
-
-					ob.data.normals_split_custom_set(normals_ordered[:i])
-					
 					# Stereo balance
 					if keywords['balance'] in DmeVertexData["vertexFormat"]:
 						vg = ob.vertex_groups.new(name=get_id("importer_balance_group", data=True))

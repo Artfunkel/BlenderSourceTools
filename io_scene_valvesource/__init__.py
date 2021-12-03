@@ -21,8 +21,8 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (3, 1, 1),
-	"blender": (2, 80, 0),
+	"version": (3, 2, 0),
+	"blender": (2, 92, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
 	"wiki_url": "http://steamcommunity.com/groups/BlenderSourceTools",
