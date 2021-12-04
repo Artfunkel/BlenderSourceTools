@@ -864,8 +864,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			data.use_auto_smooth = id.data.use_auto_smooth
 			data.auto_smooth_angle = id.data.auto_smooth_angle
 
+		# Fix Blender 2.92 not creating vertex groups on the object
 		for vgroup in id.vertex_groups:
-			baked.vertex_groups.new(name=vgroup.name)
+			if vgroup.name not in baked.vertex_groups:
+				baked.vertex_groups.new(name=vgroup.name)
 		
 		if not shapes_invalid and hasShapes(id):
 			# calculate vert balance
