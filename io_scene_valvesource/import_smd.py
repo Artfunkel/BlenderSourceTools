@@ -29,7 +29,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 	bl_idname = "import_scene.smd"
 	bl_label = get_id("importer_title")
 	bl_description = get_id("importer_tip")
-	bl_options = {'UNDO'}
+	bl_options = {'UNDO', 'PRESET'}
 	
 	qc = None
 	smd = None
