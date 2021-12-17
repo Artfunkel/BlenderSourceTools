@@ -236,7 +236,7 @@ class Color(Vector4):
 	type_str = "iiii"
 	def tobytes(self):
 		out = bytes()
-		for i in self:
+		for i in range(len(self.type_str)):
 			out += bytes(int(self[i]))
 		return out
 class _ColorArray(_Vector4Array):
@@ -712,7 +712,8 @@ class DataModel:
 			elem._users = 0
 		def _count_child_elems(elem):
 			if elem in out_elems: return
-
+			if(elem.get("material")):
+				elem["material"] = elem["material"].replace('\\', '\\\\')
 			out_elems.add(elem)
 			for name in elem:
 				attr = elem[name]
@@ -726,6 +727,9 @@ class DataModel:
 						if item not in out_elems:
 							_count_child_elems(item)
 						item._users += 1
+				elif t == Color:
+					for i in range(len(attr.type_str)):
+						attr[i] = int(attr[i])
 		_count_child_elems(self.root)
 		
 		if self.encoding in ["binary", "binary_proto"]:
