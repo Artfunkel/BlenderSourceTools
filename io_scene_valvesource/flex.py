@@ -20,7 +20,7 @@
 
 import bpy, re
 from . import datamodel, utils
-from .utils import get_id
+from .utils import get_id, getCorrectiveShapeSeparator
 
 class DmxWriteFlexControllers(bpy.types.Operator):
 	bl_idname = "export_scene.dmx_flex_controller"
@@ -64,7 +64,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 			DmeCombinationInputControl["wrinkleScales"] = datamodel.make_array([0.0] * len(deltas),float)
 
 		for ob in [ob for ob in objects if ob.data.shape_keys]:
-			for shape in [shape for shape in ob.data.shape_keys.key_blocks[1:] if not "_" in shape.name and shape.name not in shapes]:
+			for shape in [shape for shape in ob.data.shape_keys.key_blocks[1:] if not getCorrectiveShapeSeparator() in shape.name and shape.name not in shapes]:
 				createController(ob.name, shape.name, [shape.name])
 				shapes.add(shape.name)
 
@@ -104,15 +104,15 @@ class ActiveDependencyShapes(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls, context):
-		return context.active_object and context.active_object.active_shape_key and context.active_object.active_shape_key.name.find('_') != -1
+		return context.active_object and context.active_object.active_shape_key and context.active_object.active_shape_key.name.find(getCorrectiveShapeSeparator()) != -1
 
 	def execute(self, context):
 		context.active_object.show_only_shape_key = False
 		active_key = context.active_object.active_shape_key		
-		subkeys = set(getCorrectiveShapeKeyDrivers(active_key) or active_key.name.split('_'))
+		subkeys = set(getCorrectiveShapeKeyDrivers(active_key) or active_key.name.split(getCorrectiveShapeSeparator()))
 		num_activated = 0
 		for key in context.active_object.data.shape_keys.key_blocks:
-			if key == active_key or set(key.name.split('_')) <= subkeys:
+			if key == active_key or set(key.name.split(getCorrectiveShapeSeparator())) <= subkeys:
 				key.value = 1
 				num_activated += 1
 			else:
@@ -134,8 +134,8 @@ class AddCorrectiveShapeDrivers(bpy.types.Operator):
 		keys = context.active_object.data.shape_keys
 		for key in keys.key_blocks:
 			subkeys = getCorrectiveShapeKeyDrivers(key) or []
-			if key.name.find('_') != -1:
-				name_subkeys = [subkey for subkey in key.name.split('_') if subkey in keys.key_blocks]
+			if key.name.find(getCorrectiveShapeSeparator()) != -1:
+				name_subkeys = [subkey for subkey in key.name.split(getCorrectiveShapeSeparator()) if subkey in keys.key_blocks]
 				subkeys = set([*subkeys, *name_subkeys])
 			if subkeys:
 				sorted = list(subkeys)
@@ -171,7 +171,7 @@ class RenameShapesToMatchCorrectiveDrivers(bpy.types.Operator):
 		for key in context.active_object.data.shape_keys.key_blocks:
 			driver_shapes = getCorrectiveShapeKeyDrivers(key)
 			if driver_shapes:
-				generated_name = "_".join(driver_shapes)
+				generated_name = getCorrectiveShapeSeparator().join(driver_shapes)
 				if key.name != generated_name:
 					key.name = generated_name
 					renamed += 1

@@ -155,9 +155,11 @@ def game_path_changed(self,context):
 from bpy.types import PropertyGroup
 
 encodings = []
-for enc in datamodel.list_support()['binary']: encodings.append( (str(enc), 'Binary ' + str(enc), '' ) )
+for enc in datamodel.list_support()['binary']: encodings.append( (str(enc), f"Binary {enc}", '' ) )
 formats = []
-for fmt in dmx_model_versions: formats.append( (str(fmt), "Model " + str(fmt), '') )
+for version in set(x for x in [*dmx_versions_source1.values(), *dmx_versions_source2.values()] if x.format != 0):
+	formats.append((version.format_enum, version.format_title, ''))
+formats.sort(key = lambda f: f[0])
 
 class ValveSource_SceneProps(PropertyGroup):
 	export_path : StringProperty(name=get_id("exportroot"),description=get_id("exportroot_tip"), subtype='DIR_PATH')

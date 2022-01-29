@@ -22,6 +22,7 @@ import bpy, bmesh, random, collections
 from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import StringProperty, CollectionProperty, BoolProperty, EnumProperty
+from mathutils import Quaternion, Euler
 from .utils import *
 from . import datamodel, ordered_set, flex
 
@@ -1101,7 +1102,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				continue
 
 			# naming shapes
-			if line[0] in ["flex","flexpair"]: # "flex" is safe because it cannot come before "flexfile"
+			if qc.ref_mesh and line[0] in ["flex","flexpair"]: # "flex" is safe because it cannot come before "flexfile"
 				for i in range(1,len(line)):
 					if line[i] == "frame":
 						shape = qc.ref_mesh.data.shape_keys.key_blocks.get(line[i+1])
@@ -1277,6 +1278,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 				bpy.context.scene.name = smd.jobName
 
 			keywords = getDmxKeywords(dm.format_ver)
+
+			correctiveSeparator = '_'
+			if dm.format_ver >= 22 and any([elem for elem in dm.elements if elem.type == "DmeVertexDeltaData" and '__' in elem.name]):
+				correctiveSeparator = '__'
+				self._ensureSceneDmxVersion(dmx_version(9, 22, modeldoc = True))
 			
 			if not smd_type:
 				smd.jobType = REF if dm.root.get("model") else ANIM
@@ -1501,10 +1507,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 						vertex_layer_infos.append(VertexLayerInfo(layers.new(vertexMap), DmeVertexData[vertexMap + "Indices"], values))
 
 						if vertexMap != "textureCoordinates":
-							if DatamodelFormatVersion() < 22:
-								bpy.context.scene.vs.dmx_format = '22'
-							if (DatamodelEncodingVersion() < 9):
-								bpy.context.scene.vs.dmx_encoding = '9'
+							self._ensureSceneDmxVersion(dmx_version(9, 22))
 
 					deform_group_names = ordered_set.OrderedSet()
 
@@ -1633,8 +1636,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 								for i,posIndex in enumerate(DmeVertexDeltaData[keywords['pos'] + "Indices"]):
 									shape_key.data[posIndex].co += Vector(deltaPositions[i])
 
-							if "_" in DmeVertexDeltaData.name:
-								flex.AddCorrectiveShapeDrivers.addDrivers(shape_key, DmeVertexDeltaData.name.split("_"))
+							if correctiveSeparator in DmeVertexDeltaData.name:
+								flex.AddCorrectiveShapeDrivers.addDrivers(shape_key, DmeVertexDeltaData.name.split(correctiveSeparator))
 			
 			if smd.jobType in [REF,PHYS]:
 				parseModel(DmeModel)
@@ -1715,3 +1718,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		bench.report("DMX imported in")
 		return 1
+
+	@classmethod
+	def _ensureSceneDmxVersion(cls, version : dmx_version):
+		if DatamodelFormatVersion() < version.format:
+			bpy.context.scene.vs.dmx_format = version.format_enum
+		if DatamodelEncodingVersion() < version.encoding:
+			bpy.context.scene.vs.dmx_encoding = str(version.encoding)

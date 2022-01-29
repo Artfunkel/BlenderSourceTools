@@ -57,7 +57,7 @@ class _AddonTests():
 		try:
 			self.bpy = import_module(".bpy", self.module_subdir) if self.module_subdir else import_module("bpy")
 		except ImportError as ex:
-			self.skipTest("Could not import {}: {}".format(self.module, ex))
+			self.skipTest("Could not import {}: {}".format(self.module_subdir, ex))
 			return
 
 		try:
@@ -214,9 +214,11 @@ class _AddonTests():
 	def _setupCorrectiveShapes(self):
 		self.bpy.ops.mesh.primitive_cube_add(enter_editmode=False)
 		ob = self.bpy.context.active_object
+		ob.shape_key_add(name="Basis")
 		ob.shape_key_add(name="k1")
 		ob.shape_key_add(name="k2")
-		ob.shape_key_add(name="k1_k2")
+		separator = "__" if "modeldoc" in self.sceneSettings.dmx_format else "_"
+		ob.shape_key_add(name=separator.join(["k1","k2"]))
 		ob.active_shape_key_index = 0
 
 	def test_GenerateCorrectiveDrivers(self):
@@ -229,12 +231,13 @@ class _AddonTests():
 		self.assertEqual(len(driver.variables), 2)
 
 	def test_RenameShapesToMatchCorrectiveDrivers(self):
+		self.sceneSettings.dmx_format = '22'
 		try:
 			self.test_GenerateCorrectiveDrivers()
 		except:
 			self.skipTest("GenerateCorrectiveDrivers test failed")
 
-		corrective_key = self.bpy.context.active_object.data.shape_keys.key_blocks[2]
+		corrective_key = self.bpy.context.active_object.data.shape_keys.key_blocks[-1]
 
 		corrective_key.name = "badname"
 		self.bpy.ops.object.sourcetools_rename_to_corrective_drivers()
@@ -283,6 +286,23 @@ class _AddonTests():
 		result = self.bpy.ops.export_scene.smd()
 		self.assertTrue(result == {'FINISHED'})
 		self.compareFiles(join(self.sceneSettings.export_path, filename), join(src_path, filename))
+
+	def test_ModelDocCorrectiveShapes_RoundTrip(self):
+		testname = "ModelDocCorrectives"
+		self.sceneSettings.export_format = 'DMX'
+		self.sceneSettings.dmx_format = '22_modeldoc'
+		self.sceneSettings.use_kv2 = True
+
+		self.test_GenerateCorrectiveDrivers()
+		
+		self.setupExport(testname)
+		self.assertEqual(self.bpy.ops.export_scene.smd(), {'FINISHED'})
+
+		self.assertEqual(self.bpy.ops.import_scene.smd(filepath=join(self.sceneSettings.export_path, self.bpy.context.active_object.name + ".dmx")), {'FINISHED'})		
+
+		imported_keys = self.bpy.context.active_object.data.shape_keys.key_blocks
+		self.assertEqual(len(imported_keys), 4)
+		self.assertEqual(imported_keys[-1].name, "k1__k2")
 
 	def test_export_SMD_GoldSrc(self):
 		self.setupExportTest("Cube_Armature")

@@ -18,9 +18,9 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools
+import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses, typing
 from bpy.app.translations import pgettext
-from mathutils import Matrix, Vector, Euler, Quaternion
+from mathutils import Matrix, Vector
 from math import *
 from . import datamodel
 
@@ -59,29 +59,40 @@ axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
 axes_lookup_source2 = { 'X':1, 'Y':2, 'Z':3 }
 
-dmx_model_versions = [1,15,18,22]
+@dataclasses.dataclass(frozen = True)
+class dmx_version:
+	encoding : int
+	format : int
+	title : str = dataclasses.field(default=None, hash=False, compare=False)
+	modeldoc : bool = False
 
-dmx_versions_source1 = { # [encoding, format]
-'ep1':[0,0],
-'source2007':[2,1],
-'source2009':[2,1],
-'Team Fortress 2':[2,1],
-'Left 4 Dead':[0,0], # wants model 7, but it's not worth working out what that is when L4D2 in far more popular and SMD export works
-'Left 4 Dead 2':[4,15],
-'orangebox':[5,18], # aka Source MP
-'Alien Swarm':[5,18],
-'Portal 2':[5,18],
-'Counter-Strike Global Offensive':[5,18],
-'Source Filmmaker':[5,18],
+	@property
+	def format_enum(self): return str(self.format) + ("_modeldoc" if self.modeldoc else "")
+	@property
+	def format_title(self): return f"Model {self.format}" + (" (ModelDoc)" if self.modeldoc else "")
+
+dmx_versions_source1 = {
+'ep1': dmx_version(0,0),
+'source2007': dmx_version(2,1),
+'source2009': dmx_version(2,1),
+'Team Fortress 2': dmx_version(2,1),
+'Left 4 Dead': dmx_version(0,0), # wants model 7, but it's not worth working out what that is when L4D2 in far more popular and SMD export works
+'Left 4 Dead 2': dmx_version(4,15),
+'orangebox': dmx_version(5,18), # aka Source MP
+'Alien Swarm': dmx_version(5,18),
+'Portal 2': dmx_version(5,18),
+'Counter-Strike Global Offensive': dmx_version(5,18),
+'Source Filmmaker': dmx_version(5,18),
 # and now back to 2/1 for some reason...
-'Half-Life 2':[2,1],
-'Source SDK Base 2013 Singleplayer':[2,1],
-'Source SDK Base 2013 Multiplayer':[2,1],
+'Half-Life 2': dmx_version(2,1),
+'Source SDK Base 2013 Singleplayer': dmx_version(2,1),
+'Source SDK Base 2013 Multiplayer': dmx_version(2,1),
 }
 
 dmx_versions_source2 = {
-'dota2': ("Dota 2",[9,22]),
-'steamtours': ("SteamVR",[9,22]),
+'dota2': dmx_version(9,22, "Dota 2"),
+'steamtours': dmx_version(9,22, "SteamVR"),
+'hlvr': dmx_version(9,22, "Half-Life: Alyx", True), # format is still declared as 22, but modeldoc introduces breaking changes
 }
 
 def print(*args, newline=True, debug_only=False):
@@ -144,21 +155,21 @@ def getGamePath():
 
 def DatamodelEncodingVersion():
 	ver = getDmxVersionsForSDK()
-	return ver[0] if ver else int(bpy.context.scene.vs.dmx_encoding)
+	return ver.encoding if ver else int(bpy.context.scene.vs.dmx_encoding)
 def DatamodelFormatVersion():
 	ver = getDmxVersionsForSDK()
-	return ver[1] if ver else int(bpy.context.scene.vs.dmx_format)
+	return ver.format if ver else int(bpy.context.scene.vs.dmx_format.split("_")[0])
 
 def allowDMX():
-	return getDmxVersionsForSDK() != [0,0]
+	return getDmxVersionsForSDK() != dmx_version(0,0)
 def canExportDMX():
 	return (len(bpy.context.scene.vs.engine_path) == 0 or p_cache.enginepath_valid) and allowDMX()
 def shouldExportDMX():
 	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
 
-def getEngineBranch():
+def getEngineBranch() -> typing.Tuple[str, dmx_version, int]:
 	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
-	if not path or not p_cache.enginepath_valid: return (None, None, None)
+	if not path or not p_cache.enginepath_valid: return (None, None, 0)
 
 	# Source 2: search for executable name
 	engine_path_files = set(name[:-4] if name.endswith(".exe") else name for name in os.listdir(path))
@@ -177,18 +188,23 @@ def getEngineBranch():
 	if dmx_versions:
 		return (name, dmx_versions, 1)
 	else:
-		return (None, None, None)
+		return (None, None, 0)
 
 def getEngineBranchName():
 	'''Returns a user-friendly name for the selected Source Engine branch, or None.'''
 	return getEngineBranch()[0]
 
 def getEngineVersion():
-	'''Returns an int representing engine version, i.e. Source 1 or Source 2, or None.'''
+	'''Returns an int representing engine version (i.e. Source 1 or Source 2), or 0.'''
 	return getEngineBranch()[2]
 
 def getDmxVersionsForSDK():
 	return getEngineBranch()[1]
+
+def getCorrectiveShapeSeparator():
+	branch_dmx = getEngineBranch()[1]
+	modeldoc = branch_dmx.modeldoc if branch_dmx else "modeldoc" in bpy.context.scene.vs.dmx_format
+	return '__' if modeldoc else '_'
 
 vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesource_vertex_blend1"]
 
@@ -353,7 +369,7 @@ def countShapes(*objects):
 			flattened_objects.append(ob)
 	for ob in [ob for ob in flattened_objects if ob.vs.export and hasShapes(ob)]:
 		for shape in ob.data.shape_keys.key_blocks[1:]:
-			if "_" in shape.name: num_correctives += 1
+			if getCorrectiveShapeSeparator() in shape.name: num_correctives += 1
 			else: num_shapes += 1
 	return num_shapes, num_correctives
 
@@ -656,33 +672,4 @@ class SMD_OT_LaunchHLMV(bpy.types.Operator):
 		if context.scene.vs.game_path:
 			args.extend(["-game",os.path.normpath(bpy.path.abspath(context.scene.vs.game_path))])
 		subprocess.Popen(args)
-		return {'FINISHED'}
-
-class SMD_OT_Toggle_Group_Export_State(bpy.types.Operator):
-	bl_idname = "smd.toggle_export"
-	bl_label = get_id("exportstate")
-	bl_options = {'REGISTER','UNDO'}
-	
-	pattern = bpy.props.StringProperty(name=get_id("exportstate_pattern"),description=get_id("exportstate_pattern_tip"))
-	action = bpy.props.EnumProperty(name="Action",items= ( ('TOGGLE', "Toggle", ""), ('ENABLE', "Enable", ""), ('DISABLE', "Disable", "")),default='TOGGLE')
-	
-	@classmethod
-	def poll(cls,context):
-		return len(context.visible_objects)
-	
-	def invoke(self, context, event):
-		context.window_manager.invoke_props_dialog(self)
-		return {'RUNNING_MODAL'}
-		
-	def execute(self,context):
-		if self.action == 'TOGGLE': target_state = None
-		elif self.action == 'ENABLE': target_state = True
-		elif self.action == 'DISABLE': target_state = False
-		
-		import fnmatch
-		
-		for ob in context.visible_objects:
-			if fnmatch.fnmatch(ob.name,self.pattern):
-				if target_state == None: target_state = not ob.vs.export
-				ob.vs.export = target_state
 		return {'FINISHED'}
