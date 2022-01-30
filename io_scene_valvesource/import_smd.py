@@ -861,7 +861,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 					vta_err_vg = vta_ref.vertex_groups.new(name=get_id("importer_name_unmatchedvta"))
 				elif making_base_shape:
-					vd.vertices.add(len(vta_cos)/3)
+					vd.vertices.add(int(len(vta_cos)/3))
 					vd.vertices.foreach_set("co",vta_cos)
 					num_vta_verts = len(vd.vertices)
 					del vta_cos
