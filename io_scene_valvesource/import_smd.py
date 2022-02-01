@@ -355,7 +355,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 							smd.shapeNames[frame] = line[pos+1:].strip()
 
 		a = smd.a
-		bones = a.data.bones
 		bpy.context.view_layer.objects.active = smd.a
 		ops.object.mode_set(mode='POSE')
 
@@ -672,7 +671,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		# Initialisation
 		md = smd.m.data
-		lastWindowUpdate = time.time()
 		# Vertex values
 		norms = []
 
@@ -687,8 +685,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		countPolys = 0
 		badWeights = 0
 		vertMap = {}
-
-		WeightLink = collections.namedtuple("WeightLink", ["group", "weight"])
 
 		for line in smd.file:
 			line = line.rstrip("\n")
@@ -1265,7 +1261,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		print( "\nDMX IMPORTER: now working on",os.path.basename(filepath) )	
 		
-		error = None
 		try:
 			print("- Loading DMX...")
 			try:
@@ -1291,7 +1286,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 			self.ensureAnimationBonesValidated()
 			
 			DmeModel = dm.root["skeleton"]
-			FlexControllers = dm.root.get("combinationOperator")
 			transforms = DmeModel["baseStates"][0]["transforms"] if DmeModel.get("baseStates") and len(DmeModel["baseStates"]) > 0 else None
 
 			DmeAxisSystem = DmeModel.get("axisSystem")
@@ -1317,85 +1311,87 @@ class SmdImporter(bpy.types.Operator, Logger):
 				return out
 			def isBone(elem):
 				return elem.type in ["DmeDag","DmeJoint"]
+			def getBoneForElement(elem):
+				return smd.a.data.edit_bones[smd.boneIDs[elem.id]]
+			def enumerateBonesAndAttachments(elem : datamodel.Element):
+				parent = elem if isBone(elem) else None
+				for child in elem.get("children", []):
+					if child.type == "DmeDag" and child.get("shape") and child["shape"].type == "DmeAttachment":
+						if smd.jobType != REF:
+							continue
+						yield (child["shape"], parent)
+					elif isBone(child) and child.name != implicit_bone_name and not child.get("shape"): # don't import Dags which simply wrap meshes
+						yield (child, parent)
+						yield from enumerateBonesAndAttachments(child)
+					elif child.type == "DmeModel":
+						yield from enumerateBonesAndAttachments(child)
 			
 			# Skeleton
 			bone_matrices = {}
 			restData = {}
 			if target_arm:
 				missing_bones = []
-
-				def validateSkeleton(elem_array, parent_elem):
-					for elem in [item for item in elem_array if (item.type == "DmeJoint" and item.name != "blender_implicit") or (item.type == "DmeDag" and item.get("shape") == None)]:
-						bone = smd.a.data.edit_bones.get(elem.name)
-						if not bone:
-							if self.append == 'APPEND' and smd.jobType in [REF,ANIM]:
-								bone = smd.a.data.edit_bones.new(self.truncate_id_name(elem.name, bpy.types.Bone))
-								if parent_elem:
-									bone.parent = smd.a.data.edit_bones[parent_elem.name]
-								bone.tail = (0,5,0)
-								bone_matrices[bone.name] = get_transform_matrix(elem)
-								smd.boneIDs[elem.id] = bone.name
-								smd.boneTransformIDs[elem["transform"].id] = bone.name
-								if elem.get("children"):
-									validateSkeleton(elem["children"], elem)
-							else:
-								missing_bones.append(elem.name)
-						else:
-							scene_parent = bone.parent.name if bone.parent else "<None>"
-							dmx_parent = parent_elem.name if parent_elem else "<None>"
-							if scene_parent != dmx_parent:
-								self.warning(get_id('importer_bone_parent_miss',True).format(elem.name,scene_parent,dmx_parent,smd.jobName))
-							
-							smd.boneIDs[elem.id] = bone.name
-							smd.boneTransformIDs[elem["transform"].id] = bone.name
-						
-						if elem.get("children"):
-							validateSkeleton(elem["children"], elem)
-
 				bpy.context.view_layer.objects.active = smd.a
 				smd.a.hide_set(False)
 				ops.object.mode_set(mode='EDIT')
-				validateSkeleton(DmeModel["children"], None)
+
+				for (elem,parent) in enumerateBonesAndAttachments(DmeModel):
+					if elem.type == "DmeAttachment":
+						continue
+
+					bone = smd.a.data.edit_bones.get(self.truncate_id_name(elem.name, bpy.types.Bone))
+					if not bone:
+						if self.append == 'APPEND' and smd.jobType in [REF,ANIM]:
+							bone = smd.a.data.edit_bones.new(self.truncate_id_name(elem.name, bpy.types.Bone))
+							bone.parent = getBoneForElement(parent) if parent else None
+							bone.tail = (0,5,0)
+							bone_matrices[bone.name] = get_transform_matrix(elem)
+							smd.boneIDs[elem.id] = bone.name
+							smd.boneTransformIDs[elem["transform"].id] = bone.name
+						else:
+							missing_bones.append(elem.name)
+					else:
+						scene_parent = bone.parent.name if bone.parent else "<None>"
+						dmx_parent = parent.name if parent else "<None>"
+						if scene_parent != dmx_parent:
+							self.warning(get_id('importer_bone_parent_miss',True).format(elem.name,scene_parent,dmx_parent,smd.jobName))
+							
+						smd.boneIDs[elem.id] = bone.name
+						smd.boneTransformIDs[elem["transform"].id] = bone.name
 
 				if missing_bones and smd.jobType != ANIM: # animations report missing bones seperately
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(missing_bones),smd.a.name))
 					print("\n".join(missing_bones))
-			elif any(child for child in DmeModel["children"] if child and isBone(child)):
+			elif any(enumerateBonesAndAttachments(DmeModel)):
 				self.append = 'NEW_ARMATURE'
 				ob = smd.a = self.createArmature(self.truncate_id_name(DmeModel.name, bpy.types.Armature))
 				if self.qc: self.qc.a = ob
 				bpy.context.view_layer.objects.active = smd.a
 				ops.object.mode_set(mode='EDIT')
 				
-				smd.a.matrix_world = getUpAxisMat(smd.upAxis)				
+				smd.a.matrix_world = getUpAxisMat(smd.upAxis)
 				
-				def parseSkeleton(elem_array, parent_bone):
-					for elem in elem_array:
-						if elem.type == "DmeDag" and elem.get("shape") and elem["shape"].type == "DmeAttachment":
-							if smd.jobType != REF:
-								continue
-							atch = smd.atch = bpy.data.objects.new(name=self.truncate_id_name(elem["shape"].name, "Attachment"), object_data=None)
-							smd.g.objects.link(atch)
-							atch.show_in_front = True
-							atch.empty_display_type = 'ARROWS'
+				for (elem,parent) in enumerateBonesAndAttachments(DmeModel):
+					parent = getBoneForElement(parent) if parent else None
+					if elem.type == "DmeAttachment":
+						atch = smd.atch = bpy.data.objects.new(name=self.truncate_id_name(elem.name, "Attachment"), object_data=None)
+						smd.g.objects.link(atch)
+						atch.show_in_front = True
+						atch.empty_display_type = 'ARROWS'
 
-							atch.parent = smd.a
-							if parent_bone:
-								atch.parent_type = 'BONE'
-								atch.parent_bone = parent_bone.name
+						atch.parent = smd.a
+						if parent:
+							atch.parent_type = 'BONE'
+							atch.parent_bone = parent.name
 						
-							atch.matrix_local = get_transform_matrix(elem)
-						elif (isBone(elem) and elem.name != "blender_implicit") and not elem.get("shape"): # don't import Dags which simply wrap meshes
-							bone = smd.a.data.edit_bones.new(self.truncate_id_name(elem.name,bpy.types.Bone))
-							bone.parent = parent_bone
-							bone.tail = (0,5,0)
-							bone_matrices[bone.name] = get_transform_matrix(elem)
-							smd.boneIDs[elem.id] = bone.name
-							smd.boneTransformIDs[elem["transform"].id] = bone.name
-							if elem.get("children"):
-								parseSkeleton(elem["children"], bone)
-				
-				parseSkeleton(DmeModel["children"], None)
+						atch.matrix_local = get_transform_matrix(elem)
+					else:
+						bone = smd.a.data.edit_bones.new(self.truncate_id_name(elem.name,bpy.types.Bone))
+						bone.parent = parent
+						bone.tail = (0,5,0)
+						bone_matrices[bone.name] = get_transform_matrix(elem)
+						smd.boneIDs[elem.id] = bone.name
+						smd.boneTransformIDs[elem["transform"].id] = bone.name
 			
 			if smd.a:		
 				ops.object.mode_set(mode='POSE')
