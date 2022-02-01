@@ -790,6 +790,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			smd.m.show_wire = smd.jobType == PHYS
 
 			md.use_auto_smooth = True
+			md.auto_smooth_angle = 180
 			md.normals_split_custom_set(norms)
 
 			if smd.upAxis == 'Y':
@@ -1599,6 +1600,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					# Normals					
 					ob.data.create_normals_split()
 					ob.data.use_auto_smooth = True
+					ob.data.auto_smooth_angle = 180
 					normalsLayer = ob.data.attributes[normalsLayerName]
 					ob.data.normals_split_custom_set([value.vector for value in normalsLayer.data])
 					ob.data.attributes.remove(normalsLayer)
@@ -1650,15 +1652,15 @@ class SmdImporter(bpy.types.Operator, Logger):
 				frameRate = animation.get("frameRate",30) # very, very old DMXs don't have this
 				timeFrame = animation["timeFrame"]
 				scale = timeFrame.get("scale",1.0)
-				duration = timeFrame["duration" if dm.format_ver >= 9 else "durationTime"]
-				offset = timeFrame.get("offset" if dm.format_ver >= 9 else "offsetTime",0.0)
+				duration = timeFrame.get("duration") or timeFrame.get("durationTime")
+				offset = timeFrame.get("offset") or timeFrame.get("offsetTime",0.0)
 				start = timeFrame.get("start", 0)
 				
 				if type(duration) == int: duration = datamodel.Time.from_int(duration)
 				if type(offset) == int: offset = datamodel.Time.from_int(offset)
-				
-				total_frames = ceil(duration * frameRate) + 1 # need a frame for 0 too!
-				
+
+				lastFrameIndex = 0
+								
 				keyframes = collections.defaultdict(list)
 				unknown_bones = []
 				for channel in animation["channels"]:
@@ -1691,6 +1693,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 						keyframes[bone].append(keyframe)
 
 						keyframe.frame = frame_time * frameRate
+						lastFrameIndex = max(lastFrameIndex, keyframe.frame)
 						
 						if not (bone.parent or keyframe.pos or keyframe.rot):
 							keyframe.matrix = getUpAxisMat(smd.upAxis).inverted()
@@ -1707,6 +1710,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if unknown_bones:
 					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
 
+				total_frames = ceil((duration * frameRate) if duration else lastFrameIndex) + 1 # need a frame for 0 too!
+				
 				# apply the keframes
 				self.applyFrames(keyframes,total_frames,frameRate)
 
