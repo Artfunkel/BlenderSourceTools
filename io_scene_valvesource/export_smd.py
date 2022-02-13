@@ -661,7 +661,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		depsgraph = bpy.context.evaluated_depsgraph_get()
 		evaluated_armature = self.armature.evaluated_get(depsgraph)
 
-		return [evaluated_armature.pose.bones[bone.name] for bone in self.exportable_bones]
+		return [evaluated_armature.pose.bones[bone.name] for bone in self.exportable_bones]	
 
 	class BakedVertexAnimation(list):
 		def __init__(self):
@@ -681,6 +681,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.object = None
 			self.matrix = Matrix()
 			self.envelope = None
+			self.bone_parent_matrix = None
 			self.src = None
 			self.armature = None
 			self.balance_vg = None
@@ -738,18 +739,37 @@ class SmdExporter(bpy.types.Operator, Logger):
 				
 		if hasShapes(id):
 			id.active_shape_key_index = 0
+
+		top_parent = self.getTopParent(id) # record this before changing hierarchies!
 		
-		top_parent = self.getTopParent(id)
-		
-		cur_parent = id
-		while cur_parent:
-			if cur_parent.parent_bone and cur_parent.parent_type == 'BONE':
-				result.envelope = cur_parent.parent_bone
-				result.armature = self.bakeObj(cur_parent.parent)
-				select_only(id)
+		def captureBoneParent(armature, boneName):
+			result.envelope = boneName
+			result.armature = self.bakeObj(armature)
+			select_only(id)
+
+			# Objects with bone parents are not updated in sync with depsgraph evaluation (as of Blender 3.0.1). So capture the correct matrix before we start to mess with them.
+			# Furthemore, Blender's bone transforms are inconsistent with object transforms:
+			# - A bone's matrix value is local to the armature, NOT the bone's parent
+			# - Object bone parent matricies are calculated from the head of the bone, NOT the tail (even though the tail defines the bone's location in pose mode!)
+			# - Bones are Y up, NOT Z up like everything else in Blender, and this affects their children's transforms
+			# To avoid this mess, we can use the bone and object world transforms to calculate a sane local matrix
+			result.bone_parent_matrix = armature.pose.bones[boneName].matrix.inverted() @ armature.matrix_world.inverted() @ id.matrix_world
+
+		cur = id
+		while cur:
+			if cur.parent_bone and cur.parent_type == 'BONE' and not result.envelope:
+				captureBoneParent(cur.parent, cur.parent_bone)
+			for con in [con for con in cur.constraints if not con.mute]:
+				if con.type in ['CHILD_OF','COPY_TRANSFORMS'] and con.target.type == 'ARMATURE' and con.subtarget:
+					if not result.envelope:
+						captureBoneParent(con.target, con.subtarget)
+					else:
+						self.warning(get_id("exporter_err_dupeenv_con",True).format(con.name,cur.name))
+			if result.envelope:
 				break
-			cur_parent = cur_parent.parent
-			
+			cur = cur.parent
+		del cur
+
 		if id.type == 'MESH':
 			ops.object.mode_set(mode='EDIT')
 			ops.mesh.reveal()
@@ -761,9 +781,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			ops.mesh.select_all(action="DESELECT")
 			ops.object.mode_set(mode='OBJECT')
 		
-		if self.armature_src: # Prevent pose from affecting bone child transforms
-			for posebone in self.armature_src.pose.bones: posebone.matrix_basis.identity()
-
 		ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 		id.matrix_world = Matrix.Translation(top_parent.location).inverted() @ getUpAxisMat(bpy.context.scene.vs.up_axis).inverted() @ id.matrix_world
 		
@@ -780,13 +797,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		for con in [con for con in id.constraints if not con.mute]:
 			con.mute = True
-			if con.type in ['CHILD_OF','COPY_TRANSFORMS'] and con.target.type == 'ARMATURE' and con.subtarget:
-				if result.envelope:
-					self.warning(get_id("exporter_err_dupeenv_con",True).format(con.name,id.name))
-				else:
-					result.armature = self.bakeObj(con.target)
-					result.envelope = con.subtarget
-					select_only(id)
 		
 		solidify_fill_rim = None
 		shapes_invalid = False
@@ -1469,16 +1479,7 @@ skeleton
 			bone_child = isinstance(bake.envelope, str)
 			if bone_child and bake.envelope in bone_elements:
 				bone_elements[bake.envelope]["children"].append(DmeDag)
-				
-				# Blender's bone transforms are inconsistent with object transforms:
-				# - A bone's matrix_local value is local to the armature, NOT the bone's parent
-				# - Bone parents are calculated from the head of the bone, NOT the tail (even though the tail defines the bone's location in pose mode!)
-				# The simplest way to arrive at the correct value relative to the tail is to perform a world space calculation, like so:
-				bone_parent_matrix_world = self.armature_src.matrix_world @ self.armature_src.data.bones[bake.envelope].matrix_local
-				trfm_mat = bone_parent_matrix_world.normalized().inverted() @ bake.src.matrix_world # normalise to remove armature scale
-
-				if not source2 and bake.src.type == 'META': # I have no idea why this is required. Metaballs are weird.
-					trfm_mat @= Matrix.Translation(self.armature_src.location)
+				trfm_mat = bake.bone_parent_matrix
 			else:
 				DmeModel_children.append(DmeDag)
 				trfm_mat = ob.matrix_world
