@@ -234,6 +234,10 @@ class _BinaryArray(_Array):
 class Color(Vector4):
 	type = int
 	type_str = "iiii"
+
+	def __repr__(self):
+		return " ".join([str(int(ord)) for ord in self])
+	
 	def tobytes(self):
 		out = bytes()
 		for i in self:
@@ -401,7 +405,7 @@ class Element(collections.OrderedDict):
 		out += _kv2_indent + "}"
 		return out
 
-	def tobytes(self,dm):
+	def tobytes(self):
 		if self._is_placeholder:
 			if self.encoding_ver < 5:
 				return b'-1'
@@ -492,7 +496,7 @@ class _StringDictionary(list):
 		
 		if in_file:
 			num_strings = get_short(in_file) if self.length_size == shortsize else get_int(in_file)
-			for i in range(num_strings):
+			for _ in range(num_strings):
 				self.append(get_str(in_file))
 		
 		elif out_datamodel:
@@ -601,7 +605,7 @@ class DataModel:
 			if elem.type == elemtype: out.append(elem)
 		if len(out): return out
 		
-	def _write(self,value, elem = None, suppress_dict = None):
+	def _write(self,value, suppress_dict = None):
 		t = type(value)
 		is_array = issubclass(t, _Array)
 		if suppress_dict == None:
@@ -628,7 +632,7 @@ class DataModel:
 				self._string_dict.write_string(self.out,value[0])
 
 		elif t == Element:
-			self.out.write(bytes.join(b'',[item.tobytes(self) if item else struct.pack("i",-1) for item in value]))
+			self.out.write(bytes.join(b'',[item.tobytes() if item else struct.pack("i",-1) for item in value]))
 		elif issubclass(t,(_Vector,Matrix, Time)):
 			self.out.write(bytes.join(b'',[item.tobytes() for item in value]))
 		
@@ -671,7 +675,7 @@ class DataModel:
 				if attr == None:
 					self._write(-1)
 				else:
-					self._write(attr,elem)
+					self._write(attr)
 					
 	def echo(self,encoding,encoding_ver):
 		check_support(encoding, encoding_ver)
@@ -680,7 +684,6 @@ class DataModel:
 			self.out = io.BytesIO()
 		else:
 			self.out = io.StringIO()
-			_kv2_indent = ""
 		
 		self.encoding = encoding
 		self.encoding_ver = encoding_ver
@@ -816,7 +819,6 @@ def load(path = None, in_file = None, element_path = None):
 				return re.findall("\"(.*?)\"",line.strip("\n\t ") )
 				
 			def read_element(elem_type, line_tracker):
-				id = None
 				name = None
 				prefix = elem_type == "$prefix_element$"
 				if prefix: element_chain.append(dm.prefix_attributes)
@@ -994,7 +996,7 @@ def load(path = None, in_file = None, element_path = None):
 				elif attr_type == Quaternion:	return Quaternion(get_vec(in_file,4))
 				elif attr_type == Matrix:
 					out = []
-					for i in range(4): out.append(get_vec(in_file,4))
+					for _ in range(4): out.append(get_vec(in_file,4))
 					return Matrix(out)
 					
 				elif attr_type == Color:		return get_color(in_file)
@@ -1007,8 +1009,8 @@ def load(path = None, in_file = None, element_path = None):
 			def read_element(elem, use_string_dict = True):
 				#print(elem.name,"@",in_file.tell())
 				num_attributes = get_int(in_file)
-				for i in range(num_attributes):
-					start = in_file.tell()
+				for _ in range(num_attributes):
+					#start = in_file.tell()
 					name = dm._string_dict.read_string(in_file) if use_string_dict else get_str(in_file)
 					attr_type = _get_dmx_id_type(encoding,encoding_ver,get_byte(in_file))
 					#print("\t",name,"@",start,attr_type)
@@ -1018,19 +1020,19 @@ def load(path = None, in_file = None, element_path = None):
 						array_len = get_int(in_file)
 						arr = elem[name] = attr_type()
 						arr_item_type = _get_single_type(attr_type)
-						for x in range(array_len):
+						for _ in range(array_len):
 							arr.append( get_value(arr_item_type,from_array=True) )
 
 			# prefix attributes
 			if encoding_ver >= 9:
-				for prefix_elem in range(get_int(in_file)):
+				for _ in range(get_int(in_file)):
 					read_element(dm.prefix_attributes, use_string_dict = False)
 			
 			dm._string_dict = _StringDictionary(encoding,encoding_ver,in_file=in_file)			
 			num_elements = get_int(in_file)
 			
 			# element headers
-			for i in range(num_elements):
+			for _ in range(num_elements):
 				elemtype = dm._string_dict.read_string(in_file)
 				name = dm._string_dict.read_string(in_file) if encoding_ver >= 4 else get_str(in_file)
 				id = uuid.UUID(bytes_le = in_file.read(16)) # little-endian
