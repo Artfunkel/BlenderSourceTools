@@ -153,15 +153,16 @@ class _StrArray(_Array):
 	type = str
 
 class _Vector(list):
+	type = float
 	type_str = ""
 	def __init__(self,l):
 		if len(l) != len(self.type_str):
 			raise TypeError("Expected {} values".format(len(self.type_str)))
-		l = _validate_array_list(l,float)
+		l = _validate_array_list(l,self.type)
 		super().__init__(l)
 		
 	def __repr__(self):
-		return " ".join([str(ord) for ord in self])
+		return " ".join([str(self.type(ord)) for ord in self])
 
 	def __hash__(self):
 		return hash(tuple(self))
@@ -203,8 +204,11 @@ class Matrix(list):
 	type = list
 	def __init__(self,matrix=None):
 		if matrix:
-			attr_error = AttributeError("Matrix must contain 4 lists of 4 floats")
-			if len(matrix) != 4: raise attr_error
+			attr_error = ValueError("Matrix is row-major and must be initialised with 4 lists of 4 floats, or a single list of 16 floats")
+			if len(matrix) == 16:
+				matrix = [matrix[i:i + 4] for i in range(0, len(matrix), 4)]
+			elif len(matrix) != 4: raise attr_error
+
 			for row in matrix:
 				if len(row) != 4: raise attr_error
 				for i in range(4):
@@ -231,20 +235,17 @@ class _BinaryArray(_Array):
 	type = Binary
 	type_str = "b"
 
-class Color(Vector4):
+class Color(_Vector):
 	type = int
-	type_str = "iiii"
+	type_str = "BBBB"
 
-	def __repr__(self):
-		return " ".join([str(int(ord)) for ord in self])
-	
-	def tobytes(self):
-		out = bytes()
-		for i in self:
-			out += bytes(int(self[i]))
-		return out
-class _ColorArray(_Vector4Array):
-	pass
+	def __init__(self, l):
+		if any(b < 0 or b > 255 for b in l):
+			raise TypeError("Color channel values must be between 0 and 255")
+		super().__init__(l)
+
+class _ColorArray(_VectorArray):
+	type=Color
 	
 class Time(float):
 	@classmethod
@@ -837,7 +838,7 @@ def load(path = None, in_file = None, element_path = None):
 					elif type_str == 'float': return float(kv2_value)
 					elif type_str == 'bool': return bool(int(kv2_value))
 					elif type_str == 'time': return Time(kv2_value)
-					elif type_str.startswith('vector') or type_str in ['color','quaternion','angle']:
+					elif type_str.startswith('vector') or type_str in ['color','quaternion','angle','matrix']:
 						return _get_type_from_string(type_str)( [float(i) for i in kv2_value.split(" ")] )
 					elif type_str == 'binary': return Binary(binascii.unhexlify(kv2_value))
 				
