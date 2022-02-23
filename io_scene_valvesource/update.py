@@ -23,7 +23,7 @@ from .utils import *
 
 class SMD_MT_Updated(bpy.types.Menu):
 	bl_label = get_id("offerchangelog_title")
-	def draw(self,context):
+	def draw(self,_):
 		self.layout.operator("wm.url_open",text=get_id("offerchangelog_offer"),icon='TEXT').url = "http://steamcommunity.com/groups/BlenderSourceTools#announcements"
 
 updater_supported = True
@@ -38,10 +38,10 @@ class SmdToolsUpdate(bpy.types.Operator):
 	bl_description = get_id("updater_title_tip")
 	
 	@classmethod
-	def poll(cls,context):
+	def poll(cls,_):
 		return updater_supported
 
-	def execute(self,context):	
+	def execute(self,_):
 		print("Source Tools update...")
 		
 		import sys
@@ -54,9 +54,13 @@ class SmdToolsUpdate(bpy.types.Operator):
 			download_url = "http://steamreview.org/BlenderSourceTools/" + data[2].strip()
 			
 			for i in range(min( len(remote_bpy), len(bpy.app.version) )):
-				if int(remote_bpy[i]) > bpy.app.version[i]:
+				remote_component = int(remote_bpy[i])
+				local_component = bpy.app.version[i]
+				if remote_component > local_component:
 					self.report({'ERROR'},get_id("update_err_outdated", True).format( PrintVer(remote_bpy) ))
 					return {'FINISHED'}
+				elif remote_component < local_component:
+					break # major version incremented
 					
 			for i in range(min( len(remote_ver), len(cur_version) )):
 				try:
