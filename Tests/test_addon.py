@@ -209,7 +209,7 @@ class _AddonTests():
 			target_dmx = f.read()
 
 		self.maxDiff = None
-		self.assertEqual(target_dmx,self.bpy.data.texts[-1].as_string())
+		self.assertEqual(target_dmx.strip(),self.bpy.data.texts[-1].as_string().strip())
 
 	def _setupCorrectiveShapes(self):
 		self.bpy.ops.mesh.primitive_cube_add(enter_editmode=False)
