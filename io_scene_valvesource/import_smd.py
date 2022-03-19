@@ -1278,7 +1278,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			correctiveSeparator = '_'
 			if dm.format_ver >= 22 and any([elem for elem in dm.elements if elem.type == "DmeVertexDeltaData" and '__' in elem.name]):
 				correctiveSeparator = '__'
-				self._ensureSceneDmxVersion(dmx_version(9, 22, modeldoc = True))
+				self._ensureSceneDmxVersion(dmx_version(9, 22, compiler=Compiler.MODELDOC))
 			
 			if not smd_type:
 				smd.jobType = REF if dm.root.get("model") else ANIM
@@ -1722,7 +1722,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	@classmethod
 	def _ensureSceneDmxVersion(cls, version : dmx_version):
-		if DatamodelFormatVersion() < version.format:
+		if State.datamodelFormat < version.format:
 			bpy.context.scene.vs.dmx_format = version.format_enum
-		if DatamodelEncodingVersion() < version.encoding:
+		if State.datamodelEncoding < version.encoding:
 			bpy.context.scene.vs.dmx_encoding = str(version.encoding)

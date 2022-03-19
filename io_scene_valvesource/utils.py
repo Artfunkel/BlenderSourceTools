@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses, typing
+import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses, enum
 from bpy.app.translations import pgettext
 from mathutils import Matrix, Vector
 from math import *
@@ -59,41 +59,110 @@ axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
 axes_lookup_source2 = { 'X':1, 'Y':2, 'Z':3 }
 
+class ExportFormat(enum.Enum):
+	SMD = 1,
+	DMX = 2,
+
+class Compiler(enum.IntEnum):
+	UNKNOWN = 0,
+	STUDIOMDL = 1 # Source 1
+	RESOURCECOMPILER = 2 # Source 2
+	MODELDOC = 3 # Source 2 post-Alyx
+
 @dataclasses.dataclass(frozen = True)
 class dmx_version:
 	encoding : int
 	format : int
 	title : str = dataclasses.field(default=None, hash=False, compare=False)
-	modeldoc : bool = False
+
+	compiler : Compiler = Compiler.STUDIOMDL
 
 	@property
-	def format_enum(self): return str(self.format) + ("_modeldoc" if self.modeldoc else "")
+	def format_enum(self): return str(self.format) + ("_modeldoc" if self.compiler == Compiler.MODELDOC else "")
 	@property
-	def format_title(self): return f"Model {self.format}" + (" (ModelDoc)" if self.modeldoc else "")
+	def format_title(self): return f"Model {self.format}" + (" (ModelDoc)" if self.compiler == Compiler.MODELDOC else "")
 
 dmx_versions_source1 = {
-'ep1': dmx_version(0,0),
-'source2007': dmx_version(2,1),
-'source2009': dmx_version(2,1),
-'Team Fortress 2': dmx_version(2,1),
-'Left 4 Dead': dmx_version(0,0), # wants model 7, but it's not worth working out what that is when L4D2 in far more popular and SMD export works
-'Left 4 Dead 2': dmx_version(4,15),
-'orangebox': dmx_version(5,18), # aka Source MP
-'Alien Swarm': dmx_version(5,18),
-'Portal 2': dmx_version(5,18),
-'Counter-Strike Global Offensive': dmx_version(5,18),
-'Source Filmmaker': dmx_version(5,18),
-# and now back to 2/1 for some reason...
-'Half-Life 2': dmx_version(2,1),
-'Source SDK Base 2013 Singleplayer': dmx_version(2,1),
-'Source SDK Base 2013 Multiplayer': dmx_version(2,1),
+'Ep1': dmx_version(0,0, "Half-Life 2: Episode One"),
+'Source2007': dmx_version(2,1, "Source 2007"),
+'Source2009': dmx_version(2,1, "Source 2009"),
+'Orangebox': dmx_version(5,18, "OrangeBox / Source MP"),
 }
 
+dmx_versions_source1.update({version.title:version for version in [
+dmx_version(2,1, 'Team Fortress 2'),
+dmx_version(0,0, 'Left 4 Dead'), # wants model 7, but it's not worth working out what that is when L4D2 in far more popular and SMD export works
+dmx_version(4,15, 'Left 4 Dead 2'),
+dmx_version(5,18, 'Alien Swarm'),
+dmx_version(5,18, 'Portal 2'),
+dmx_version(5,18, 'Counter-Strike Global Offensive'),
+dmx_version(5,18, 'Source Filmmaker'),
+# and now back to 2/1 for some reason...
+dmx_version(2,1, 'Half-Life 2'),
+dmx_version(2,1, 'Source SDK Base 2013 Singleplayer'),
+dmx_version(2,1, 'Source SDK Base 2013 Multiplayer'),
+]})
+
 dmx_versions_source2 = {
-'dota2': dmx_version(9,22, "Dota 2"),
-'steamtours': dmx_version(9,22, "SteamVR"),
-'hlvr': dmx_version(9,22, "Half-Life: Alyx", True), # format is still declared as 22, but modeldoc introduces breaking changes
+'dota2': dmx_version(9,22, "Dota 2", Compiler.RESOURCECOMPILER),
+'steamtours': dmx_version(9,22, "SteamVR", Compiler.RESOURCECOMPILER),
+'hlvr': dmx_version(9,22, "Half-Life: Alyx", Compiler.MODELDOC), # format is still declared as 22, but modeldoc introduces breaking changes
 }
+
+class _StateMeta(type): # class properties are not supported below Python 3.9, so we use a metaclass instead
+	def __init__(cls, *args, **kwargs):
+		cls._engineBranch = None
+		cls._gamePathValid = False
+
+	@property
+	def engineBranch(cls) -> dmx_version: return cls._engineBranch
+
+	@property
+	def datamodelEncoding(cls): return cls._engineBranch.encoding if cls._engineBranch else int(bpy.context.scene.vs.dmx_encoding)
+
+	@property
+	def datamodelFormat(cls): return cls._engineBranch.format if cls._engineBranch else int(bpy.context.scene.vs.dmx_format.split("_")[0])
+
+	@property
+	def engineBranchTitle(cls): return cls._engineBranch.title if cls._engineBranch else None
+
+	@property
+	def compiler(cls) -> Compiler: return cls._engineBranch.compiler if cls._engineBranch else Compiler.MODELDOC if "modeldoc" in bpy.context.scene.vs.dmx_format else Compiler.UNKNOWN
+
+	@property
+	def exportFormat(cls): return ExportFormat.DMX if bpy.context.scene.vs.export_format == 'DMX' and cls.datamodelEncoding != 0 else ExportFormat.SMD
+
+	@property
+	def gamePath(cls):
+		if not cls._gamePathValid:
+			return None
+		elif bpy.context.scene.vs.game_path:
+			return os.path.abspath(os.path.join(bpy.path.abspath(bpy.context.scene.vs.game_path),''))
+		else:
+			return os.getenv('vproject')
+
+class State(metaclass=_StateMeta):
+	@staticmethod
+	def onEnginePathChanged(props,context):
+		if props != context.scene.vs:
+			return
+		try:
+			State._engineBranch = getEngineBranch()
+		except:
+			State._engineBranch = None
+
+	@staticmethod
+	def onGamePathChanged(props,context):
+		if props != context.scene.vs:
+			return
+
+		game_path = State.gamePath
+		if game_path:
+			for anchor in ["gameinfo.txt", "addoninfo.txt", "gameinfo.gi"]:
+				if os.path.exists(os.path.join(game_path,anchor)):
+					State._gamePathValid = True
+					return
+		State._gamePathValid = False
 
 def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
@@ -150,61 +219,26 @@ def smdContinue(line):
 def getDatamodelQuat(blender_quat):
 	return datamodel.Quaternion([blender_quat[1], blender_quat[2], blender_quat[3], blender_quat[0]])
 
-def getGamePath():
-	return os.path.abspath(os.path.join(bpy.path.abspath(bpy.context.scene.vs.game_path),'')) if len(bpy.context.scene.vs.game_path) else os.getenv('vproject')
-
-def DatamodelEncodingVersion():
-	ver = getDmxVersionsForSDK()
-	return ver.encoding if ver else int(bpy.context.scene.vs.dmx_encoding)
-def DatamodelFormatVersion():
-	ver = getDmxVersionsForSDK()
-	return ver.format if ver else int(bpy.context.scene.vs.dmx_format.split("_")[0])
-
-def allowDMX():
-	return getDmxVersionsForSDK() != dmx_version(0,0)
-def canExportDMX():
-	return (len(bpy.context.scene.vs.engine_path) == 0 or p_cache.enginepath_valid) and allowDMX()
-def shouldExportDMX():
-	return bpy.context.scene.vs.export_format == 'DMX' and canExportDMX()
-
-def getEngineBranch() -> typing.Tuple[str, dmx_version, int]:
+def getEngineBranch() -> dmx_version:
 	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
-	if not path or not p_cache.enginepath_valid: return (None, None, 0)
+	if not path: return None
 
 	# Source 2: search for executable name
 	engine_path_files = set(name[:-4] if name.endswith(".exe") else name for name in os.listdir(path))
 	if "resourcecompiler" in engine_path_files: # Source 2
-		for executable,branch_info in dmx_versions_source2.items():
+		for executable,dmx_version in dmx_versions_source2.items():
 			if executable in engine_path_files:
-				return branch_info + (2,)
+				return dmx_version
 
 	# Source 1 SFM special case
 	if path.lower().find("sourcefilmmaker") != -1:
-		return ("Source Filmmaker", dmx_versions_source1["Source Filmmaker"], 1) # hack for weird SFM folder structure, add a space too	
+		return dmx_versions_source1["Source Filmmaker"] # hack for weird SFM folder structure, add a space too
 	
 	# Source 1 standard: use parent dir's name
 	name = os.path.basename(os.path.dirname(bpy.path.abspath(path))).title().replace("Sdk","SDK")
-	dmx_versions = dmx_versions_source1.get(name)
-	if dmx_versions:
-		return (name, dmx_versions, 1)
-	else:
-		return (None, None, 0)
+	return dmx_versions_source1.get(name)
 
-def getEngineBranchName():
-	'''Returns a user-friendly name for the selected Source Engine branch, or None.'''
-	return getEngineBranch()[0]
-
-def getEngineVersion():
-	'''Returns an int representing engine version (i.e. Source 1 or Source 2), or 0.'''
-	return getEngineBranch()[2]
-
-def getDmxVersionsForSDK():
-	return getEngineBranch()[1]
-
-def getCorrectiveShapeSeparator():
-	branch_dmx = getEngineBranch()[1]
-	modeldoc = branch_dmx.modeldoc if branch_dmx else "modeldoc" in bpy.context.scene.vs.dmx_format
-	return '__' if modeldoc else '_'
+def getCorrectiveShapeSeparator(): return '__' if State.compiler == Compiler.MODELDOC else '_'
 
 vertex_maps = ["valvesource_vertex_paint", "valvesource_vertex_blend", "valvesource_vertex_blend1"]
 
@@ -237,7 +271,7 @@ def animationLength(ad):
 			return 0
 	
 def getFileExt(flex=False):
-	if allowDMX() and bpy.context.scene.vs.export_format == 'DMX':
+	if State.datamodelEncoding != 0 and bpy.context.scene.vs.export_format == 'DMX':
 		return ".dmx"
 	else:
 		if flex: return ".vta"
@@ -632,19 +666,6 @@ class Cache:
 	qc_paths = {}
 	qc_lastUpdate = 0
 	
-	action_filter = ""
-
-	@classmethod
-	def validate_engine_path(cls):
-		cls.enginepath_valid = os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),"studiomdl.exe"))
-	enginepath_valid = True
-
-	@classmethod
-	def validate_game_path(cls):
-		game_path = getGamePath()
-		cls.gamepath_valid = game_path and os.path.exists(os.path.join(game_path,"gameinfo.txt"))
-	gamepath_valid = True
-
 	validObs = set()
 	validObs_version = 0
 

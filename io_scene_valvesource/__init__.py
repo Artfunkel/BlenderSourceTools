@@ -31,7 +31,6 @@ bl_info = {
 }
 
 import bpy, os
-from bpy import ops
 from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, CollectionProperty, FloatProperty, PointerProperty
 
 # Python doesn't reload package sub-modules at the same time as __init__.py!
@@ -96,8 +95,6 @@ def scene_load_post(_):
 	for s in bpy.data.scenes:
 		if hasattr(s,"vs"):
 			convert(s,ValveSource_SceneProps)
-			game_path_changed(s,bpy.context)
-			engine_path_changed(s,bpy.context)
 	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps, ExportableProps)
 	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
 	for g in bpy.data.collections: convert(g,ValveSource_CollectionProps, ExportableProps)
@@ -132,23 +129,6 @@ def export_active_changed(self, context):
 	else:
 		id.select_set(True)
 		context.view_layer.objects.active = id
-
-def engine_path_changed(self, context):
-	if bpy.context.scene.vs.engine_path:
-		for compiler in ["studiomdl.exe", "resourcecompiler.exe"]:
-			if os.path.exists(os.path.join(bpy.path.abspath(bpy.context.scene.vs.engine_path),compiler)):
-				p_cache.enginepath_valid = True
-				return
-	p_cache.enginepath_valid = False
-
-def game_path_changed(self,context):
-	game_path = getGamePath()
-	if game_path:
-		for anchor in ["gameinfo.txt", "addoninfo.txt", "gameinfo.gi"]:
-			if os.path.exists(os.path.join(game_path,anchor)):
-				p_cache.gamepath_valid = True
-				return
-	p_cache.gamepath_valid = False
 #
 # Property Groups
 #
@@ -165,7 +145,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	export_path : StringProperty(name=get_id("exportroot"),description=get_id("exportroot_tip"), subtype='DIR_PATH')
 	qc_compile : BoolProperty(name=get_id("qc_compileall"),description=get_id("qc_compileall_tip"),default=False)
 	qc_path : StringProperty(name=get_id("qc_path"),description=get_id("qc_path_tip"),default="//*.qc",subtype="FILE_PATH")
-	engine_path : StringProperty(name=get_id("engine_path"),description=get_id("engine_path_tip"), subtype="DIR_PATH",update=engine_path_changed)
+	engine_path : StringProperty(name=get_id("engine_path"),description=get_id("engine_path_tip"), subtype="DIR_PATH",update=State.onEnginePathChanged)
 	
 	dmx_encoding : EnumProperty(name=get_id("dmx_encoding"),description=get_id("dmx_encoding_tip"),items=tuple(encodings),default='2')
 	dmx_format : EnumProperty(name=get_id("dmx_format"),description=get_id("dmx_format_tip"),items=tuple(formats),default='1')
@@ -176,7 +156,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	export_list_active : IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)
 	export_list : CollectionProperty(type=ValveSource_Exportable,options={'SKIP_SAVE','HIDDEN'})
 	use_kv2 : BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
-	game_path : StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=game_path_changed)
+	game_path : StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype="DIR_PATH",update=State.onGamePathChanged)
 	dmx_weightlink_threshold : FloatProperty(name=get_id("dmx_weightlinkcull"),description=get_id("dmx_weightlinkcull_tip"),max=1,min=0)
 	smd_format : EnumProperty(name=get_id("smd_format"), items=(('SOURCE', "Source", "Source Engine (Half-Life 2)") , ("GOLDSOURCE", "GoldSrc", "GoldSrc engine (Half-Life 1)")), default="SOURCE")
 

@@ -79,7 +79,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.alert = len(scene.vs.export_path) == 0
 		row.prop(scene.vs,"export_path")
 		
-		if allowDMX():
+		if State.datamodelEncoding != 0:
 			row = l.row().split(factor=0.33)
 			row.label(text=get_id("export_format") + ":")
 			row.row().prop(scene.vs,"export_format",expand=True)
@@ -87,30 +87,26 @@ class SMD_PT_Scene(bpy.types.Panel):
 		row.label(text=get_id("up_axis") + ":")
 		row.row().prop(scene.vs,"up_axis", expand=True)
 		
-		if shouldExportDMX() and bpy.app.debug_value > 0 or scene.vs.use_kv2:
+		if State.exportFormat == ExportFormat.DMX and bpy.app.debug_value > 0 or scene.vs.use_kv2:
 			l.prop(scene.vs,"use_kv2")
 			l.separator()
 		
 		row = l.row()
-		row.alert = len(scene.vs.engine_path) > 0 and not p_cache.enginepath_valid
+		row.alert = len(scene.vs.engine_path) > 0 and State.compiler == Compiler.UNKNOWN
 		row.prop(scene.vs,"engine_path")
 		
 		if scene.vs.export_format == 'DMX':
-			version = getDmxVersionsForSDK()
-			if version == None:
+			if State.engineBranch is None:
 				row = l.split(factor=0.33)
 				row.label(text=get_id("exportpanel_dmxver"))
 				row = row.row(align=True)
 				row.prop(scene.vs,"dmx_encoding",text="")
 				row.prop(scene.vs,"dmx_format",text="")
 				row.enabled = not row.alert
-			if canExportDMX():
+			if State.exportFormat == ExportFormat.DMX:
 				col = l.column()
 				col.prop(scene.vs,"material_path")
-				if version is None or version[1] < 22:
-					pass
 				col.prop(scene.vs,"dmx_weightlink_threshold",slider=True)
-				col.enabled = shouldExportDMX()
 		else:
 			row = l.split(factor=0.33)
 			row.label(text=get_id("smd_format") + ":")
@@ -449,7 +445,7 @@ class SMD_PT_Group(ExportableConfigurationPanel):
 		r.prop(item.vs,"mute")
 		if item.vs.mute:
 			return
-		elif shouldExportDMX():
+		elif State.exportFormat == ExportFormat.DMX:
 			r.prop(item.vs,"automerge")
 
 
@@ -480,7 +476,7 @@ class SMD_PT_Armature(ExportableConfigurationPanel):
 			if armature.data.vs.action_selection == 'FILTERED':
 				col.prop(armature.vs,"action_filter")
 
-		if not shouldExportDMX():
+		if State.exportFormat == ExportFormat.SMD:
 			col.prop(armature.data.vs,"implicit_zero_bone")
 			col.prop(armature.data.vs,"legacy_rotation")
 			
@@ -606,23 +602,23 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		l = self.layout
 		scene = context.scene
 		
-		if not p_cache.enginepath_valid:
+		if State.compiler == Compiler.UNKNOWN:
 			if len(scene.vs.engine_path):
 				l.label(icon='ERROR',text=get_id("qc_bad_enginepath"))
 			else:
 				l.label(icon='INFO',text=get_id("qc_no_enginepath"))
 			return
 
-		if DatamodelFormatVersion() >= 22:
+		if State.compiler > Compiler.STUDIOMDL:
 			l.enabled = False
 			l.label(icon='INFO',text=get_id("qc_invalid_source2"))
 			return
 			
 		row = l.row()
-		row.alert = len(scene.vs.game_path) > 0 and not p_cache.gamepath_valid
+		row.alert = len(scene.vs.game_path) and State.gamePath is None
 		row.prop(scene.vs,"game_path")
 		
-		if len(scene.vs.game_path) == 0 and not p_cache.gamepath_valid:
+		if not len(scene.vs.game_path) and State.gamePath is None:
 			row = l.row()
 			row.label(icon='ERROR',text=get_id("qc_nogamepath"))
 			row.enabled = False

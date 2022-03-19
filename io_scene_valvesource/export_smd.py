@@ -44,7 +44,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	
 	@classmethod
 	def poll(cls,context):
-		return p_cache.gamepath_valid and p_cache.enginepath_valid
+		return State.gamePath is not None and State.compiler == Compiler.STUDIOMDL
 
 	def invoke(self,context, event):
 		bpy.context.window_manager.fileselect_add(self)
@@ -59,12 +59,12 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		num = self.compileQCs([os.path.join(self.properties.directory,file.name) for file in self.properties.files] if multi_files else self.properties.filepath)
 		#if num > 1:
 		#	bpy.context.window_manager.progress_begin(0,1)
-		self.errorReport(get_id("qc_compile_complete",True).format(num,getEngineBranchName()))
+		self.errorReport(get_id("qc_compile_complete",True).format(num,State.engineBranchTitle))
 		bpy.context.window_manager.progress_end()
 		return {'FINISHED'}
 	
 	@classmethod
-	def getQCs(cls,path = None):
+	def getQCs(cls, path : str = None) -> list:
 		import glob
 		ext = ".qc"
 		out = []
@@ -114,7 +114,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 						break #what a farce!
 				
 				print( "Running studiomdl for \"{}\"...\n".format(os.path.basename(qc)) )
-				studiomdl = subprocess.Popen([studiomdl_path, "-nop4", "-game", getGamePath(), qc])
+				studiomdl = subprocess.Popen([studiomdl_path, "-nop4", "-game", State.gamePath, qc])
 				studiomdl.communicate()
 
 				if studiomdl.returncode == 0:
@@ -145,10 +145,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 		#bpy.context.window_manager.progress_begin(0,1)
 		
 		# Misconfiguration?
-		if allowDMX() and context.scene.vs.export_format == 'DMX':
-			datamodel.check_support("binary",DatamodelEncodingVersion())
-			if DatamodelEncodingVersion() < 3 and DatamodelFormatVersion() > 11 and not context.scene.vs.use_kv2:
-				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(DatamodelFormatVersion()))
+		if State.datamodelEncoding != 0 and context.scene.vs.export_format == 'DMX':
+			datamodel.check_support("binary",State.datamodelEncoding)
+			if State.datamodelEncoding < 3 and State.datamodelFormat > 11 and not context.scene.vs.use_kv2:
+				self.report({'ERROR'},"DMX format \"Model {}\" requires DMX encoding \"Binary 3\" or later".format(State.datamodelFormat))
 				return {'CANCELLED' }
 		if not context.scene.vs.export_path:
 			bpy.ops.wm.call_menu(name="SMD_MT_ConfigureScene")
@@ -156,7 +156,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if context.scene.vs.export_path.startswith("//") and not context.blend_data.filepath:
 			self.report({'ERROR'},get_id("exporter_err_relativeunsaved"))
 			return {'CANCELLED'}
-		if allowDMX() and context.scene.vs.export_format == 'DMX' and not canExportDMX():
+		if State.datamodelEncoding == 0 and context.scene.vs.export_format == 'DMX':
 			self.report({'ERROR'},get_id("exporter_err_dmxother"))
 			return {'CANCELLED'}
 		
@@ -234,8 +234,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 						self.files_exported,
 						self.elapsed_time(),
 						num_good_compiles,
-						getEngineBranchName(),
-						os.path.basename(getGamePath())
+						State.engineBranchTitle,
+						os.path.basename(State.gamePath)
 						))
 			else:
 				self.errorReport(get_id("exporter_report", True).format(
@@ -370,7 +370,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if not any(bake_results):
 			return
 		
-		if shouldExportDMX() and hasShapes(id):
+		if State.exportFormat == ExportFormat.DMX and hasShapes(id):
 			self.flex_controller_mode = id.vs.flex_controller_mode
 			self.flex_controller_source = id.vs.flex_controller_source
 
@@ -389,7 +389,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		for va in id.vs.vertex_animations:
 			if skip_vca: break
 
-			if shouldExportDMX():
+			if State.exportFormat == ExportFormat.DMX:
 				va.name = va.name.replace("_","-")
 
 			vca = bake_results[0].vertex_animations[va.name] # only the first bake result will ever have a vertex animation defined
@@ -424,7 +424,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					if context.scene.rigidbody_world:
 						bpy.context.scene.rigidbody_world.enabled = prev_rbw
 
-				if bpy.context.selected_objects and not shouldExportDMX():
+				if bpy.context.selected_objects and State.exportFormat == ExportFormat.SMD:
 					bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
 					ops.object.join()
 				
@@ -445,7 +445,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bench.report("\n" + va.name)
 			bpy.context.view_layer.objects.active = bake_results[0].src
 
-		if isinstance(id, Collection) and shouldExportDMX() and id.vs.automerge:
+		if isinstance(id, Collection) and State.exportFormat == ExportFormat.DMX and id.vs.automerge:
 			bone_parents = collections.defaultdict(list)
 			scene_obs = bpy.context.scene.collection.objects
 			view_obs = bpy.context.view_layer.objects
@@ -537,7 +537,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if skipped_bones:
 				print("- Skipping {} non-deforming bones".format(skipped_bones))
 
-		write_func = self.writeDMX if shouldExportDMX() else self.writeSMD
+		write_func = self.writeDMX if State.exportFormat == ExportFormat.DMX else self.writeSMD
 		bench.report("Post Bake")
 
 		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection == 'FILTERED':
@@ -561,7 +561,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				self.warning(get_id("exporter_warn_unicode", format_string=True).format(pgettext(display_type), name))
 
 		# Meanwhile, Source 2 wants only lowercase characters, digits, and underscore in model names
-		if getEngineVersion() == 2 or DatamodelFormatVersion() >= 22:
+		if State.compiler > Compiler.STUDIOMDL or State.datamodelFormat >= 22:
 			if re.match(r'[^a-z0-9_]', id.name):
 				self.warning(get_id("exporter_warn_source2names", format_string=True).format(id.name))
 
@@ -703,7 +703,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.warning(get_id("exporter_err_hidden", True).format(id.name))
 			return
 
-		should_triangulate = not shouldExportDMX() or id.vs.triangulate
+		should_triangulate = State.exportFormat == ExportFormat.SMD or id.vs.triangulate
 
 		def triangulate():
 			ops.object.mode_set(mode='EDIT')
@@ -834,7 +834,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 				select_only(ob)
 
-				ops.object.transform_apply(scale=True, location=not shouldExportDMX(), rotation=not shouldExportDMX())
+				exporting_smd = State.exportFormat == ExportFormat.SMD
+				ops.object.transform_apply(scale=True, location=exporting_smd, rotation=exporting_smd)
 
 				if hasCurves(id):
 					ops.object.mode_set(mode='EDIT')
@@ -881,7 +882,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		
 		if not shapes_invalid and hasShapes(id):
 			# calculate vert balance
-			if shouldExportDMX():
+			if State.exportFormat == ExportFormat.DMX:
 				if id.data.vs.flex_stereo_mode == 'VGROUP':
 					if id.data.vs.flex_stereo_vg == "":
 						self.warning(get_id("exporter_err_splitvgroup_undefined",True).format(id.name))
@@ -973,7 +974,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		self.smd_file = self.openSMD(filepath,name + "." + filetype,filetype.upper())
 		if self.smd_file == None: return 0
 
-		if getEngineVersion() == 2:
+		if State.compiler > Compiler.STUDIOMDL:
 			self.warning(get_id("exporter_warn_source2smdsupport"))
 
 		# BONES
@@ -1322,7 +1323,7 @@ skeleton
 			trfm["orientation"] = getDatamodelQuat(matrix.to_quaternion())
 			return trfm
 		
-		dm = datamodel.DataModel("model",DatamodelFormatVersion())
+		dm = datamodel.DataModel("model",State.datamodelFormat)
 		dm.allow_random_ids = False
 
 		source2 = dm.format_ver >= 22
@@ -2082,7 +2083,7 @@ skeleton
 			if bpy.context.scene.vs.use_kv2:
 				dm.write(filepath,"keyvalues2",1)
 			else:
-				dm.write(filepath,"binary",DatamodelEncodingVersion())
+				dm.write(filepath,"binary",State.datamodelEncoding)
 			written += 1
 		except (PermissionError, FileNotFoundError) as err:
 			self.error(get_id("exporter_err_open", True).format("DMX",err))
