@@ -91,7 +91,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		elif hasattr(path,"__getitem__"):
 			paths = path
 		else:
-			paths = p_cache.qc_paths = SMD_OT_Compile.getQCs()
+			paths = self.getQCs()
 		num_good_compiles = 0
 		num_qcs = len(paths)
 		if num_qcs == 0:
@@ -137,7 +137,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		return len(context.scene.vs.export_list)
 		
 	def invoke(self, context, event):
-		scene_update(context.scene, immediate=True)
+		State.update_scene()
 		ops.wm.call_menu(name="SMD_MT_ExportChoice")
 		return {'PASS_THROUGH'}
 
@@ -174,7 +174,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				prev_mode = "_".join(prev_mode)
 			ops.object.mode_set(mode='OBJECT')
 		
-		scene_update(context.scene, immediate=True)
+		State.update_scene()
 		self.bake_results = []
 		self.bone_ids = {}
 		self.materials_used = set()
@@ -188,7 +188,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			context.tool_settings.use_keyframe_insert_auto = False
 			context.tool_settings.use_keyframe_insert_keyingset = False
 			context.preferences.edit.use_enter_edit_mode = False
-			unhook_scene_update()
+			State.unhook_events()
 			if context.scene.rigidbody_world:
 				context.scene.frame_set(context.scene.rigidbody_world.point_cache.frame_start)
 			
@@ -254,7 +254,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			bpy.context.scene.update_tag()
 			
 			bpy.context.window_manager.progress_end()
-			hook_scene_update()
+			State.hook_events()
 
 		self.collection = ""
 		self.export_scene = False
@@ -340,7 +340,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Collection:
 			group_vertex_maps = valvesource_vertex_maps(id)
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in State.exportableObjects]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)

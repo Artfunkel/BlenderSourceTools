@@ -81,7 +81,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 		return dm
 
 	def execute(self, context):
-		utils.scene_update(context.scene, immediate=True)
+		utils.State.update_scene()
 
 		id = utils.get_active_exportable(context).get_id()
 		dm = self.make_controllers(id)

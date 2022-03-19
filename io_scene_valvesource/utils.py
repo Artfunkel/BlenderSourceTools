@@ -20,6 +20,7 @@
 
 import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses, enum
 from bpy.app.translations import pgettext
+from bpy.app.handlers import depsgraph_update_post, load_post, persistent
 from mathutils import Matrix, Vector
 from math import *
 from . import datamodel
@@ -111,8 +112,13 @@ dmx_versions_source2 = {
 
 class _StateMeta(type): # class properties are not supported below Python 3.9, so we use a metaclass instead
 	def __init__(cls, *args, **kwargs):
+		cls._exportableObjects = set()
+		cls.last_export_refresh = 0
 		cls._engineBranch = None
 		cls._gamePathValid = False
+
+	@property
+	def exportableObjects(cls): return cls._exportableObjects
 
 	@property
 	def engineBranch(cls) -> dmx_version: return cls._engineBranch
@@ -142,6 +148,35 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 			return os.getenv('vproject')
 
 class State(metaclass=_StateMeta):
+	@classmethod
+	def update_scene(cls, scene = None):
+		scene = scene or bpy.context.scene
+		cls._exportableObjects = set([ob for ob in scene.objects if ob.type in exportable_types and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
+		make_export_list(scene)
+		cls.last_export_refresh = time.time()
+	
+	@staticmethod
+	@persistent
+	def _onDepsgraphUpdate(scene):
+		if scene == bpy.context.scene and time.time() - State.last_export_refresh > 0.25:
+			State.update_scene(scene)
+
+	@staticmethod
+	@persistent
+	def _onLoad(scene): State.update_scene(scene)
+
+	@classmethod
+	def hook_events(cls):
+		if not cls.update_scene in depsgraph_update_post:
+			depsgraph_update_post.append(cls._onDepsgraphUpdate)
+			load_post.append(cls._onLoad)
+
+	@classmethod
+	def unhook_events(cls):
+		if cls.update_scene in depsgraph_update_post:
+			depsgraph_update_post.remove(cls._onDepsgraphUpdate)
+			load_post.remove(cls._onLoad)
+
 	@staticmethod
 	def onEnginePathChanged(props,context):
 		if props != context.scene.vs:
@@ -168,8 +203,9 @@ def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
 		builtins.print(" ".join([str(a) for a in args]).encode(sys.getdefaultencoding()).decode(sys.stdout.encoding or sys.getdefaultencoding()), end= "\n" if newline else "", flush=True)
 
-def get_id(id, format_string = False, data = False):
-	out = p_cache.ids[id]
+def get_id(str_id, format_string = False, data = False):
+	from . import translations
+	out = translations.ids[str_id]
 	if format_string or (data and bpy.context.preferences.view.use_translate_new_dataname):
 		return pgettext(out)
 	else:
@@ -385,7 +421,7 @@ def hasShapes(id, valid_only = True):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
 	if type(id) == bpy.types.Collection:
-		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in p_cache.validObs) and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in State.exportableObjects) and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -412,7 +448,7 @@ def hasCurves(id):
 		return id_.type in ['CURVE','SURFACE','FONT']
 
 	if type(id) == bpy.types.Collection:
-		for _ in [ob for ob in id.objects if ob.vs.export and ob in p_cache.validObs and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and ob in State.exportableObjects and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -459,15 +495,14 @@ def getSelectedExportables():
 		if a_e: exportables.update(a_e)
 	return exportables
 
-def make_export_list():
-	s = bpy.context.scene
-	s.vs.export_list.clear()
+def make_export_list(scene):
+	scene.vs.export_list.clear()
 	
 	def makeDisplayName(item,name=None):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else "", (name if name else item.name) + getFileExt())
 	
-	if len(p_cache.validObs):
-		ungrouped_objects = p_cache.validObs.copy()
+	if State.exportableObjects:
+		ungrouped_objects = State.exportableObjects.copy()
 		
 		groups_sorted = bpy.data.collections[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -475,7 +510,7 @@ def make_export_list():
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
-			for object in [ob for ob in group.objects if ob in p_cache.validObs]:
+			for object in [ob for ob in group.objects if ob in State.exportableObjects]:
 				if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
 					ungrouped_objects.remove(object)
 				valid = True
@@ -483,7 +518,7 @@ def make_export_list():
 				scene_groups.append(group)
 				
 		for g in scene_groups:
-			i = s.vs.export_list.add()
+			i = scene.vs.export_list.add()
 			if g.vs.mute:
 				i.name = "{} {}".format(g.name,pgettext(get_id("exportables_group_mute_suffix",True)))
 			else:
@@ -516,44 +551,11 @@ def make_export_list():
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")
 				i_type = "OBJECT"
 			if i_name:
-				i = s.vs.export_list.add()
+				i = scene.vs.export_list.add()
 				i.name = i_name
 				i.ob_type = i_type
 				i.icon = i_icon
 				i.item_name = ob.name
-
-from bpy.app.handlers import depsgraph_update_post,persistent
-last_export_refresh = 0
-
-@persistent
-def scene_update(scene, immediate = False):
-	global last_export_refresh
-		
-	if not hasattr(scene,"vs"):
-		return
-
-	# "real" objects
-	p_cache.validObs = set([ob for ob in scene.objects if ob.type in exportable_types
-						 and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
-
-	# dupli groups etc.
-	#p_cache.validObs = p_cache.validObs.union(set([ob for ob in scene.objects if (ob.type == 'MESH' and ob.dupli_type in ['VERTS','FACES'] and ob.children) or (ob.dupli_type == 'GROUP' and ob.dupli_group)]))
-	
-	p_cache.validObs_version += 1
-
-	now = time.time()
-
-	if immediate or now - last_export_refresh > 0.25:
-		make_export_list()
-		last_export_refresh = now
-
-def hook_scene_update():
-	if not scene_update in depsgraph_update_post:
-		depsgraph_update_post.append(scene_update)
-
-def unhook_scene_update():
-	if scene_update in depsgraph_update_post:
-		depsgraph_update_post.remove(scene_update)
 
 class Logger:
 	def __init__(self):
@@ -660,24 +662,6 @@ class KeyFrame:
 		self.frame = None
 		self.pos = self.rot = False
 		self.matrix = Matrix()
-
-class Cache:
-	qc_lastPath = ""
-	qc_paths = {}
-	qc_lastUpdate = 0
-	
-	validObs = set()
-	validObs_version = 0
-
-	from . import translations
-	ids = translations.ids
-
-	@classmethod
-	def __del__(cls):
-		cls.validObs.clear()
-
-global p_cache
-p_cache = globals().get("p_cache", Cache()) # package cached data
 
 class SMD_OT_LaunchHLMV(bpy.types.Operator):
 	bl_idname = "smd.launch_hlmv"

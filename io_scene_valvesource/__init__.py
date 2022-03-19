@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (3, 2, 0),
+	"version": (3, 2, 1),
 	"blender": (2, 92, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -41,10 +41,10 @@ for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file_
 	if module: importlib.reload(module)
 
 # clear out any scene update funcs hanging around, e.g. after a script reload
-from bpy.app.handlers import depsgraph_update_pre, depsgraph_update_post
-for func in depsgraph_update_post:
-	if func.__module__.startswith(__name__):
-		depsgraph_update_post.remove(func)
+for collection in [bpy.app.handlers.depsgraph_update_post, bpy.app.handlers.load_post]:
+	for func in collection:
+		if func.__module__.startswith(__name__):
+			collection.remove(func)
 
 from . import datamodel, import_smd, export_smd, flex, GUI, update
 from .utils import *
@@ -76,42 +76,6 @@ def menu_func_shapekeys(self,context):
 
 def menu_func_textedit(self,context):
 	self.layout.operator(flex.InsertUUID.bl_idname)
-
-@bpy.app.handlers.persistent
-def scene_load_post(_):
-	def convert(id,*prop_groups):
-		prop_map = { "export_path":"path", "engine_path":"studiomdl_custom_path", "export_format":"format" }
-
-		for p_g in prop_groups:
-			for prop in [prop for prop in p_g.__dict__.keys() if prop[0] != '_']:
-				val = id.get("smd_" + (prop_map[prop] if prop in prop_map else prop))
-				if val != None:
-					id.vs[prop] = val
-			
-		for prop in id.keys():
-			if prop.startswith("smd_"):
-				del id[prop]
-				
-	for s in bpy.data.scenes:
-		if hasattr(s,"vs"):
-			convert(s,ValveSource_SceneProps)
-	for ob in bpy.data.objects: convert(ob,ValveSource_ObjectProps, ExportableProps)
-	for a in bpy.data.armatures: convert(a,ValveSource_ArmatureProps)
-	for g in bpy.data.collections: convert(g,ValveSource_CollectionProps, ExportableProps)
-	for c in bpy.data.curves: convert(c,ValveSource_CurveProps, ShapeTypeProps)
-	for m in bpy.data.meshes:
-		convert(m,ValveSource_MeshProps, ShapeTypeProps)
-		for vert_map in m.vertex_colors:
-			if vert_map.name == "ValveSource_VertexPaintTintColor":
-				vert_map.name = "valvesource_vertex_paint"
-			elif vert_map.name == "ValveSource_VertexPaintBlendParams":
-				vert_map.name = "valvesource_vertex_blend"
-			elif vert_map.name == "ValveSource_VertexPaintBlendParams.001":
-				vert_map.name = "valvesource_vertex_blend1"
-
-
-	if scene_load_post in depsgraph_update_post:
-		depsgraph_update_post.remove(scene_load_post)
 
 def export_active_changed(self, context):
 	if not context.scene.vs.export_list_active < len(context.scene.vs.export_list):
@@ -260,9 +224,8 @@ _classes = (
 	import_smd.SmdImporter)
 
 def register():
-	from bpy.utils import register_class
 	for cls in _classes:
-		register_class(cls)
+		bpy.utils.register_class(cls)
 	
 	from . import translations
 	bpy.app.translations.register(__name__,translations.translations)
@@ -271,9 +234,6 @@ def register():
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_context_menu.append(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.append(menu_func_textedit)
-	hook_scene_update()
-	bpy.app.handlers.load_post.append(scene_load_post)
-	depsgraph_update_post.append(scene_load_post) # handles enabling the add-on after the scene is loaded
 		
 	try: bpy.ops.wm.addon_disable('EXEC_SCREEN',module="io_smd_tools")
 	except: pass
@@ -290,9 +250,10 @@ def register():
 	bpy.types.Curve.vs = make_pointer(ValveSource_CurveProps)
 	bpy.types.Text.vs = make_pointer(ValveSource_TextProps)
 
+	State.hook_events()
+
 def unregister():
-	unhook_scene_update()
-	bpy.app.handlers.load_post.remove(scene_load_post)
+	State.unhook_events()
 
 	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
@@ -301,9 +262,8 @@ def unregister():
 
 	bpy.app.translations.unregister(__name__)
 	
-	from bpy.utils import unregister_class
 	for cls in reversed(_classes):
-		unregister_class(cls)
+		bpy.utils.unregister_class(cls)
 
 	del bpy.types.Scene.vs
 	del bpy.types.Object.vs

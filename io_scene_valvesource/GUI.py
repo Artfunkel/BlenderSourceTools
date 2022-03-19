@@ -23,7 +23,6 @@ from .utils import *
 from .export_smd import SmdExporter, SMD_OT_Compile
 from .update import SmdToolsUpdate # comment this line if you make third-party changes
 from .flex import *
-global p_cache
 
 vca_icon = 'EDITMODE_HLT'
 
@@ -158,8 +157,8 @@ class SMD_UL_ExportItems(bpy.types.UIList):
 			row.label(text=str(num_vca),icon=vca_icon)
 
 class FilterCache:
-	def __init__(self,validObs_version):
-		self.validObs_version = validObs_version
+	def __init__(self):
+		self.state_objects = State.exportableObjects
 
 	fname = None
 	filter = None
@@ -176,9 +175,9 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 		fname = self.filter_name.lower()
 		cache = gui_cache.get(data)
 
-		if not (cache and cache.fname == fname and p_cache.validObs_version == cache.validObs_version):
-			cache = FilterCache(p_cache.validObs_version)
-			cache.filter = [self.bitflag_filter_item if ob in p_cache.validObs and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
+		if not (cache and cache.fname == fname and cache.state_objects is State.exportableObjects):
+			cache = FilterCache()
+			cache.filter = [self.bitflag_filter_item if ob in State.exportableObjects and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
 			cache.fname = fname
 			gui_cache[data] = cache
@@ -397,7 +396,7 @@ class ExportableConfigurationPanel(bpy.types.Panel):
 	@classmethod
 	def unpack_collection(cls, context):
 		item = cls.get_item(context)
-		return p_cache.validObs.intersection(item.objects) if cls.is_collection(item) else [item]
+		return State.exportableObjects.intersection(item.objects) if cls.is_collection(item) else [item]
 
 
 	def draw_header(self, context):
@@ -596,7 +595,12 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
-	bl_default_closed = True				
+	bl_default_closed = True
+
+	searchPath = None
+	lastPathRow = None
+	qcFiles = None
+	lastUpdate = 0.0
 		
 	def draw(self,context):
 		l = self.layout
@@ -624,30 +628,28 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 			row.enabled = False
 			return
 		
-		# QCs		
-		p_cache.qc_lastPath_row = l.row()
-		if scene.vs.qc_path != p_cache.qc_lastPath or len(p_cache.qc_paths) == 0 or time.time() > p_cache.qc_lastUpdate + 2:
-			p_cache.qc_paths = SMD_OT_Compile.getQCs()
-			p_cache.qc_lastPath = scene.vs.qc_path
-		p_cache.qc_lastUpdate = time.time()
-		have_qcs = len(p_cache.qc_paths) > 0
+		# QCs
+		filesRow = l.row()
+		if scene.vs.qc_path != self.searchPath or self.qcFiles is None or time.time() > self.lastUpdate + 2:
+			self.qcFiles = SMD_OT_Compile.getQCs()
+			self.searchPath = scene.vs.qc_path
+		self.lastUpdate = time.time()
 	
-		if have_qcs or isWild(p_cache.qc_lastPath):
+		if self.qcFiles:
 			c = l.column_flow(columns=2)
 			c.operator_context = 'EXEC_DEFAULT'
-			for path in p_cache.qc_paths:
+			for path in self.qcFiles:
 				c.operator(SMD_OT_Compile.bl_idname,text=os.path.basename(path),translate=False).filepath = path
 		
-		error_row = l.row()
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
 		compile_row.operator_context = 'EXEC_DEFAULT'
 		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT').filepath="*"
 		
-		if not have_qcs:
+		if not self.qcFiles:
 			if scene.vs.qc_path:
-				p_cache.qc_lastPath_row.alert = True
+				filesRow.alert = True
 			compile_row.enabled = False
-		p_cache.qc_lastPath_row.prop(scene.vs,"qc_path") # can't add this until the above test completes!
+		filesRow.prop(scene.vs,"qc_path") # can't add this until the above test completes!
 		
 		l.operator(SMD_OT_LaunchHLMV.bl_idname,icon='PREFERENCES',text=get_id("launch_hlmv",True))

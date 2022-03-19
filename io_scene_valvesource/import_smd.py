@@ -103,6 +103,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 		context.preferences.edit.use_enter_edit_mode = pre_eem
 		self.append = pre_append
 
+		State.update_scene(context.scene)
+
 		return {'FINISHED'}
 
 	def invoke(self, context, event):
