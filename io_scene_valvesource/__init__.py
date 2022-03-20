@@ -52,18 +52,11 @@ from .utils import *
 class ValveSource_Exportable(bpy.types.PropertyGroup):
 	ob_type : StringProperty()
 	icon : StringProperty()
-	item_name : StringProperty()
-	
-	def get_id(self):
-		try:
-			if self.ob_type == 'COLLECTION':
-				return bpy.data.collections[self.item_name]
-			if self.ob_type in ['ACTION', 'OBJECT']:
-				return bpy.data.objects[self.item_name]
-			else:
-				raise TypeError("Unknown object type \"{}\" in ValveSource_Exportable".format(self.ob_type))
-		except KeyError:
-			bpy.context.scene.update_tag()
+	obj : PointerProperty(type=bpy.types.Object)
+	collection : PointerProperty(type=bpy.types.Collection)
+
+	@property
+	def item(self): return self.obj or self.collection
 
 def menu_func_import(self, context):
 	self.layout.operator(import_smd.SmdImporter.bl_idname, text=get_id("import_menuitem", True))
@@ -82,17 +75,17 @@ def export_active_changed(self, context):
 		context.scene.vs.export_list_active = len(context.scene.vs.export_list) - 1
 		return
 
-	id = get_active_exportable(context).get_id()
+	item = get_active_exportable(context).item
 	
-	if type(id) == bpy.types.Collection and id.vs.mute: return
+	if type(item) == bpy.types.Collection and item.vs.mute: return
 	for ob in context.scene.objects: ob.select_set(False)
 	
-	if type(id) == bpy.types.Collection:
-		context.view_layer.objects.active = id.objects[0]
-		for ob in id.objects: ob.select_set(True)
+	if type(item) == bpy.types.Collection:
+		context.view_layer.objects.active = item.objects[0]
+		for ob in item.objects: ob.select_set(True)
 	else:
-		id.select_set(True)
-		context.view_layer.objects.active = id
+		item.select_set(True)
+		context.view_layer.objects.active = item
 #
 # Property Groups
 #

@@ -201,7 +201,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.files_exported = self.attemptedExports = 0
 			
 			if self.export_scene:
-				for id in [exportable.get_id() for exportable in context.scene.vs.export_list]:
+				for id in [exportable.item for exportable in context.scene.vs.export_list]:
 					if type(id) == Collection:
 						if shouldExportGroup(id):
 							self.exportId(context, id)
@@ -210,7 +210,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			else:
 				if self.collection == "":
 					for exportable in getSelectedExportables():
-						self.exportId(context, exportable.get_id())
+						self.exportId(context, exportable.item)
 				else:
 					collection = bpy.data.collections[self.collection]
 					if collection.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(collection.name))

@@ -44,7 +44,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 				if type(self) == SMD_PT_Scene:
 					if i == 0: group_col = l.column(align=True)
 					if i % 2 == 0: group_layout = group_col.row(align=True)
-				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').collection = group.get_id().name
+				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').collection = group.item.name
 				
 			if len(exportables) > 1:
 				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(len(exportables)), icon='OBJECT_DATA')
@@ -129,30 +129,28 @@ class SMD_MT_ConfigureScene(bpy.types.Menu):
 		SMD_PT_Scene.HelpButton(self.layout)
 
 class SMD_UL_ExportItems(bpy.types.UIList):
-	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-		id = item.get_id()
-		if id is None: return
-
-		enabled = not (type(id) == bpy.types.Collection and id.vs.mute)
+	def draw_item(self, context, layout, data, exportable, icon, active_data, active_propname, index):
+		item = exportable.item
+		enabled = not (type(item) == bpy.types.Collection and item.vs.mute)
 		
 		row = layout.row(align=True)
 		row.alignment = 'LEFT'
 		row.enabled = enabled
-			
-		row.prop(id.vs,"export",icon='CHECKBOX_HLT' if id.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
-		row.label(text=item.name,icon=item.icon)
+
+		row.prop(item.vs,"export",icon='CHECKBOX_HLT' if item.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
+		row.label(text=exportable.name,icon=exportable.icon)
 
 		if not enabled: return
 
 		row = layout.row(align=True)
 		row.alignment='RIGHT'
 
-		num_shapes, num_correctives = countShapes(id)
+		num_shapes, num_correctives = countShapes(item)
 		num_shapes += num_correctives
 		if num_shapes > 0:
 			row.label(text=str(num_shapes),icon='SHAPEKEY_DATA')
 
-		num_vca = len(id.vs.vertex_animations)
+		num_vca = len(item.vs.vertex_animations)
 		if num_vca > 0:
 			row.label(text=str(num_vca),icon=vca_icon)
 
@@ -177,7 +175,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 
 		if not (cache and cache.fname == fname and cache.state_objects is State.exportableObjects):
 			cache = FilterCache()
-			cache.filter = [self.bitflag_filter_item if ob in State.exportableObjects and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
+			cache.filter = [self.bitflag_filter_item if ob.name in State.exportableObjects and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
 			cache.fname = fname
 			gui_cache[data] = cache
@@ -204,12 +202,12 @@ class SMD_OT_AddVertexAnimation(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls,c):
-		return type(get_active_exportable(c).get_id()) in [bpy.types.Object, bpy.types.Collection]
+		return type(get_active_exportable(c).item) in [bpy.types.Object, bpy.types.Collection]
 	
 	def execute(self,c):
-		id = get_active_exportable(c).get_id()
-		id.vs.vertex_animations.add()
-		id.vs.active_vertex_animation = len(id.vs.vertex_animations) - 1
+		item = get_active_exportable(c).item
+		item.vs.vertex_animations.add()
+		item.vs.active_vertex_animation = len(item.vs.vertex_animations) - 1
 		return {'FINISHED'}
 
 class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
@@ -222,13 +220,13 @@ class SMD_OT_RemoveVertexAnimation(bpy.types.Operator):
 
 	@classmethod
 	def poll(cls,c):
-		id = get_active_exportable(c).get_id()
-		return type(id) in [bpy.types.Object, bpy.types.Collection] and len(id.vs.vertex_animations)
+		item = get_active_exportable(c).item
+		return type(item) in [bpy.types.Object, bpy.types.Collection] and len(item.vs.vertex_animations)
 	
 	def execute(self,c):
-		id = get_active_exportable(c).get_id()
-		id.vs.vertex_animations.remove(self.index)
-		id.vs.active_vertex_animation -= 1
+		item = get_active_exportable(c).item
+		item.vs.vertex_animations.remove(self.index)
+		item.vs.active_vertex_animation -= 1
 		return {'FINISHED'}
 		
 class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
@@ -238,8 +236,8 @@ class SMD_OT_PreviewVertexAnimation(bpy.types.Operator):
 	bl_options = {'INTERNAL'}
 
 	def execute(self,c):
-		id = get_active_exportable(c).get_id()
-		anim = id.vs.vertex_animations[id.vs.active_vertex_animation]
+		item = get_active_exportable(c).item
+		anim = item.vs.vertex_animations[item.vs.active_vertex_animation]
 		c.scene.use_preview_range = True
 		c.scene.frame_preview_start = anim.start
 		c.scene.frame_preview_end = anim.end
@@ -259,19 +257,19 @@ class SMD_OT_GenerateVertexAnimationQCSnippet(bpy.types.Operator):
 		return get_active_exportable(c) is not None
 	
 	def execute(self,c): # FIXME: DMX syntax
-		id = get_active_exportable(c).get_id()
+		item = get_active_exportable(c).item
 		fps = c.scene.render.fps / c.scene.render.fps_base
 		wm = c.window_manager
-		wm.clipboard = '$model "merge_me" {0}{1}'.format(id.name,getFileExt())
+		wm.clipboard = '$model "merge_me" {0}{1}'.format(item.name,getFileExt())
 		if c.scene.vs.export_format == 'SMD':
-			wm.clipboard += ' {{\n{0}\n}}\n'.format("\n".join(["\tvcafile {0}.vta".format(vca.name) for vca in id.vs.vertex_animations]))
+			wm.clipboard += ' {{\n{0}\n}}\n'.format("\n".join(["\tvcafile {0}.vta".format(vca.name) for vca in item.vs.vertex_animations]))
 		else: wm.clipboard += '\n'
 		wm.clipboard += "\n// vertex animation block begins\n$upaxis Y\n"
 		wm.clipboard += "\n".join(['''
 $boneflexdriver "vcabone_{0}" tx "{0}" 0 1
 $boneflexdriver "vcabone_{0}" ty "multi_{0}" 0 1
 $sequence "{0}" "vcaanim_{0}{1}" fps {2}
-'''.format(vca.name, getFileExt(), fps) for vca in id.vs.vertex_animations if vca.export_sequence])
+'''.format(vca.name, getFileExt(), fps) for vca in item.vs.vertex_animations if vca.export_sequence])
 		wm.clipboard += "\n// vertex animation block ends\n"
 		self.report({'INFO'},"QC segment copied to clipboard.")
 		return {'FINISHED'}
@@ -353,7 +351,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 		if not active_exportable:
 			return
 
-		item = active_exportable.get_id()
+		item = active_exportable.item
 		is_group = type(item) == bpy.types.Collection
 
 		if not (is_group and item.vs.mute):
@@ -372,7 +370,7 @@ class ExportableConfigurationPanel(bpy.types.Panel):
 		if not active_exportable:
 			return
 
-		return active_exportable.get_id()
+		return active_exportable.item
 
 	@classmethod
 	def poll(cls, context):

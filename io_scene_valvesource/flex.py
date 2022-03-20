@@ -30,7 +30,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	
 	@classmethod
 	def poll(cls, context):
-		return utils.hasShapes(utils.get_active_exportable(context).get_id(), valid_only=False)
+		return utils.hasShapes(utils.get_active_exportable(context).item, valid_only=False)
 	
 	@classmethod
 	def make_controllers(cls,id):
@@ -83,7 +83,7 @@ class DmxWriteFlexControllers(bpy.types.Operator):
 	def execute(self, context):
 		utils.State.update_scene()
 
-		id = utils.get_active_exportable(context).get_id()
+		id = utils.get_active_exportable(context).item
 		dm = self.make_controllers(id)
 		
 		text = bpy.data.texts.new(dm.root.name)

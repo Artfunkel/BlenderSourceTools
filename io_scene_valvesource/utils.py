@@ -151,7 +151,7 @@ class State(metaclass=_StateMeta):
 	@classmethod
 	def update_scene(cls, scene = None):
 		scene = scene or bpy.context.scene
-		cls._exportableObjects = set([ob for ob in scene.objects if ob.type in exportable_types and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
+		cls._exportableObjects = set([ob.name for ob in scene.objects if ob.type in exportable_types and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
 		make_export_list(scene)
 		cls.last_export_refresh = time.time()
 	
@@ -291,8 +291,8 @@ def getDmxKeywords(format_version):
 def count_exports(context):
 	num = 0
 	for exportable in context.scene.vs.export_list:
-		id = exportable.get_id()
-		if id and id.vs.export and (type(id) != bpy.types.Collection or not id.vs.mute):
+		item = exportable.item
+		if item and item.vs.export and (type(item) != bpy.types.Collection or not item.vs.mute):
 			num += 1
 	return num
 
@@ -475,14 +475,13 @@ def shouldExportGroup(group):
 def hasFlexControllerSource(source):
 	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
 
-def getExportablesForId(id):
-	if not id: raise ValueError("id is null")
+def getExportablesForId(item):
+	if not item: raise ValueError("id is null")
 	out = set()
 	for exportable in bpy.context.scene.vs.export_list:
-		if exportable.get_id() == id: return [exportable]
+		if exportable.item == item: return [exportable]
 		if exportable.ob_type == 'COLLECTION':
-			collection = exportable.get_id()
-			if not collection.vs.mute and id.name in collection.objects:
+			if not exportable.item.vs.mute and item.name in exportable.item.objects:
 				out.add(exportable)
 	return list(out)
 
@@ -510,9 +509,9 @@ def make_export_list(scene):
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
-			for object in [ob for ob in group.objects if ob in State.exportableObjects]:
-				if not group.vs.mute and object.type != 'ARMATURE' and object in ungrouped_objects:
-					ungrouped_objects.remove(object)
+			for obj in [obj for obj in group.objects if obj.name in State.exportableObjects]:
+				if not group.vs.mute and obj.type != 'ARMATURE' and obj.name in ungrouped_objects:
+					ungrouped_objects.remove(obj.name)
 				valid = True
 			if valid:
 				scene_groups.append(group)
@@ -523,14 +522,15 @@ def make_export_list(scene):
 				i.name = "{} {}".format(g.name,pgettext(get_id("exportables_group_mute_suffix",True)))
 			else:
 				i.name = makeDisplayName(g)
-			i.item_name = g.name
+			i.collection = g
 			i.ob_type = "COLLECTION"
 			i.icon = "GROUP"
 			
 		
 		ungrouped_objects = list(ungrouped_objects)
-		ungrouped_objects.sort(key=lambda ob: ob.name.lower())
-		for ob in ungrouped_objects:
+		ungrouped_objects.sort(key=lambda s: s.lower())
+		for ob_name in ungrouped_objects:
+			ob = scene.objects[ob_name]
 			if ob.type == 'FONT':
 				ob.vs.triangulate = True # preserved if the user converts to mesh
 			
@@ -555,7 +555,7 @@ def make_export_list(scene):
 				i.name = i_name
 				i.ob_type = i_type
 				i.icon = i_icon
-				i.item_name = ob.name
+				i.obj = ob
 
 class Logger:
 	def __init__(self):
