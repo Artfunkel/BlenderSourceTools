@@ -125,9 +125,9 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		return num_good_compiles
 
 class SmdExporter(bpy.types.Operator, Logger):
-	get_id("exporter_tip")
 	bl_idname = "export_scene.smd"
 	bl_label = get_id("exporter_title")
+	bl_description = get_id("exporter_tip")
 	
 	collection : bpy.props.StringProperty(name=get_id("exporter_prop_group"),description=get_id("exporter_prop_group_tip"))
 	export_scene : bpy.props.BoolProperty(name=get_id("scene_export"),description=get_id("exporter_prop_scene_tip"),default=False)
@@ -340,7 +340,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Collection:
 			group_vertex_maps = valvesource_vertex_maps(id)
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob in State.exportableObjects]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob.name in State.exportableObjects]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)

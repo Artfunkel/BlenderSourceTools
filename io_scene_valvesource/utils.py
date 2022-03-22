@@ -163,7 +163,12 @@ class State(metaclass=_StateMeta):
 
 	@staticmethod
 	@persistent
-	def _onLoad(scene): State.update_scene(scene)
+	def _onLoad(scene, context):
+		if context and scene != context.scene:
+			return
+		State.update_scene(scene)
+		State._updateEngineBranch()
+		State._validateGamePath()
 
 	@classmethod
 	def hook_events(cls):
@@ -179,25 +184,29 @@ class State(metaclass=_StateMeta):
 
 	@staticmethod
 	def onEnginePathChanged(props,context):
-		if props != context.scene.vs:
-			return
+		if props == context.scene.vs:
+			State._updateEngineBranch()
+
+	@classmethod
+	def _updateEngineBranch(cls):
 		try:
-			State._engineBranch = getEngineBranch()
+			cls._engineBranch = getEngineBranch()
 		except:
-			State._engineBranch = None
+			cls._engineBranch = None
 
 	@staticmethod
 	def onGamePathChanged(props,context):
-		if props != context.scene.vs:
-			return
+		if props == context.scene.vs:
+			State._validateGamePath()
 
-		game_path = State.gamePath
-		if game_path:
+	@classmethod
+	def _validateGamePath(cls):
+		if cls.gamePath:
 			for anchor in ["gameinfo.txt", "addoninfo.txt", "gameinfo.gi"]:
-				if os.path.exists(os.path.join(game_path,anchor)):
-					State._gamePathValid = True
+				if os.path.exists(os.path.join(cls.gamePath,anchor)):
+					cls._gamePathValid = True
 					return
-		State._gamePathValid = False
+		cls._gamePathValid = False
 
 def print(*args, newline=True, debug_only=False):
 	if not debug_only or bpy.app.debug_value > 0:
@@ -421,7 +430,7 @@ def hasShapes(id, valid_only = True):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
 	if type(id) == bpy.types.Collection:
-		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob in State.exportableObjects) and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob.name in State.exportableObjects) and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -448,7 +457,7 @@ def hasCurves(id):
 		return id_.type in ['CURVE','SURFACE','FONT']
 
 	if type(id) == bpy.types.Collection:
-		for _ in [ob for ob in id.objects if ob.vs.export and ob in State.exportableObjects and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and ob.name in State.exportableObjects and _test(ob)]:
 			return True
 	else:
 		return _test(id)
