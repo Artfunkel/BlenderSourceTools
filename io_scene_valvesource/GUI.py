@@ -394,8 +394,7 @@ class ExportableConfigurationPanel(bpy.types.Panel):
 	@classmethod
 	def unpack_collection(cls, context):
 		item = cls.get_item(context)
-		return State.exportableObjects.intersection(item.objects) if cls.is_collection(item) else [item]
-
+		return [ob for ob in item.objects if ob.name in State.exportableObjects] if cls.is_collection(item) else [item]
 
 	def draw_header(self, context):
 		if self.vs_icon:
