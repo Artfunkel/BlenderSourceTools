@@ -140,9 +140,11 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 
 	@property
 	def gamePath(cls):
-		if not cls._gamePathValid:
-			return None
-		elif bpy.context.scene.vs.game_path:
+		return cls._rawGamePath if cls._gamePathValid else None
+
+	@property
+	def _rawGamePath(cls):
+		if bpy.context.scene.vs.game_path:
 			return os.path.abspath(os.path.join(bpy.path.abspath(bpy.context.scene.vs.game_path),''))
 		else:
 			return os.getenv('vproject')
@@ -201,9 +203,9 @@ class State(metaclass=_StateMeta):
 
 	@classmethod
 	def _validateGamePath(cls):
-		if cls.gamePath:
+		if cls._rawGamePath:
 			for anchor in ["gameinfo.txt", "addoninfo.txt", "gameinfo.gi"]:
-				if os.path.exists(os.path.join(cls.gamePath,anchor)):
+				if os.path.exists(os.path.join(cls._rawGamePath,anchor)):
 					cls._gamePathValid = True
 					return
 		cls._gamePathValid = False
