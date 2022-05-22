@@ -760,7 +760,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if cur.parent_bone and cur.parent_type == 'BONE' and not result.envelope:
 				captureBoneParent(cur.parent, cur.parent_bone)
 			for con in [con for con in cur.constraints if not con.mute]:
-				if con.type in ['CHILD_OF','COPY_TRANSFORMS'] and con.target.type == 'ARMATURE' and con.subtarget:
+				if con.type in ['CHILD_OF','COPY_TRANSFORMS'] and con.target and con.target.type == 'ARMATURE' and con.subtarget:
 					if not result.envelope:
 						captureBoneParent(con.target, con.subtarget)
 					else:
