@@ -195,8 +195,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			# lots of operators only work on visible objects
 			for ob in context.scene.objects:
 				ob.hide_viewport = False
-			# this seems to recursively enable all collections in the scene
-			context.view_layer.active_layer_collection.exclude = False
+			# ensure that objects in all collections are accessible to operators
+			context.view_layer.layer_collection.exclude = False
 			
 			self.files_exported = self.attemptedExports = 0
 			
