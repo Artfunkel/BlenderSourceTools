@@ -87,6 +87,7 @@ dmx_versions_source1 = {
 'Ep1': dmx_version(0,0, "Half-Life 2: Episode One"),
 'Source2007': dmx_version(2,1, "Source 2007"),
 'Source2009': dmx_version(2,1, "Source 2009"),
+'Garrysmod': dmx_version(2,1, "Garry's Mod"),
 'Orangebox': dmx_version(5,18, "OrangeBox / Source MP"),
 }
 
@@ -267,8 +268,8 @@ def getDatamodelQuat(blender_quat):
 	return datamodel.Quaternion([blender_quat[1], blender_quat[2], blender_quat[3], blender_quat[0]])
 
 def getEngineBranch() -> dmx_version:
+	if not bpy.context.scene.vs.engine_path: return None
 	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
-	if not path: return None
 
 	# Source 2: search for executable name
 	engine_path_files = set(name[:-4] if name.endswith(".exe") else name for name in os.listdir(path))
