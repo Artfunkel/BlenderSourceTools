@@ -65,7 +65,7 @@ class SMD_PT_Scene(bpy.types.Panel):
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
-	bl_default_closed = True
+	bl_options = {'DEFAULT_CLOSED'}
 
 	def draw(self, context):
 		l = self.layout
@@ -339,7 +339,7 @@ class SMD_PT_Object_Config(bpy.types.Panel):
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
-	bl_default_closed = True
+	bl_options = {'DEFAULT_CLOSED'}
 	
 	def draw(self,context):
 		l = self.layout
@@ -362,6 +362,7 @@ class ExportableConfigurationPanel(bpy.types.Panel):
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
 	bl_parent_id = "SMD_PT_Object_Config"
+	bl_options = {'DEFAULT_CLOSED'}
 	vs_icon = ""
 
 	@classmethod
@@ -424,6 +425,7 @@ class SMD_PT_VertexAnimation(ExportableConfigurationPanel):
 
 class SMD_PT_Group(ExportableConfigurationPanel):
 	bl_label = get_id("exportables_group_props")
+	bl_options = set() # override
 	vs_icon = 'GROUP'
 
 	@classmethod
@@ -447,6 +449,7 @@ class SMD_PT_Group(ExportableConfigurationPanel):
 
 class SMD_PT_Armature(ExportableConfigurationPanel):
 	bl_label = " "
+	bl_options = set() # override
 
 	@classmethod
 	def poll(cls, context):
@@ -592,7 +595,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	bl_context = "scene"
-	bl_default_closed = True
+	bl_options = {'DEFAULT_CLOSED'}
 
 	searchPath = None
 	lastPathRow = None
