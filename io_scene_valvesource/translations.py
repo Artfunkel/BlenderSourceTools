@@ -250,7 +250,7 @@ _data = {
 },
 'qc_title': {
 	'ja': "Source Engine QCのコンパイル",
-	'en': "Source Engine QC Complies",
+	'en': "Source Engine QC Compiles",
 	'ru': "Компиляция QC",
 },
 'exportables_flex_props': {
@@ -967,7 +967,7 @@ _data = {
 	'ru': "Порог веса привязки вершины к кости",
 },
 'dmx_weightlinkcull_tip': {
-	'en': "The maximum strength at which a weight link can be removed to comply with Source's per-vertex link limit.",
+	'en': "The maximum strength at which a weight link can be removed to comply with Source's per-vertex link limit",
 	'ru': "Если вершина связана с некоторой костью, и её вес меньше здесь указанного, то связь с этой костью будет удалена при экспорте, чтобы вписаться в ограничение движка Source. («Source не поддерживает такое количество привязок»)",
 },
 'dmx_encoding_tip': {

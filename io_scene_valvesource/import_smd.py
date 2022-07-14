@@ -1601,7 +1601,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 					ob.data.auto_smooth_angle = 180
 					normalsLayer = ob.data.attributes[normalsLayerName]
 					ob.data.normals_split_custom_set([value.vector for value in normalsLayer.data])
-					ob.data.attributes.remove(normalsLayer)
+					del normalsLayer
+					ob.data.attributes.remove(ob.data.attributes[normalsLayerName])
 
 					# Stereo balance
 					if keywords['balance'] in DmeVertexData["vertexFormat"]:
