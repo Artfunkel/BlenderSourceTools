@@ -86,12 +86,14 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 
 		studiomdl_path = os.path.join(bpy.path.abspath(scene.vs.engine_path),"studiomdl.exe")
 
-		if isinstance(path,str) and path != "*":
+		if path == "*":
+			paths = SMD_OT_Compile.getQCs()
+		elif isinstance(path,str):
 			paths = [os.path.realpath(bpy.path.abspath(path))]
 		elif hasattr(path,"__getitem__"):
 			paths = path
 		else:
-			paths = self.getQCs()
+			paths = SMD_OT_Compile.getQCs()
 		num_good_compiles = 0
 		num_qcs = len(paths)
 		if num_qcs == 0:
@@ -226,7 +228,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if not SMD_OT_Compile.poll(context):
 					print("Skipping QC compile step: context incorrect\n")
 				else:
-					num_good_compiles = SMD_OT_Compile.compileQCs(self)
+					num_good_compiles = SMD_OT_Compile.compileQCs(self) # hack, use self as the logger
 					print("\n")
 			
 			if num_good_compiles != None:
