@@ -320,7 +320,12 @@ class _AddonTests():
 		self.compareResults(self.sceneSettings.export_path)
 
 class Blender(_AddonTests, unittest.TestCase):
-	pass
+	def test_CompileQCsLoggerOverrideHack(self):
+		export_smd = import_module("io_scene_valvesource").export_smd
+		logger = export_smd.Logger()
+		self.assertFalse(logger.log_errors)
+		export_smd.SMD_OT_Compile.compileQCs(logger)
+		self.assertTrue(logger.log_errors)
 
 class Blender292(_AddonTests, unittest.TestCase):
 	module_subdir = 'bpy292'
