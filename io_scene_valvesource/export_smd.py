@@ -166,7 +166,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 		prev_mode = prev_hidden = None
 		if context.active_object:
 			if context.active_object.hide_viewport:
-				prev_hidden = context.active_object 
+				prev_hidden = context.active_object.name
 				context.active_object.hide_viewport = False
 			prev_mode = context.mode
 			if prev_mode.find("EDIT") != -1: prev_mode = 'EDIT'
@@ -252,10 +252,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if prev_mode:
 				ops.object.mode_set(mode=prev_mode)
 			if prev_hidden:
-				prev_hidden.hide_viewport = True
-			bpy.context.scene.update_tag()
+				context.scene.objects[prev_hidden].hide_viewport = True
+			context.scene.update_tag()
 			
-			bpy.context.window_manager.progress_end()
+			context.window_manager.progress_end()
 			State.hook_events()
 
 		self.collection = ""
