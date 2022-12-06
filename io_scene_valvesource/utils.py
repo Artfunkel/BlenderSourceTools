@@ -487,24 +487,38 @@ def shouldExportGroup(group):
 def hasFlexControllerSource(source):
 	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
 
-def getExportablesForId(item):
-	if not item: raise ValueError("id is null")
-	out = set()
-	for exportable in bpy.context.scene.vs.export_list:
-		if exportable.item == item: return [exportable]
-		if exportable.ob_type == 'COLLECTION':
-			if not exportable.item.vs.mute and item.name in exportable.item.objects:
-				out.add(exportable)
-	return list(out)
+def getExportablesForObject(ob):
+	# objects can be reallocated between yields, so capture the name locally
+	ob_name = ob.name
+	seen = set()
+
+	while len(seen) < len(bpy.context.scene.vs.export_list):
+		# Handle the exportables list changing between yields by re-evaluating the whole thing
+		for exportable in bpy.context.scene.vs.export_list:
+			item_name = exportable.item.name
+			if item_name in seen:
+				continue
+			seen.add(item_name)
+
+			if exportable.ob_type == 'COLLECTION' and not exportable.item.vs.mute and ob_name in exportable.item.objects:
+				yield exportable
+				break
+
+			if item_name == ob_name:
+				yield exportable
+				break
 
 def getSelectedExportables():
-	exportables = set()
+	seen = set()
 	for ob in bpy.context.selected_objects:
-		exportables.update(getExportablesForId(ob))
-	if len(exportables) == 0 and bpy.context.active_object:
-		a_e = getExportablesForId(bpy.context.active_object)
-		if a_e: exportables.update(a_e)
-	return exportables
+		for exportable in getExportablesForObject(ob):
+			if not exportable.name in seen:
+				seen.add(exportable.name)
+				yield exportable
+
+	if len(seen) == 0 and bpy.context.active_object:
+		for exportable in getExportablesForObject(bpy.context.active_object):
+			yield exportable
 
 def make_export_list(scene):
 	scene.vs.export_list.clear()
