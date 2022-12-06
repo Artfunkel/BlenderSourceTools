@@ -222,7 +222,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			num_good_compiles = None
 
 			if self.attemptedExports == 0:
-				self.report('ERROR',get_id("exporter_err_noexportables"))
+				self.report({'ERROR'},get_id("exporter_err_noexportables"))
 			elif context.scene.vs.qc_compile and context.scene.vs.qc_path:
 				# ...and compile the QC
 				if not SMD_OT_Compile.poll(context):

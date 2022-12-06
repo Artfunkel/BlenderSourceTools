@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (3, 2, 4),
+	"version": (3, 2, 5),
 	"blender": (2, 92, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -212,6 +212,7 @@ _classes = (
 	flex.AddCorrectiveShapeDrivers,
 	flex.RenameShapesToMatchCorrectiveDrivers,
 	flex.ActiveDependencyShapes,
+	flex.InsertUUID,
 	update.SmdToolsUpdate,
 	update.SMD_MT_Updated,
 	export_smd.SMD_OT_Compile, 
