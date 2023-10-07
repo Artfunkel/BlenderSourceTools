@@ -319,6 +319,19 @@ class _AddonTests():
 
 		self.compareResults(self.sceneSettings.export_path)
 
+	def test_Object_Collection_SameNameExport(self):
+		self.setupExportTest("Scout")
+		
+		for ob in self.bpy.data.objects:
+			if ob.data == self.bpy.data.armatures[0]:
+				ob.name = self.bpy.data.collections[0].name
+				break
+
+		import inspect
+		exportablesGenerator = inspect.getmodule(self.bpy.types.SMD_UL_ExportItems).getSelectedExportables()
+		
+		list(exportablesGenerator)
+
 class Blender(_AddonTests, unittest.TestCase):
 	def test_CompileQCsLoggerOverrideHack(self):
 		export_smd = import_module("io_scene_valvesource").export_smd

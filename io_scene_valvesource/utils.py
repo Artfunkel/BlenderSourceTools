@@ -497,9 +497,11 @@ def getExportablesForObject(ob):
 				continue # Observed only in Blender release builds without a debugger attached
 
 			item_name = exportable.item.name
-			if item_name in seen:
+			
+			seenKey = (item_name,type(exportable.item))
+			if seenKey in seen:
 				continue
-			seen.add(item_name)
+			seen.add(seenKey)
 
 			if exportable.ob_type == 'COLLECTION' and not exportable.item.vs.mute and ob_name in exportable.item.objects:
 				yield exportable
