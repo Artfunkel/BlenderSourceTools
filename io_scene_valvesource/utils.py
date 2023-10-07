@@ -166,10 +166,8 @@ class State(metaclass=_StateMeta):
 
 	@staticmethod
 	@persistent
-	def _onLoad(scene, context):
-		if context and scene != context.scene:
-			return
-		State.update_scene(scene)
+	def _onLoad(_):
+		State.update_scene()
 		State._updateEngineBranch()
 		State._validateGamePath()
 
@@ -495,6 +493,9 @@ def getExportablesForObject(ob):
 	while len(seen) < len(bpy.context.scene.vs.export_list):
 		# Handle the exportables list changing between yields by re-evaluating the whole thing
 		for exportable in bpy.context.scene.vs.export_list:
+			if not exportable.item:
+				continue # Observed only in Blender release builds without a debugger attached
+
 			item_name = exportable.item.name
 			if item_name in seen:
 				continue

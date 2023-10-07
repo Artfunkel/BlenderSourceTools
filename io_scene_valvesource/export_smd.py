@@ -1968,7 +1968,7 @@ skeleton
 		if len(bake_results) == 1 and bake_results[0].object.type == 'ARMATURE': # animation
 			ad = self.armature.animation_data
 						
-			anim_len = animationLength(ad)
+			anim_len = animationLength(ad) if ad else 0
 			if anim_len == 0:
 				self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
 			
