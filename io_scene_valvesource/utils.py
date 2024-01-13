@@ -489,24 +489,23 @@ def hasFlexControllerSource(source):
 
 def getExportablesForObject(ob):
 	# objects can be reallocated between yields, so capture the name locally
-	ob_name = ob.name
+	ob_param = ob
 	seen = set()
 
-	while len(seen) < len(bpy.context.scene.vs.export_list):
-		# Handle the exportables list changing between yields by re-evaluating the whole thing
-		for exportable in bpy.context.scene.vs.export_list:
-			item_name = exportable.item.name
-			if item_name in seen:
-				continue
-			seen.add(item_name)
+	# Handle the exportables list changing between yields by re-evaluating the whole thing
+	for exportable in bpy.context.scene.vs.export_list:
+		item_name = exportable.item
+		if item_name in seen:
+			continue
+		seen.add(item_name)
 
-			if exportable.ob_type == 'COLLECTION' and not exportable.item.vs.mute and ob_name in exportable.item.objects:
-				yield exportable
-				break
+		if exportable.ob_type == 'COLLECTION' and not exportable.item.vs.mute and ob_param.name in exportable.item.objects:
+			yield exportable
+			break
 
-			if item_name == ob_name:
-				yield exportable
-				break
+		if item_name == ob_param:
+			yield exportable
+			break
 
 def getSelectedExportables():
 	seen = set()
@@ -538,7 +537,10 @@ def make_export_list(scene):
 			for obj in [obj for obj in group.objects if obj.name in State.exportableObjects]:
 				if not group.vs.mute and obj.type != 'ARMATURE' and obj.name in ungrouped_objects:
 					ungrouped_objects.remove(obj.name)
-				valid = True
+
+				# Linked collections cannot be exported so excluding them here
+				if group.library is None: 
+					valid = True
 			if valid:
 				scene_groups.append(group)
 				
