@@ -174,7 +174,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 				prev_mode = prev_mode.split('_')
 				prev_mode.reverse()
 				prev_mode = "_".join(prev_mode)
-			ops.object.mode_set(mode='OBJECT')
+				
+			# Check for current mode needed because this wouldn't work with linked collections/objects
+			if bpy.context.mode != 'OBJECT':
+				ops.object.mode_set(mode='OBJECT')
 		
 		State.update_scene()
 		self.bake_results = []
@@ -250,7 +253,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if bpy.app.debug_value <= 1: ops.ed.undo()
 			
 			if prev_mode:
-				ops.object.mode_set(mode=prev_mode)
+				# Check for current mode needed because this wouldn't work with linked collections/objects
+				if prev_mode != context.mode:
+					ops.object.mode_set(mode=prev_mode)
 			if prev_hidden:
 				context.scene.objects[prev_hidden].hide_viewport = True
 			context.scene.update_tag()
