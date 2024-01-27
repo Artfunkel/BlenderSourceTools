@@ -58,6 +58,9 @@ class ValveSource_Exportable(bpy.types.PropertyGroup):
 	@property
 	def item(self): return self.obj or self.collection
 
+	@property
+	def session_uid(self): return self.item.session_uid
+
 def menu_func_import(self, context):
 	self.layout.operator(import_smd.SmdImporter.bl_idname, text=get_id("import_menuitem", True))
 

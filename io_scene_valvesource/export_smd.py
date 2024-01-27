@@ -342,7 +342,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 		if type(id) == Collection:
 			group_vertex_maps = valvesource_vertex_maps(id)
-			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob.name in State.exportableObjects]):
+			for i, ob in enumerate([ob for ob in id.objects if ob.vs.export and ob.session_uid in State.exportableObjects]):
 				bpy.context.window_manager.progress_update(i / len(id.objects))
 				if ob.type == 'META':
 					ob = find_basis_metaball(ob)

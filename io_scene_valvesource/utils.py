@@ -154,7 +154,7 @@ class State(metaclass=_StateMeta):
 	@classmethod
 	def update_scene(cls, scene = None):
 		scene = scene or bpy.context.scene
-		cls._exportableObjects = set([ob.name for ob in scene.objects if ob.type in exportable_types and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
+		cls._exportableObjects = set([ob.session_uid for ob in scene.objects if ob.type in exportable_types and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
 		make_export_list(scene)
 		cls.last_export_refresh = time.time()
 	
@@ -431,7 +431,7 @@ def hasShapes(id, valid_only = True):
 		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
 	
 	if type(id) == bpy.types.Collection:
-		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob.name in State.exportableObjects) and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob.session_uid in State.exportableObjects) and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -458,7 +458,7 @@ def hasCurves(id):
 		return id_.type in ['CURVE','SURFACE','FONT']
 
 	if type(id) == bpy.types.Collection:
-		for _ in [ob for ob in id.objects if ob.vs.export and ob.name in State.exportableObjects and _test(ob)]:
+		for _ in [ob for ob in id.objects if ob.vs.export and ob.session_uid in State.exportableObjects and _test(ob)]:
 			return True
 	else:
 		return _test(id)
@@ -486,8 +486,8 @@ def hasFlexControllerSource(source):
 	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
 
 def getExportablesForObject(ob):
-	# objects can be reallocated between yields, so capture the name locally
-	ob_name = ob.name
+	# objects can be reallocated between yields, so capture the ID locally
+	ob_session_uid = ob.session_uid
 	seen = set()
 
 	while len(seen) < len(bpy.context.scene.vs.export_list):
@@ -496,21 +496,20 @@ def getExportablesForObject(ob):
 			if not exportable.item:
 				continue # Observed only in Blender release builds without a debugger attached
 
-			item_name = exportable.item.name
-			
-			seenKey = (item_name,type(exportable.item))
-			if seenKey in seen:
+			if exportable.session_uid in seen:
 				continue
-			seen.add(seenKey)
+			seen.add(exportable.session_uid)
 
-			if exportable.ob_type == 'COLLECTION' and not exportable.item.vs.mute and ob_name in exportable.item.objects:
+			if exportable.ob_type == 'COLLECTION' and not exportable.item.vs.mute and any(collection_item.session_uid == ob_session_uid for collection_item in exportable.item.objects):
 				yield exportable
 				break
 
-			if item_name == ob_name:
+			if exportable.session_uid == ob_session_uid:
 				yield exportable
 				break
 
+# How to handle the selected object appearing in multiple collections?
+# How to handle an armature with animation only appearing within a collection?
 def getSelectedExportables():
 	seen = set()
 	for ob in bpy.context.selected_objects:
@@ -530,7 +529,7 @@ def make_export_list(scene):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else "", (name if name else item.name) + getFileExt())
 	
 	if State.exportableObjects:
-		ungrouped_objects = State.exportableObjects.copy()
+		ungrouped_object_ids = State.exportableObjects.copy()
 		
 		groups_sorted = bpy.data.collections[:]
 		groups_sorted.sort(key=lambda g: g.name.lower())
@@ -538,9 +537,9 @@ def make_export_list(scene):
 		scene_groups = []
 		for group in groups_sorted:
 			valid = False
-			for obj in [obj for obj in group.objects if obj.name in State.exportableObjects]:
-				if not group.vs.mute and obj.type != 'ARMATURE' and obj.name in ungrouped_objects:
-					ungrouped_objects.remove(obj.name)
+			for obj in [obj for obj in group.objects if obj.session_uid in State.exportableObjects]:
+				if not group.vs.mute and obj.type != 'ARMATURE' and obj.session_uid in ungrouped_object_ids:
+					ungrouped_object_ids.remove(obj.session_uid)
 				valid = True
 			if valid:
 				scene_groups.append(group)
@@ -554,12 +553,10 @@ def make_export_list(scene):
 			i.collection = g
 			i.ob_type = "COLLECTION"
 			i.icon = "GROUP"
-			
 		
-		ungrouped_objects = list(ungrouped_objects)
-		ungrouped_objects.sort(key=lambda s: s.lower())
-		for ob_name in ungrouped_objects:
-			ob = scene.objects[ob_name]
+		ungrouped_objects = list(ob for ob in scene.objects if ob.session_uid in ungrouped_object_ids)
+		ungrouped_objects.sort(key=lambda s: s.name.lower())
+		for ob in ungrouped_objects:
 			if ob.type == 'FONT':
 				ob.vs.triangulate = True # preserved if the user converts to mesh
 			

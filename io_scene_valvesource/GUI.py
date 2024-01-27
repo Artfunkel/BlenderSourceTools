@@ -175,7 +175,7 @@ class SMD_UL_GroupItems(bpy.types.UIList):
 
 		if not (cache and cache.fname == fname and cache.state_objects is State.exportableObjects):
 			cache = FilterCache()
-			cache.filter = [self.bitflag_filter_item if ob.name in State.exportableObjects and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
+			cache.filter = [self.bitflag_filter_item if ob.session_uid in State.exportableObjects and (not fname or fname in ob.name.lower()) else 0 for ob in data.objects]
 			cache.order = bpy.types.UI_UL_list.sort_items_by_name(data.objects)
 			cache.fname = fname
 			gui_cache[data] = cache
@@ -395,7 +395,7 @@ class ExportableConfigurationPanel(bpy.types.Panel):
 	@classmethod
 	def unpack_collection(cls, context):
 		item = cls.get_item(context)
-		return [ob for ob in item.objects if ob.name in State.exportableObjects] if cls.is_collection(item) else [item]
+		return [ob for ob in item.objects if ob.session_uid in State.exportableObjects] if cls.is_collection(item) else [item]
 
 	def draw_header(self, context):
 		if self.vs_icon:
