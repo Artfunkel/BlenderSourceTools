@@ -872,16 +872,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			return
 		
 		result.matrix = baked.matrix_world
-		
-		if id.type == 'MESH':
-			data.use_auto_smooth = id.data.use_auto_smooth
-			data.auto_smooth_angle = id.data.auto_smooth_angle
-
-		# Fix Blender 2.92 not creating vertex groups on the object
-		for vgroup in id.vertex_groups:
-			if vgroup.name not in baked.vertex_groups:
-				baked.vertex_groups.new(name=vgroup.name)
-		
+				
 		if not shapes_invalid and hasShapes(id):
 			# calculate vert balance
 			if State.exportFormat == ExportFormat.DMX:
@@ -1092,8 +1083,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				face_index = 0
 				ob = bake.object
 				data = ob.data
-				
-				data.calc_normals_split()
 
 				uv_loop = data.uv_layers.active.data
 
@@ -1190,8 +1179,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 			def _makeVertLine(i,co,norm):
 				return "{} {} {}\n".format(i, getSmdVec(co), getSmdVec(norm))
 			
-			bake.object.data.calc_normals_split()
-
 			_writeTime(0)
 			for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 				bake.offset = vert_id
@@ -1207,8 +1194,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				for bake in [bake for bake in bake_results if bake.object.type != 'ARMATURE']:
 					shape = bake.shapes.get(shape_name)
 					if not shape: continue
-
-					shape.calc_normals_split()
 					
 					vert_index = bake.offset
 					mesh_verts = bake.object.data.vertices
@@ -1264,7 +1249,6 @@ skeleton
 		for frame, vca_ob in enumerate(vca):
 			self.smd_file.write("time {}\n".format(frame))
 
-			vca_ob.data.calc_normals_split()
 			self.smd_file.writelines(["{} {} {}\n".format(loop.index, getSmdVec(vca_ob.data.vertices[loop.vertex_index].co), getSmdVec(loop.normal)) for loop in vca_ob.data.loops])
 			
 			if two_percent and frame % two_percent == 0:
@@ -1542,8 +1526,6 @@ skeleton
 			balance = [0.0] * num_verts
 			
 			Indices = [None] * num_loops
-			
-			ob.data.calc_normals_split()
 
 			uv_layer = ob.data.uv_layers.active.data
 			
@@ -1600,17 +1582,25 @@ skeleton
 				loops = [loop for face in bm.faces for loop in face.loops]
 				loop_indices = datamodel.make_array([loop.index for loop in loops], int)
 				layerGroups = bm.loops.layers
+
+				class exportLayer:
+					name : str
+					
+					def __init__(self, layer, exportName = None): 
+						self._layer = layer
+						self.name = exportName or layer.name
+						
+					def data_for(self, loop): return loop[self._layer]
 				
 				def get_bmesh_layers(layerGroup):
-					# use items() to avoid a Blender 2.80 exception
-					return [l for l in layerGroup.items() if re.match(r".*\$[0-9]+", l[0])]
+					return [exportLayer(l) for l in layerGroup if re.match(r".*\$[0-9]+", l.name)]
 
 				defaultUvLayer = "texcoord$0"
 				uv_layers_to_export = list(get_bmesh_layers(layerGroups.uv))
-				if not defaultUvLayer in [l[0] for l in uv_layers_to_export]: # select a default UV map
+				if not defaultUvLayer in [l.name for l in uv_layers_to_export]: # select a default UV map
 					uv_render_layer = next((l.name for l in ob.data.uv_layers if l.active_render and not l in uv_layers_to_export), None)
 					if uv_render_layer:
-						uv_layers_to_export.append((defaultUvLayer, layerGroups.uv[uv_render_layer]))
+						uv_layers_to_export.append(exportLayer(layerGroups.uv[uv_render_layer], defaultUvLayer))
 						print("- Exporting '{}' as {}".format(uv_render_layer, defaultUvLayer))
 					else:
 						self.warning("'{}' does not contain a UV Map called {} and no suitable fallback map could be found. The model may be missing UV data.".format(bake.name, defaultUvLayer))
@@ -1618,17 +1608,17 @@ skeleton
 				for layer in uv_layers_to_export:
 					uv_set = ordered_set.OrderedSet()
 					uv_indices = []
-					for uv in (loop[layer[1]].uv for loop in loops):
+					for uv in (layer.data_for(loop).uv for loop in loops):
 						uv_indices.append(uv_set.add(datamodel.Vector2(uv)))
 						
-					vertex_data[layer[0]] = datamodel.make_array(uv_set, datamodel.Vector2)
-					vertex_data[layer[0] + "Indices"] = datamodel.make_array(uv_indices, int)
-					format.append(layer[0])
+					vertex_data[layer.name] = datamodel.make_array(uv_set, datamodel.Vector2)
+					vertex_data[layer.name + "Indices"] = datamodel.make_array(uv_indices, int)
+					format.append(layer.name)
 
-				def make_vertex_layer(layer, arrayType):
-					vertex_data[layer[0]] = datamodel.make_array([loop[layer[1]] for loop in loops], arrayType)
-					vertex_data[layer[0] + "Indices"] = loop_indices
-					format.append(layer[0])
+				def make_vertex_layer(layer : exportLayer, arrayType):
+					vertex_data[layer.name] = datamodel.make_array([layer.data_for(loop) for loop in loops], arrayType)
+					vertex_data[layer.name + "Indices"] = loop_indices
+					format.append(layer.name)
 
 				for layer in get_bmesh_layers(layerGroups.color):
 					make_vertex_layer(layer, datamodel.Vector4)
@@ -1710,7 +1700,6 @@ skeleton
 
 			bpy.ops.object.mode_set(mode='OBJECT')
 			del bm
-			ob.data.calc_normals_split()
 
 			two_percent = int(len(bake.shapes) / 50)
 			print("Shapes: ",debug_only=True,newline=False)
@@ -1808,8 +1797,6 @@ skeleton
 							for shape_vert in shape.vertices:
 								shape_vert.co -= ob.data.vertices[shape_vert.index].co - corrective_target.vertices[shape_vert.index].co
 
-					shape.calc_normals_split()
-
 					for ob_loop in ob.data.loops:
 						shape_loop = shape.loops[ob_loop.index]
 						norm = shape_loop.normal
@@ -1866,7 +1853,6 @@ skeleton
 				bench.report("shapes")
 				print("- {} flexes ({} with wrinklemaps) + {} correctives".format(num_shapes - num_correctives,num_wrinkles,num_correctives))
 			
-			ob.data.calc_normals_split()
 			vca_matrix = ob.matrix_world.inverted()
 			for vca_name,vca in bake_results[0].vertex_animations.items():
 				frame_shapes = []
@@ -1881,8 +1867,6 @@ skeleton
 					shape_posIndices = []
 					shape_norms = []
 					shape_normIndices = []
-
-					vca_ob.data.calc_normals_split()
 
 					for shape_loop in vca_ob.data.loops:
 						shape_vert = vca_ob.data.vertices[shape_loop.vertex_index]

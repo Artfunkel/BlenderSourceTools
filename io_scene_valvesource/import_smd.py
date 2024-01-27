@@ -787,8 +787,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			smd.m.show_wire = smd.jobType == PHYS
 
-			md.use_auto_smooth = True
-			md.auto_smooth_angle = 180
 			md.normals_split_custom_set(norms)
 
 			if smd.upAxis == 'Y':
@@ -1595,10 +1593,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					if smd.jobType == PHYS:
 						ob.display_type = 'SOLID'
 
-					# Normals					
-					ob.data.create_normals_split()
-					ob.data.use_auto_smooth = True
-					ob.data.auto_smooth_angle = 180
+					# Normals
 					normalsLayer = ob.data.attributes[normalsLayerName]
 					ob.data.normals_split_custom_set([value.vector for value in normalsLayer.data])
 					del normalsLayer

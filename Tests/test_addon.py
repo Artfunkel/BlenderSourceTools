@@ -340,8 +340,8 @@ class Blender(_AddonTests, unittest.TestCase):
 		export_smd.SMD_OT_Compile.compileQCs(logger)
 		self.assertTrue(logger.log_errors)
 
-class Blender292(_AddonTests, unittest.TestCase):
-	module_subdir = 'bpy292'
+class Blender410(_AddonTests, unittest.TestCase):
+	module_subdir = 'bpy410'
 
 if __name__ == '__main__':
     unittest.main()
