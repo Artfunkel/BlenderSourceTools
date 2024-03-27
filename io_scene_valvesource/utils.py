@@ -89,6 +89,7 @@ dmx_versions_source1 = {
 'Source2009': dmx_version(2,1, "Source 2009"),
 'Garrysmod': dmx_version(2,1, "Garry's Mod"),
 'Orangebox': dmx_version(5,18, "OrangeBox / Source MP"),
+'nmrih': dmx_version(2,1, "No More Room In Hell"),
 }
 
 dmx_versions_source1.update({version.title:version for version in [
@@ -97,7 +98,6 @@ dmx_version(0,0, 'Left 4 Dead'), # wants model 7, but it's not worth working out
 dmx_version(4,15, 'Left 4 Dead 2'),
 dmx_version(5,18, 'Alien Swarm'),
 dmx_version(5,18, 'Portal 2'),
-dmx_version(5,18, 'Counter-Strike Global Offensive'),
 dmx_version(5,18, 'Source Filmmaker'),
 # and now back to 2/1 for some reason...
 dmx_version(2,1, 'Half-Life 2'),
@@ -109,6 +109,7 @@ dmx_versions_source2 = {
 'dota2': dmx_version(9,22, "Dota 2", Compiler.RESOURCECOMPILER),
 'steamtours': dmx_version(9,22, "SteamVR", Compiler.RESOURCECOMPILER),
 'hlvr': dmx_version(9,22, "Half-Life: Alyx", Compiler.MODELDOC), # format is still declared as 22, but modeldoc introduces breaking changes
+'cs2': dmx_version(9,22, 'Counter-Strike 2', Compiler.MODELDOC),
 }
 
 class _StateMeta(type): # class properties are not supported below Python 3.9, so we use a metaclass instead
