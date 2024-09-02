@@ -40,7 +40,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 	files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN'})
 	directory : StringProperty(maxlen=1024, default="", subtype='FILE_PATH', options={'HIDDEN'})
 	filter_folder : BoolProperty(name="Filter Folders", description="", default=True, options={'HIDDEN'})
-	filter_glob : StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
+	filter_glob : StringProperty(default="*.smd;*.sma;*.phys;*.vta;*.dmx;*.mpp;*.xml;*.qc;*.qci", options={'HIDDEN'})
 
 	# Custom properties
 	doAnim : BoolProperty(name=get_id("importer_doanims"), default=True)
@@ -69,11 +69,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
 				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, outer_qc=True)
 				bpy.context.view_layer.objects.active = self.qc.a
-			elif filepath_lc.endswith('.smd'):
+			elif filepath_lc.endswith('.smd') or filepath_lc.endswith('.sma') or filepath_lc.endswith('.phys'):
 				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode)
 			elif filepath_lc.endswith ('.vta'):
 				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode, smd_type=FLEX)
-			elif filepath_lc.endswith('.dmx'):
+			elif filepath_lc.endswith('.dmx') or filepath_lc.endswith('.mpp') or filepath_lc.endswith('.xml'):
 				self.num_files_imported = self.readDMX(filepath, self.properties.upAxis, self.properties.rotMode)
 			else:
 				if len(filepath_lc) == 0:
