@@ -283,7 +283,7 @@ class _AddonTests():
 		self.sceneSettings.export_format = 'DMX'
 		self.sceneSettings.use_kv2 = True
 
-		result = self.bpy.ops.export_scene.smd()
+		result = self.bpy.ops.export_scene.smd(collection='cloth_test_simple')
 		self.assertTrue(result == {'FINISHED'})
 		self.compareFiles(join(self.sceneSettings.export_path, filename), join(src_path, filename))
 

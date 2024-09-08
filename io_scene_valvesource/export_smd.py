@@ -212,7 +212,8 @@ class SmdExporter(bpy.types.Operator, Logger):
 			else:
 				if self.collection == "":
 					for exportable in getSelectedExportables():
-						self.exportId(context, exportable.item)
+						if type(exportable.item) != Collection:
+							self.exportId(context, exportable.item)
 				else:
 					collection = bpy.data.collections[self.collection]
 					if collection.vs.mute: self.error(get_id("exporter_err_groupmuted", True).format(collection.name))

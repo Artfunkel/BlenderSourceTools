@@ -46,7 +46,7 @@ class SMD_MT_ExportChoice(bpy.types.Menu):
 					if i % 2 == 0: group_layout = group_col.row(align=True)
 				group_layout.operator(SmdExporter.bl_idname, text=group.name, icon='GROUP').collection = group.item.name
 				
-			if len(exportables) > 1:
+			if len(exportables) - len(groups) > 1:
 				l.operator(SmdExporter.bl_idname, text=get_id("exportmenu_selected", True).format(len(exportables)), icon='OBJECT_DATA')
 			elif len(single_obs):
 				l.operator(SmdExporter.bl_idname, text=single_obs[0].name, icon=single_obs[0].icon)
@@ -389,7 +389,7 @@ class ExportableConfigurationPanel(bpy.types.Panel):
 			return item
 		
 		ob = context.active_object
-		if ob and ob.type == 'MESH' and ob.name in item.objects:
+		if ob and ob.name in item.objects:
 			return ob
 
 	@classmethod
