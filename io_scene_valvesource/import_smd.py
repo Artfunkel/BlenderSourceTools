@@ -270,10 +270,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 					smd.boneIDs[id] = targetBone.name if targetBone else name
 		
-				if smd.a != smd.a:
-					removeObject(smd.a)
-					smd.a = smd.a
-
 				print("- Validated {} bones against armature \"{}\"{}".format(validated, smd.a.name, " (could not find {})".format(missing) if missing > 0 else ""))
 
 		if not smd.a:		
@@ -1320,8 +1316,11 @@ class SmdImporter(bpy.types.Operator, Logger):
 						if smd.jobType != REF:
 							continue
 						yield (child["shape"], parent)
-					elif isBone(child) and child.name != implicit_bone_name and not child.get("shape"): # don't import Dags which simply wrap meshes
-						yield (child, parent)
+					elif isBone(child) and child.name != implicit_bone_name:
+						# don't import Dags which simply wrap meshes. In some DMX animations, each bone has an empty mesh attached.
+						boneShape = child.get("shape")
+						if not boneShape or boneShape["currentState"] == None:
+							yield (child, parent)
 						yield from enumerateBonesAndAttachments(child)
 					elif child.type == "DmeModel":
 						yield from enumerateBonesAndAttachments(child)
@@ -1364,7 +1363,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					print("\n".join(missing_bones))
 			elif any(enumerateBonesAndAttachments(DmeModel)):
 				self.append = 'NEW_ARMATURE'
-				ob = smd.a = self.createArmature(self.truncate_id_name(DmeModel.name, bpy.types.Armature))
+				ob = smd.a = self.createArmature(self.truncate_id_name(DmeModel.name or smd.jobName, bpy.types.Armature))
 				if self.qc: self.qc.a = ob
 				bpy.context.view_layer.objects.active = smd.a
 				ops.object.mode_set(mode='EDIT')
@@ -1699,17 +1698,20 @@ class SmdImporter(bpy.types.Operator, Logger):
 							keyframe.matrix @= getBlenderQuat(frame_value).to_matrix().to_4x4()
 							keyframe.rot = True
 				
-				smd.a.hide_set(False)
-				bpy.context.view_layer.objects.active = smd.a
-				if unknown_bones:
-					self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
+				if smd.a == None:
+					self.warning(get_id("importer_err_noanimationbones", True).format(smd.jobName))
+				else:
+					smd.a.hide_set(False)
+					bpy.context.view_layer.objects.active = smd.a
+					if unknown_bones:
+						self.warning(get_id("importer_err_missingbones", True).format(smd.jobName,len(unknown_bones),smd.a.name))
 
-				total_frames = ceil((duration * frameRate) if duration else lastFrameIndex) + 1 # need a frame for 0 too!
+					total_frames = ceil((duration * frameRate) if duration else lastFrameIndex) + 1 # need a frame for 0 too!
 				
-				# apply the keframes
-				self.applyFrames(keyframes,total_frames,frameRate)
+					# apply the keframes
+					self.applyFrames(keyframes,total_frames,frameRate)
 
-				bpy.context.scene.frame_end += int(round(start * 2 * frameRate,0))
+					bpy.context.scene.frame_end += int(round(start * 2 * frameRate,0))
 
 		except datamodel.AttributeError as e:
 			e.args = ["Invalid DMX file: {}".format(e.args[0] if e.args else "Unknown error")]

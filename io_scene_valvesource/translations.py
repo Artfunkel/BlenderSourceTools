@@ -728,6 +728,9 @@ _data = {
 	'en': "{0} contains {1} bones not present in {2}. Check the console for a list.",
 	'ru': "{1} костей из {0} не найдены в {2}.",
 },
+'importer_err_noanimationbones': {
+	'en': "No bones imported for animation {0}",
+},
 'importer_name_unmatchedvta': {
 	'en': "Unmatched VTA",
 	'ru': "Несопоставленные вершины VTA",
