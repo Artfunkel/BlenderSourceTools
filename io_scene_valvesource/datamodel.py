@@ -44,7 +44,7 @@ def check_support(encoding,encoding_ver):
 		raise ValueError("Version {} of {} DMX is not supported".format(encoding_ver,encoding))
 
 def _encode_binary_string(string):
-	return bytes(string,'utf-8') + bytes(1)
+	return (bytes(string,'utf-8') + bytes(1)) if string else bytes(1)
 
 
 global _kv2_indent
@@ -76,8 +76,8 @@ def get_char(file):
 	return unpack("c",c)[0].decode('ASCII')
 def get_int(file):
 	return int( unpack("i",file.read(intsize))[0] )
-def get_short(file):
-	return int( unpack("H",file.read(shortsize))[0] )
+def get_short(file, signed = False):
+	return int( unpack("h" if signed else "H",file.read(shortsize))[0] )
 def get_float(file):
 	return float( unpack("f",file.read(floatsize))[0] )
 def get_vec(file,dim):
@@ -91,7 +91,7 @@ def get_str(file):
 		b = file.read(1)
 		if b == b'\x00': break
 		out += b
-	return out.decode()
+	return out.decode() if len(out) else None
 
 def _get_kv2_repr(var):
 	t = type(var)
@@ -280,7 +280,7 @@ class Element(collections.OrderedDict):
 	@property
 	def name(self): return self._name
 	@name.setter
-	def name(self,value): self._name = str(value)
+	def name(self,value): self._name = str(value) if value else None
 
 	@property
 	def type(self): return self._type
@@ -496,7 +496,7 @@ class _StringDictionary(list):
 			return
 		
 		if in_file:
-			num_strings = get_short(in_file) if self.length_size == shortsize else get_int(in_file)
+			num_strings = get_short(in_file, signed = True) if self.length_size == shortsize else get_int(in_file)
 			for _ in range(num_strings):
 				self.append(get_str(in_file))
 		
@@ -505,7 +505,7 @@ class _StringDictionary(list):
 			string_set = set()
 			def process_element(elem):
 				checked.add(elem)
-				string_set.add(elem.name)
+				if elem.name : string_set.add(elem.name)
 				string_set.add(elem.type)
 				for name in elem:
 					attr = elem[name]
@@ -524,18 +524,19 @@ class _StringDictionary(list):
 		if self.dummy:
 			return get_str(in_file)
 		else:
-			return self[get_short(in_file) if self.indice_size  == shortsize else get_int(in_file)]
+			index = get_short(in_file, signed = True) if self.indice_size  == shortsize else get_int(in_file)
+			return self[index] if index >= 0 else None
 			
 	def write_string(self,out_file,string):
 		if self.dummy:
 			out_file.write( _encode_binary_string(string) )
 		else:
-			assert(string in self)
-			out_file.write( struct.pack("H" if self.indice_size == shortsize else "i", self.index(string) ) )
+			assert(string is None or string in self)
+			out_file.write( struct.pack("h" if self.indice_size == shortsize else "i", self.index(string) if string else -1 ) )
 		
 	def write_dictionary(self,out_file):
 		if not self.dummy:
-			out_file.write( struct.pack("H" if self.length_size == shortsize else "i", len(self) ) )
+			out_file.write( struct.pack("h" if self.length_size == shortsize else "i", len(self) ) )
 			for string in self:
 				out_file.write( _encode_binary_string(string) )
 	
@@ -606,11 +607,21 @@ class DataModel:
 			if elem.type == elemtype: out.append(elem)
 		if len(out): return out
 		
-	def _write(self,value, suppress_dict = None):
-		t = type(value)
-		is_array = issubclass(t, _Array)
+	def _writeString(self, value, suppress_dict = None):
 		if suppress_dict == None:
 			suppress_dict = self.encoding_ver < 4
+
+		if type(value) == str or value is None:
+			value = [value]
+
+		if suppress_dict:
+			self.out.write(bytes.join(b'',[_encode_binary_string(item) for item in value]))
+		else:
+			self._string_dict.write_string(self.out,value[0])
+
+	def _write(self,value):
+		t = type(value)
+		is_array = issubclass(t, _Array)
 
 		if is_array:
 			t = value.type
@@ -627,11 +638,7 @@ class DataModel:
 		elif t == uuid.UUID:
 			self.out.write(b''.join([id.bytes_le for id in value]))
 		elif t == str:
-			if is_array or suppress_dict:
-				self.out.write(bytes.join(b'',[_encode_binary_string(item) for item in value]))
-			else:
-				self._string_dict.write_string(self.out,value[0])
-
+			self._writeString(value, is_array)
 		elif t == Element:
 			self.out.write(bytes.join(b'',[item.tobytes() if item else struct.pack("i",-1) for item in value]))
 		elif issubclass(t,(_Vector,Matrix, Time)):
@@ -649,8 +656,8 @@ class DataModel:
 	
 	def _write_element_index(self,elem):
 		if elem._is_placeholder or hasattr(elem,"_index"): return
-		self._write(elem.type, suppress_dict = False)
-		self._write(elem.name)
+		self._writeString(elem.type, suppress_dict = False)
+		self._writeString(elem.name)
 		self._write(elem.id)
 		
 		elem._index = len(self.elem_chain)
@@ -671,7 +678,7 @@ class DataModel:
 			self._write(len(elem))
 			for name in elem:
 				attr = elem[name]
-				self._write(name, suppress_dict = False)
+				self._write(name)
 				self._write( struct.pack("b", _get_dmx_type_id(self.encoding, self.encoding_ver, type(attr) )) )
 				if attr == None:
 					self._write(-1)
@@ -859,8 +866,9 @@ def load(path = None, in_file = None, element_path = None):
 							element_chain.append(new_elem)
 						continue
 					elif line[0] == 'name':
-						if new_elem: new_elem.name = line[2]
-						else: name = line[2]
+						if len(line) > 2: # unnamed element?
+							if new_elem: new_elem.name = line[2]
+							else: name = line[2]
 						continue
 					
 					# don't read elements outside the element path

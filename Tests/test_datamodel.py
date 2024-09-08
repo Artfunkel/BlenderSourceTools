@@ -45,8 +45,13 @@ class _DatamodelTests():
 				self.assertAlmostEqual(c,d)
 
 	def test_Element(self):
+		for name in ["TEST", None]:
+			 # with self.subTest(elementName = name): # Visual Studio test explorer doesn't report test failures from subtests!
+				self.assertElementRoundTrips(name)
+
+	def assertElementRoundTrips(self, name):
 		self.create("elements")
-		e = self.dm.add_element("TEST")
+		e = self.dm.add_element(name)
 		e["str_array"] = datamodel.make_array(["a","b"],str)
 		e["float_small"] = 1e-12
 		e["float_large"] = 1e20
