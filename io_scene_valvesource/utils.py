@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses, enum
+import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses
 from bpy.app.translations import pgettext
 from bpy.app.handlers import depsgraph_update_post, load_post, persistent
 from mathutils import Matrix, Vector
@@ -60,12 +60,12 @@ axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
 axes_lookup = { 'X':0, 'Y':1, 'Z':2 }
 axes_lookup_source2 = { 'X':1, 'Y':2, 'Z':3 }
 
-class ExportFormat(enum.Enum):
-	SMD = 1,
-	DMX = 2,
+class ExportFormat:
+	SMD = 1
+	DMX = 2
 
-class Compiler(enum.IntEnum):
-	UNKNOWN = 0,
+class Compiler:
+	UNKNOWN = 0
 	STUDIOMDL = 1 # Source 1
 	RESOURCECOMPILER = 2 # Source 2
 	MODELDOC = 3 # Source 2 post-Alyx
@@ -76,7 +76,7 @@ class dmx_version:
 	format : int
 	title : str = dataclasses.field(default=None, hash=False, compare=False)
 
-	compiler : Compiler = Compiler.STUDIOMDL
+	compiler : int = Compiler.STUDIOMDL
 
 	@property
 	def format_enum(self): return str(self.format) + ("_modeldoc" if self.compiler == Compiler.MODELDOC else "")
@@ -135,7 +135,7 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 	def engineBranchTitle(cls): return cls._engineBranch.title if cls._engineBranch else None
 
 	@property
-	def compiler(cls) -> Compiler: return cls._engineBranch.compiler if cls._engineBranch else Compiler.MODELDOC if "modeldoc" in bpy.context.scene.vs.dmx_format else Compiler.UNKNOWN
+	def compiler(cls): return cls._engineBranch.compiler if cls._engineBranch else Compiler.MODELDOC if "modeldoc" in bpy.context.scene.vs.dmx_format else Compiler.UNKNOWN
 
 	@property
 	def exportFormat(cls): return ExportFormat.DMX if bpy.context.scene.vs.export_format == 'DMX' and cls.datamodelEncoding != 0 else ExportFormat.SMD
