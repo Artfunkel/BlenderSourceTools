@@ -627,6 +627,19 @@ class SmdImporter(bpy.types.Operator, Logger):
 		else: # material does not exist
 			print("- New material: {}".format(mat_name))
 			mat = bpy.data.materials.new(mat_name)
+			#new fix importing textures
+			mat.use_nodes = True
+			base_node = mat.node_tree.nodes["Principled BSDF"]
+			if base_node:
+				base_node.inputs["Roughness"].default_value = 1.0
+			texture_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+			texture_path = os.path.join(os.path.dirname(self.filepath), mat_name)
+			try:
+				texture_node.image = bpy.data.images.load(texture_path)
+			except RuntimeError:
+				print(f"Текстура не найдена: {texture_path}")
+
+			mat.node_tree.links.new(texture_node.outputs["Color"], base_node.inputs["Base Color"])
 			md.materials.append(mat)
 			# Give it a random colour
 			randCol = []
