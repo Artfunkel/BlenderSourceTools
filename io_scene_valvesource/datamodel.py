@@ -569,6 +569,8 @@ class DataModel:
 		self.format_ver = format_ver
 		
 		self.__elements = []
+		self.__elements_set = set()
+		self.__elements_placeholders_set = set()
 		self.__prefix_attributes = Element(self,"")
 		self.root = None
 		self.allow_random_ids = True
@@ -578,6 +580,11 @@ class DataModel:
 
 	def validate_element(self,elem):
 		if elem._is_placeholder:
+			return
+		
+		if not elem in self.__elements_set:
+			return
+		if elem in self.__elements_placeholders_set:
 			return
 
 		try:
@@ -594,6 +601,10 @@ class DataModel:
 		elem = Element(self,name,elemtype,id,_is_placeholder)
 		self.validate_element(elem)
 		self.elements.append(elem)
+		if _is_placeholder:
+			self.__elements_placeholders_set.add(elem)
+		else:
+			self.__elements_set.add(elem)
 		elem.datamodel = self
 		if len(self.elements) == 1: self.root = elem
 		return elem
