@@ -19,7 +19,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_info = {
-	"name": "Blender Source Tools",
+	"name": "(fixed) Blender Source Tools SMD",
 	"author": "Tom Edwards (translators: Grigory Revzin)",
 	"version": (3, 3, 1),
 	"blender": (4, 1, 0),
@@ -110,7 +110,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	dmx_encoding : EnumProperty(name=get_id("dmx_encoding"),description=get_id("dmx_encoding_tip"),items=tuple(encodings),default='2')
 	dmx_format : EnumProperty(name=get_id("dmx_format"),description=get_id("dmx_format_tip"),items=tuple(formats),default='1')
 	
-	export_format : EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='DMX')
+	export_format : EnumProperty(name=get_id("export_format"),items=( ('SMD', "SMD", "Studiomdl Data" ), ('DMX', "DMX", "Datamodel Exchange" ) ),default='SMD')
 	up_axis : EnumProperty(name=get_id("up_axis"),items=axes,default='Z',description=get_id("up_axis_tip"))
 	material_path : StringProperty(name=get_id("dmx_mat_path"),description=get_id("dmx_mat_path_tip"))
 	export_list_active : IntProperty(name=get_id("active_exportable"),default=0,min=0,update=export_active_changed)
@@ -118,7 +118,7 @@ class ValveSource_SceneProps(PropertyGroup):
 	use_kv2 : BoolProperty(name="Write KeyValues2",description="Write ASCII DMX files",default=False)
 	game_path : StringProperty(name=get_id("game_path"),description=get_id("game_path_tip"),subtype='DIR_PATH',update=State.onGamePathChanged)
 	dmx_weightlink_threshold : FloatProperty(name=get_id("dmx_weightlinkcull"),description=get_id("dmx_weightlinkcull_tip"),max=1,min=0)
-	smd_format : EnumProperty(name=get_id("smd_format"), items=(('SOURCE', "Source", "Source Engine (Half-Life 2)") , ("GOLDSOURCE", "GoldSrc", "GoldSrc engine (Half-Life 1)")), default="SOURCE")
+	smd_format : EnumProperty(name=get_id("smd_format"), items=(('SOURCE', "Source", "Source Engine (Half-Life 2)") , ("GOLDSOURCE", "GoldSrc", "GoldSrc engine (Half-Life 1)")), default="GOLDSOURCE")
 
 class ValveSource_VertexAnimation(PropertyGroup):
 	name : StringProperty(name="Name",default="VertexAnim")
@@ -179,6 +179,19 @@ class ValveSource_CurveProps(ShapeTypeProps,CurveTypeProps,PropertyGroup):
 class ValveSource_TextProps(CurveTypeProps,PropertyGroup):
 	pass
 
+#### Import and Export button s
+class SMD_PT_ImportExport(bpy.types.Panel):
+    bl_label = "SMD Import/Export"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "SMD"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("import_scene.smd", text="Import SMD")
+        layout.operator("export_scene.smd", text="Export SMD")
+#### Import and Export button f
+		
 _classes = (
 	ValveSource_Exportable,
 	ValveSource_SceneProps,
@@ -226,7 +239,9 @@ def register():
 	
 	from . import translations
 	bpy.app.translations.register(__name__,translations.translations)
-	
+	#### Import and Export button s
+	bpy.utils.register_class(SMD_PT_ImportExport)
+	#### Import and Export button f
 	bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 	bpy.types.MESH_MT_shape_key_context_menu.append(menu_func_shapekeys)
@@ -256,7 +271,9 @@ def unregister():
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 	bpy.types.MESH_MT_shape_key_context_menu.remove(menu_func_shapekeys)
 	bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
-
+	#### Import and Export button s
+	bpy.utils.unregister_class(SMD_PT_ImportExport)
+	#### Import and Export button f
 	bpy.app.translations.unregister(__name__)
 	
 	for cls in reversed(_classes):
@@ -273,3 +290,4 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+ 

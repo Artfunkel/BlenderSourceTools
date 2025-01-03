@@ -43,8 +43,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 	filter_glob : StringProperty(default="*.smd;*.vta;*.dmx;*.qc;*.qci", options={'HIDDEN'})
 
 	# Custom properties
-	doAnim : BoolProperty(name=get_id("importer_doanims"), default=True)
-	createCollections : BoolProperty(name=get_id("importer_use_collections"), description=get_id("importer_use_collections_tip"), default=True)
+	doAnim : BoolProperty(name=get_id("importer_doanims"), default=False)
+	createCollections : BoolProperty(name=get_id("importer_use_collections"), description=get_id("importer_use_collections_tip"), default=False)
 	makeCamera : BoolProperty(name=get_id("importer_makecamera"),description=get_id("importer_makecamera_tip"),default=False)
 	append : EnumProperty(name=get_id("importer_bones_mode"),description=get_id("importer_bones_mode_desc"),items=(
 		('VALIDATE',get_id("importer_bones_validate"),get_id("importer_bones_validate_desc")),
@@ -605,11 +605,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	def getMeshMaterial(self,mat_name):
 		smd = self.smd
+
+		
 		if mat_name:
 			mat_name = self.truncate_id_name(mat_name, bpy.types.Material)
 		else:
 			mat_name = "Material"
-
+		
 		md = smd.m.data
 		mat = None
 		for candidate in bpy.data.materials: # Do we have this material already?
@@ -625,9 +627,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 				md.materials.append(mat)
 				mat_ind = len(md.materials) - 1
 		else: # material does not exist
-			print("- New material: {}".format(mat_name))
+			print("- New material: {}".format(self))
+			
 			mat = bpy.data.materials.new(mat_name)
-			#new fix importing textures
 			mat.use_nodes = True
 			base_node = mat.node_tree.nodes["Principled BSDF"]
 			if base_node:
@@ -640,7 +642,12 @@ class SmdImporter(bpy.types.Operator, Logger):
 				print(f"Текстура не найдена: {texture_path}")
 
 			mat.node_tree.links.new(texture_node.outputs["Color"], base_node.inputs["Base Color"])
+			#America 
+			bpy.context.scene.vs.export_path = os.path.dirname(self.filepath)
+			
+			# TEST END 
 			md.materials.append(mat)
+
 			# Give it a random colour
 			randCol = []
 			for i in range(3):
@@ -650,6 +657,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if smd.jobType == PHYS:
 				smd.m.display_type = 'SOLID'
 			mat_ind = len(md.materials) - 1
+
 
 		return mat, mat_ind
 	
@@ -1267,7 +1275,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		smd.layer = target_layer
 		if bpy.context.active_object: ops.object.mode_set(mode='OBJECT')
 		self.appliedReferencePose = False
-		
+
 		print( "\nDMX IMPORTER: now working on",os.path.basename(filepath) )	
 		
 		try:
