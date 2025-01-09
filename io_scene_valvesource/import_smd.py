@@ -55,6 +55,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 	rotMode : EnumProperty(name=get_id("importer_rotmode"),items=( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") ),default='XYZ',description=get_id("importer_rotmode_tip"))
 	boneMode : EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
 	
+	def __init__(self, *args, **kwargs):
+		bpy.types.Operator.__init__(self, *args, **kwargs)
+		Logger.__init__(self)
+
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
 		pre_eem = context.preferences.edit.use_enter_edit_mode

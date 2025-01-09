@@ -52,6 +52,7 @@ class _DatamodelTests():
 	def assertElementRoundTrips(self, name):
 		self.create("elements")
 		e = self.dm.add_element(name)
+		e["str"] = "foobar"
 		e["str_array"] = datamodel.make_array(["a","b"],str)
 		e["float_small"] = 1e-12
 		e["float_large"] = 1e20

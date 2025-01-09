@@ -42,6 +42,10 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 	filter_folder : BoolProperty(default=True, options={'HIDDEN'})
 	filter_glob : StringProperty(default="*.qc;*.qci", options={'HIDDEN'})
 	
+	def __init__(self, *args, **kwargs):
+		bpy.types.Operator.__init__(self, *args, **kwargs)
+		Logger.__init__(self)
+	
 	@classmethod
 	def poll(cls,context):
 		return State.gamePath is not None and State.compiler == Compiler.STUDIOMDL
@@ -133,6 +137,10 @@ class SmdExporter(bpy.types.Operator, Logger):
 	
 	collection : bpy.props.StringProperty(name=get_id("exporter_prop_group"),description=get_id("exporter_prop_group_tip"))
 	export_scene : bpy.props.BoolProperty(name=get_id("scene_export"),description=get_id("exporter_prop_scene_tip"),default=False)
+
+	def __init__(self, *args, **kwargs):
+		bpy.types.Operator.__init__(self, *args, **kwargs)
+		Logger.__init__(self)
 
 	@classmethod
 	def poll(cls,context):
@@ -668,6 +676,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 	class BakedVertexAnimation(list):
 		def __init__(self):
+			super().__init__()
 			self.export_sequence = False
 			self.bone_id = -1
 			self.num_frames = 0
