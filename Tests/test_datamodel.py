@@ -58,6 +58,9 @@ class _DatamodelTests():
 		e["float_large"] = 1e20
 		e["color"] = datamodel.Color([255,0,255,128])
 		e["time"] = 30.5
+		if self.format[0] == "keyvalues2" or self.format[1] >= 9:
+			e["long"] = datamodel.UInt64(0xFFFFFFFFFFFF)
+			e["short"] = datamodel.UInt8(12)
 		self.dm.root["elements"] = datamodel.make_array([e for i in range(5)],datamodel.Element)
 		
 		saved = self.save()

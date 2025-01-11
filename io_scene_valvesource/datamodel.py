@@ -31,6 +31,7 @@ header_proto2_regex = header_proto2.replace("{:d}","([0-9]+)")
 
 intsize = calcsize("i")
 shortsize = calcsize("H")
+longsize = calcsize("Q")
 floatsize = calcsize("f")
 
 def list_support():
@@ -78,6 +79,8 @@ def get_int(file):
 	return int( unpack("i",file.read(intsize))[0] )
 def get_short(file, signed = False):
 	return int( unpack("h" if signed else "H",file.read(shortsize))[0] )
+def get_long(file):
+	return int( unpack("Q",file.read(longsize))[0] )
 def get_float(file):
 	return float( unpack("f",file.read(floatsize))[0] )
 def get_vec(file,dim):
@@ -109,6 +112,12 @@ def _get_kv2_repr(var):
 		return ""
 	else:
 		return str(var)
+
+class UInt8(int):
+	pass
+
+class UInt64(int):
+	pass
 
 class _Array(list):
 	type = None
@@ -418,7 +427,7 @@ class Element(collections.OrderedDict):
 class _ElementArray(_Array):
 	type = Element
 
-_dmxtypes = [Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,int,int]
+_dmxtypes = [Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,UInt64,UInt8]
 _dmxtypes_array = [_ElementArray,_IntArray,_FloatArray,_BoolArray,_StrArray,_BinaryArray,_TimeArray,_ColorArray,_Vector2Array,_Vector3Array,_Vector4Array,_AngleArray,_QuaternionArray,_MatrixArray,_IntArray,_IntArray]
 _dmxtypes_all = _dmxtypes + _dmxtypes_array
 _dmxtypes_str = ["element","int","float","bool","string","binary","time","color","vector2","vector3","vector4","angle","quaternion","matrix","uint64","uint8"]
@@ -431,7 +440,7 @@ attr_list_v2 = [
 	None,Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,
 	_ElementArray,_IntArray,_FloatArray,_BoolArray,_StrArray,_BinaryArray,_TimeArray,_ColorArray,_Vector2Array,_Vector3Array,_Vector4Array,_AngleArray,_QuaternionArray,_MatrixArray
 ]
-attr_list_v3 = [None,Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,int,int] # last two are meant to be uint64, uint8
+attr_list_v3 = [None,Element,int,float,bool,str,Binary,Time,Color,Vector2,Vector3,Vector4,Angle,Quaternion,Matrix,UInt64,UInt8]
 
 def _get_type_from_string(type_str):
 	return _dmxtypes[_dmxtypes_str.index(type_str)]
@@ -650,6 +659,10 @@ class DataModel:
 			self.out.write( struct.pack("b" * len(value),*value) )
 		elif t == int:
 			self.out.write( struct.pack("i" * len(value),*value) )
+		elif t == UInt8:
+			self.out.write( struct.pack("B" * len(value),*value) )
+		elif t == UInt64:
+			self.out.write( struct.pack("Q" * len(value),*value) )
 		elif t == float:
 			self.out.write( struct.pack("f" * len(value),*value) )
 			
@@ -999,7 +1012,9 @@ def load(path = None, in_file = None, element_path = None):
 				elif attr_type == int:		return get_int(in_file)
 				elif attr_type == float:	return get_float(in_file)
 				elif attr_type == bool:		return get_bool(in_file)
-					
+				
+				elif attr_type == UInt8:		return get_byte(in_file)
+				elif attr_type == UInt64:		return get_long(in_file)
 				elif attr_type == Vector2:		return Vector2(get_vec(in_file,2))
 				elif attr_type == Vector3:		return Vector3(get_vec(in_file,3))
 				elif attr_type == Angle:		return Angle(get_vec(in_file,3))
