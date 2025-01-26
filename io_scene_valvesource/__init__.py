@@ -27,7 +27,7 @@ bl_info = {
 	"location": "File > Import/Export, Scene properties",
 	"wiki_url": "http://steamcommunity.com/groups/BlenderSourceTools",
 	"tracker_url": "http://steamcommunity.com/groups/BlenderSourceTools/discussions/0/",
-	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX and QC."
+	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX and QC. New Fixes BLENDER 4.2. + BST 3 3 1 (imp button )"
 }
 
 import bpy, os
