@@ -1,5 +1,23 @@
-The Blender Source Tools add Source engine support to Blender, the free 3D modelling suite.
+Классический BlenderSourceTools для Blender 4.1 с дополнением: 
+При импорте QC файла настройки выставлены на импорт SMD 
+- Без разделенния на коллекции 
+- без импорта анимаций
++ Подгружаются текстуры в материалы
++ Путь рабочей папки в настройки экспорта 
++ Настройки экспорта установлены на GoldSrc по умолчанию
 
-The Blender Source Tools is an add-on for Blender that simplifies working with assets used in games built on the Source engine, such as Half-Life 2, Counter-Strike: Source, and Team Fortress 2. This tool streamlines the process of importing and exporting models, animations, textures, and other data between Blender and Source engine projects.
+В панели (N) появляется вкладка SMD в которой есть кнопки: 
++ Import SMD == File/Import/SMD-QC-files == быстрая кнопка
++ Export SMD == Scene/Export/ == быстрая кнопка
++ Create W_model == Для любого импортированного объекта создаёт однокостный скелет и привязываает текуший меш к нему 
++ Create IDLE SMD 0 ==  Создаёт в рабочем каталоге однокадровую анимацию Idle 
++ Create QC File == Создаёт QC в текущем каталое с именем текущего рабочего активного меша
++ Create SUB-QC File == Создаёт QC в текущем каталое с именами reference разделённые в субмодели, и доьбавляет 1 файл анимации в список секвенций
++ Rename Collections == проверяет имя меша на уникальность в текущем рабочем каталоге (нужно для работы с субмоделями, для сохранения в новый файл)
++ Compile  == Ищет в текущем рабочем каталоге компилятор с именем studiomodel и компилирует Collections.Qc
++ Open Model == открывает первую попавшуюся модель в рабочем каталоге.   
 
-The Blender Source Tools — это аддон для Blender, который позволяет работать с файлами и ресурсами, используемыми в играх на движке Source (например, Half-Life 2, Counter-Strike: Source, Team Fortress 2 и другие). Этот инструмент значительно упрощает процесс импорта и экспорта моделей, анимаций, текстур и других данных между Blender и игровыми проектами на движке Source.
+Todo: 
+Уже следует перемесмотреть имена и прочее, т.к. данная версия расчитана на след иерархию в файле *.Blend
+Scene Collections/Collection/*CurrentMesh
+OpenModel должна открывать не первую попавшуюся , а именно последнюю обновлённую. (наверно) 
