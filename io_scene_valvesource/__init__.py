@@ -204,6 +204,7 @@ class Create_SMD_Utils_Panel(bpy.types.Panel):
         layout.operator("export.submodels_qc", text="Create QC File SUB")
         layout.operator("rename.collection_based_on_smd", text="Rename Collections")
         layout.operator("open.qc_file_with_studiomodel", text="Compile")
+        layout.operator("smd.open_model", text="Open Model")  # Новая кнопка
 
         
 		
@@ -707,6 +708,47 @@ class OpenQCFileWithStudioModel(bpy.types.Operator):
             return {'CANCELLED'}
 
         return {'FINISHED'}
+
+
+# Добавляем новый оператор для открытия модели
+class SMD_OT_OpenModel(bpy.types.Operator):
+    bl_idname = "smd.open_model"
+    bl_label = "Open Model"
+    bl_description = "Open the compiled .mdl file in the default viewer"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        # Проверяем, что путь экспорта указан и существует
+        return context.scene.vs.export_path and os.path.isdir(context.scene.vs.export_path)
+
+    def execute(self, context):
+        # Получаем путь к папке экспорта
+        export_path = context.scene.vs.export_path
+
+        # Ищем файл .mdl в папке экспорта
+        mdl_files = [f for f in os.listdir(export_path) if f.endswith('.mdl')]
+        if not mdl_files:
+            self.report({'ERROR'}, "No .mdl files found in the export directory!")
+            return {'CANCELLED'}
+
+        # Берём первый найденный файл .mdl
+        mdl_file = os.path.join(export_path, mdl_files[0])
+
+        # Открываем файл в программе по умолчанию
+        try:
+            if os.name == 'nt':  # Windows
+                os.startfile(mdl_file)
+            elif os.name == 'posix':  # macOS или Linux
+                subprocess.run(['open', mdl_file] if sys.platform == 'darwin' else ['xdg-open', mdl_file])
+            self.report({'INFO'}, f"Opened {mdl_file}")
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to open model: {str(e)}")
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+########################
 _classes = (
 	ValveSource_Exportable,
 	ValveSource_SceneProps,
@@ -754,6 +796,8 @@ def register():
 
     from . import translations
     bpy.app.translations.register(__name__, translations.translations)
+    ## Open Model
+    bpy.utils.register_class(SMD_OT_OpenModel)
     ## Compiler 
     bpy.utils.register_class(OpenQCFileWithStudioModel)
     ## Register Renamer Unic
@@ -803,7 +847,8 @@ def unregister():
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     bpy.types.MESH_MT_shape_key_context_menu.remove(menu_func_shapekeys)
     bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
-    ## Compier
+    ## Open Model
+    bpy.utils.unregister_class(SMD_OT_OpenModel)
     ## Compiler
     bpy.utils.unregister_class(OpenQCFileWithStudioModel)
     ## Unregister Unic Name 
