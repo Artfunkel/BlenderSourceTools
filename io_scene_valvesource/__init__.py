@@ -182,7 +182,14 @@ class ValveSource_TextProps(CurveTypeProps,PropertyGroup):
 	pass
 
 
-#### создаём кнопку:: Start
+import os
+import subprocess
+import re
+import shutil
+import bpy
+import sys
+
+#################################### BUTTONS 
 class Create_SMD_Utils_Panel(bpy.types.Panel):
     bl_label = "SMD Import/Export"
     bl_space_type = 'VIEW_3D'
@@ -191,30 +198,484 @@ class Create_SMD_Utils_Panel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        scene = context.scene
+        # layout.separator()
+        # layout.label(text="SUB_Model Setup:")
         layout.operator("import_scene.smd", text="Import SMD")
         layout.operator("export_scene.smd", text="Export SMD")
-
-        layout.separator()
-        layout.operator("object.create_one_bone_and_assign_obj", text="Create W_model")
-        layout.operator("export.create_idle_smd", text="Create IDLE SMD 0")
-        layout.operator("export.create_qc_file", text="Create QC File")
-
-        layout.separator()
-        layout.label(text="SUB_Model Setup:")
-        layout.operator("export.submodels_qc", text="Create QC File SUB")
-        layout.operator("rename.collection_based_on_smd", text="Rename Collections")
         layout.operator("open.qc_file_with_studiomodel", text="Compile")
-        layout.operator("smd.open_model", text="Open Model")  # Новая кнопка
+        layout.operator("smd.open_model", text="Open Model")
+  
+        layout.label(text="Tools:")
+        layout.operator("open.smd_file_with_splitter", text="Split SMD")
+        layout.operator("rename.mesh_based_on_smd", text="Rename mesh to unic")
+        layout.operator("object.create_one_bone_and_assign_obj", text="new Skeleton")
+        layout.operator("export.create_idle_smd", text="sequence_idle.smd")
+        layout.operator("export.create_qc_file", text="new_w_model.qc")
+        layout.separator()
+        layout.operator("export.submodels_qc", text="new_w_models.qc")
+        layout.operator("mdl.process_files", text="Pack all models to one")
+        # layout.operator("texture.create_256_color_texture", text="Save 256 Pallete")
 
-        
-		
-		# работать могут, пока неактивны
-		#layout.operator("checkbox.method", text="chebox   method")
-		#layout.prop(context.scene, "checkbox_typemode", text="chebox typemode")
-		
-		
+    
+        # Проверяем, задана ли рабочая папка
+        export_path = scene.vs.export_path
+        is_export_path_set = export_path and os.path.isdir(export_path)
+
+        # Если рабочая папка не задана, показываем поле для её указания
+        if not is_export_path_set:
+            layout.prop(scene.vs, "export_path", text="")
+
+
+        # Счётчик полигонов
+        active_obj = context.active_object
+        if active_obj and active_obj.type == 'MESH':
+            mesh = active_obj.data
+            num_triangles = sum(len(polygon.vertices) - 2 for polygon in mesh.polygons)
+            layout.label(text=f"Triangles: {num_triangles}")
+        else:
+            layout.label(text="Select a mesh to see triangle count")
+
+        # Группа "Main" шпаргалка для боксов HUD
+        #box = layout.box()
+        #box.label(text="Main:")
+        #col = box.column()
+        #col.operator("import_scene.smd", text="Import SMD")
+
+
+
+# Глобальный массив для хранения имен моделей
+g_model_references = []
+
+class MDL_PROCESSOR_OT_Process(bpy.types.Operator):
+    bl_idname = "mdl.process_files"
+    bl_label = "Pack all models to one"
+    bl_description = "Process all .mdl files in the working directory and combine them into a single model"
+
+    @classmethod
+    def poll(cls, context):
+        # Кнопка активна только если указан рабочий каталог
+        return context.scene.vs.export_path and os.path.isdir(context.scene.vs.export_path)
+
+    def execute(self, context):
+        # Получаем рабочую папку из настроек сцены
+        directory = bpy.path.abspath(context.scene.vs.export_path)
+        if not os.path.isdir(directory):
+            self.report({'ERROR'}, "Directory does not exist!")
+            return {'CANCELLED'}
+
+        try:
+            # Получаем список всех .mdl файлов
+            mdl_files = [f for f in os.listdir(directory) if f.endswith('.mdl')]
+            if not mdl_files:
+                self.report({'ERROR'}, "No .mdl files found in the directory!")
+                return {'CANCELLED'}
+
+            # Обрабатываем каждый файл по очереди
+            for mdl_file in mdl_files:
+                self.report({'INFO'}, f"Processing file: {mdl_file}")
+                success = self.process_single_mdl(directory, mdl_file)
+                if not success:
+                    self.report({'ERROR'}, f"Failed to process {mdl_file}")
+                    return {'CANCELLED'}
+
+            # Выводим количество обработанных моделей в консоль
+            self.report({'INFO'}, f"Total models processed: {len(g_model_references)}")
+            print(f"Total models processed: {len(g_model_references)}")
+
+            # Создаем текстовый файл с именами моделей
+            self.create_model_list_file(directory)
+
+            # Создаем QC файл
+            self.create_qc_file(directory)
+
+            # Создаем файл sequence_idle.smd
+            self.create_sequence_idle_smd(directory)
+
+            # Открываем QC файл с помощью !studiomdl.exe
+            self.compile_qc_file(directory)
+
+            self.report({'INFO'}, "All files processed and compilation started successfully!")
+        except Exception as e:
+            self.report({'ERROR'}, f"An error occurred: {str(e)}")
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+    def process_single_mdl(self, directory, mdl_file):
+        """Обрабатывает один .mdl файл: декомпиляция, сортировка, подготовка."""
+        mdl_path = os.path.join(directory, mdl_file)
+
+        # Проверка наличия декомпилятора
+        mdldec_exe = os.path.join(directory, "!mdldec.exe")
+        if not os.path.exists(mdldec_exe):
+            self.report({'ERROR'}, f"File {mdldec_exe} not found!")
+            return False
+
+        # Декомпиляция
+        try:
+            result = subprocess.run(
+                [mdldec_exe, mdl_path],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            if "ERROR" in result.stdout:
+                self.report({'ERROR'}, f"Decompilation failed: {result.stdout}")
+                return False
+            self.report({'INFO'}, f"Successfully decompiled: {mdl_file}")
+        except subprocess.CalledProcessError as e:
+            self.report({'ERROR'}, f"Error during decompilation: {e}")
+            return False
+
+        # Обработка декомпилированных файлов
+        qc_file = mdl_file.replace('.mdl', '.qc')
+        qc_path = os.path.join(directory, qc_file)
+
+        if os.path.exists(qc_path):
+            # Чтение QC файла для поиска референса
+            reference = self.find_reference_in_qc(qc_path)
+            if reference:
+                ref_smd = f"{reference}.smd"
+                new_smd = f"{mdl_file.replace('.mdl', '')}.smd"
+                if os.path.exists(os.path.join(directory, ref_smd)):
+                    os.rename(os.path.join(directory, ref_smd), os.path.join(directory, new_smd))
+                    self.report({'INFO'}, f"Renamed {ref_smd} to {new_smd}")
+
+                    # Добавляем имя модели в массив БЕЗ расширения .smd
+                    model_name_without_extension = os.path.splitext(new_smd)[0]
+                    g_model_references.append(model_name_without_extension)
+
+                # Удаление анимаций
+                with open(qc_path, 'r') as file:
+                    content = file.read()
+                    animations = re.findall(r'\$sequence\s+"[^"]+"\s+"([^"]+)"', content)
+                    for anim in animations:
+                        anim_file = f"{anim}.smd"
+                        if os.path.exists(os.path.join(directory, anim_file)):
+                            os.remove(os.path.join(directory, anim_file))
+                            self.report({'INFO'}, f"Deleted animation file: {anim_file}")
+
+                # Удаление QC файла
+                os.remove(qc_path)
+                self.report({'INFO'}, f"Deleted QC file: {qc_file}")
+
+        # Перемещение обработанного .mdl файла
+        processed_dir = os.path.join(directory, "Obrabotano")
+        if not os.path.exists(processed_dir):
+            os.makedirs(processed_dir)
+        shutil.move(mdl_path, os.path.join(processed_dir, mdl_file))
+        self.report({'INFO'}, f"Moved {mdl_file} to {processed_dir}")
+
+        return True
+
+    def find_reference_in_qc(self, qc_file):
+        """Ищет референс в QC файле."""
+        with open(qc_file, 'r') as file:
+            content = file.read()
+            match = re.search(r'\$body\s+"studio"\s+"([^"]+)"', content)
+            if match:
+                return match.group(1)
+        return None
+
+    def create_model_list_file(self, directory):
+        """Создает текстовый файл с именами моделей."""
+        model_list_path = os.path.join(directory, "model_list.txt")
+        with open(model_list_path, 'w') as file:
+            for model_name in g_model_references:
+                file.write(f"{model_name}\n")
+        self.report({'INFO'}, f"Model list created at {model_list_path}")
+
+    def create_qc_file(self, directory):
+        """Создает QC файл с именами моделей в блоке $bodygroup."""
+        qc_file_path = os.path.join(directory, "!w_new_models.qc")
+        with open(qc_file_path, 'w') as file:
+            file.write("/*\n")
+            file.write("this QC generated by DeathDemonSaxofonovich\n")
+            file.write("*/\n\n")
+            file.write('$modelname "new_w_models.mdl"\n')
+            file.write('$cd ".\\"\n')
+            file.write('$cdtexture ".\\"\n')
+            file.write('$scale 1.0\n')
+            file.write('$cliptotextures\n\n')
+            file.write('$bbox 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n')
+            file.write('$cbox 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\n\n')
+            file.write('$eyeposition 0.000000 0.000000 0.000000\n\n')
+            file.write('$bodygroup body\n')
+            file.write('{\n')
+            file.write('    blank\n')
+            for model_name in g_model_references:
+                # Имена моделей уже без расширения .smd
+                file.write(f'    studio "{model_name}"\n')
+            file.write('}\n\n')
+            file.write('$sequence "idle" "sequence_idle" loop fps 0 ACT_IDLE 1\n')
+            file.write('/// КОНЕЦ QC файла\n')
+        self.report({'INFO'}, f"QC file created at {qc_file_path}")
+
+    def create_sequence_idle_smd(self, directory):
+        """Создает файл sequence_idle.smd с указанным содержимым."""
+        smd_file_path = os.path.join(directory, "sequence_idle.smd")
+        smd_content = '''version 1
+nodes
+0 "blender_implicit" -1
+end
+skeleton
+time 0
+0 0.000000 0.000000 0.000000 0.000000 -0.000000 0.000000
+end
+'''
+        with open(smd_file_path, 'w') as file:
+            file.write(smd_content)
+        self.report({'INFO'}, f"Created sequence_idle.smd at {smd_file_path}")
+
+    def compile_qc_file(self, directory):
+        """Открывает QC файл с помощью !studiomdl.exe для компиляции."""
+        qc_file_path = os.path.join(directory, "!w_new_models.qc")
+        studiomodel_exe = os.path.join(directory, "!studiomdl.exe")
+
+        if not os.path.exists(studiomodel_exe):
+            self.report({'ERROR'}, f"File {studiomodel_exe} not found!")
+            return False
+
+        if not os.path.exists(qc_file_path):
+            self.report({'ERROR'}, f"QC file {qc_file_path} not found!")
+            return False
+
+        try:
+            # Кодируем путь к исполняемому файлу
+            edir = studiomodel_exe.encode(sys.getfilesystemencoding())
+
+            # Функция для получения директории файла
+            def filedir(some_array):
+                return os.path.dirname(some_array)
+
+            # Запуск процесса
+            cmd_process = subprocess.Popen(
+                [edir, qc_file_path],
+                cwd=filedir(qc_file_path),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=True
+            )
+
+            # Чтение вывода процесса
+            while True:
+                output = cmd_process.stdout.readline()
+                if output == b'' and cmd_process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip().decode())  # Вывод в консоль Blender
+                    self.report({'INFO'}, output.strip().decode())  # Вывод в UI Blender
+
+            # Проверка завершения процесса
+            if cmd_process.returncode != 0:
+                self.report({'ERROR'}, f"Compilation failed with return code {cmd_process.returncode}")
+                return {'CANCELLED'}
+
+            self.report({'INFO'}, f"Successfully compiled {qc_file_path} with {os.path.basename(studiomodel_exe)}")
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to compile QC file: {str(e)}")
+            return {'CANCELLED'}
+
+        return True
+
+# Добавляем кнопку в панель Blender Source Tools
+
+
+
+class SMD_OT_SetExportPath(bpy.types.Operator):
+    bl_idname = "smd.set_export_path"
+    bl_label = "Set Export Path"
+    bl_description = "Set the current export path as the working directory"
+
+    def execute(self, context):
+        export_path = context.scene.vs.export_path
+
+        # Проверяем, что путь существует
+        if not export_path or not os.path.isdir(export_path):
+            self.report({'ERROR'}, "Invalid directory path!")
+            return {'CANCELLED'}
+
+        # Сохраняем путь в настройках сцены
+        context.scene.vs.export_path = export_path
+        self.report({'INFO'}, f"Work directory set to: {export_path}")
+        return {'FINISHED'}
+
+
 
 #### Iсоздаём кнопку:: Finish
+
+
+import bpy
+import os
+import subprocess
+import sys
+
+class OpenSMDFileWithSplitter(bpy.types.Operator):
+    bl_idname = "open.smd_file_with_splitter"
+    bl_label = "Open SMD File with Splitter"
+    bl_description = "Open the SMD file corresponding to the selected mesh using smd_splitter.exe"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
+
+    def execute(self, context):
+        # Получаем активный объект
+        active_obj = context.active_object
+
+        # Проверяем, что активный объект — это меш
+        if not active_obj or active_obj.type != 'MESH':
+            self.report({'ERROR'}, "Please select a mesh object")
+            return {'CANCELLED'}
+
+        # Получаем имя активного меша
+        mesh_name = active_obj.name
+        print(f"Active mesh name: {mesh_name}")
+
+        # Получаем путь к рабочей папке
+        working_directory = bpy.context.scene.vs.export_path
+        if not working_directory or not os.path.isdir(working_directory):
+            working_directory = os.path.dirname(bpy.data.filepath) if bpy.data.filepath else os.getcwd()
+        print(f"Working directory: {working_directory}")
+
+        # Ищем SMD файл с именем, соответствующим имени меша
+        SMD_file = f"{mesh_name}.smd"
+        SMD_file_path = os.path.join(working_directory, SMD_file)
+
+        if not os.path.exists(SMD_file_path):
+            self.report({'ERROR'}, f"No SMD file found for mesh '{mesh_name}'")
+            return {'CANCELLED'}
+
+        print(f"Found SMD file: {SMD_file_path}")
+
+        # Ищем программу smd_splitter.exe в рабочей папке
+        splitter_files = [f for f in os.listdir(working_directory) if f.lower() == "!smd-splitter.exe"]
+        if not splitter_files:
+            self.report({'ERROR'}, "No smd_splitter.exe found in the working directory")
+            return {'CANCELLED'}
+
+        splitter_file = splitter_files[0]
+        splitter_file_path = os.path.join(working_directory, splitter_file)
+        print(f"Found smd_splitter.exe: {splitter_file_path}")
+
+        # Запуск smd_splitter.exe для обработки SMD файла без ожидания завершения
+        try:
+            subprocess.Popen(
+                [splitter_file_path, SMD_file_path],
+                cwd=working_directory,
+                shell=True,
+                stdout=subprocess.DEVNULL,  # Игнорируем вывод
+                stderr=subprocess.DEVNULL   # Игнорируем ошибки
+            )
+            self.report({'INFO'}, f"Started processing {SMD_file} with {os.path.basename(splitter_file_path)}")
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to start smd_splitter.exe: {str(e)}")
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+#import bpy
+#import os
+#import numpy as np  # Добавьте эту строку
+#from PIL import Image  # Библиотека Pillow для работы с изображениями
+
+
+class Create256ColorTextureAndMaterial(bpy.types.Operator):
+    bl_idname = "texture.create_256_color_texture"
+    bl_label = "Create 256 Color Texture"
+    bl_description = "Create a 16x16 texture with 256 colors, save it, and assign it to the selected mesh"
+
+    # Добавляем свойство для хранения пути
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        # Получаем активный объект
+        active_obj = context.active_object
+
+        # Проверяем, что активный объект — это меш
+        if not active_obj or active_obj.type != 'MESH':
+            self.report({'ERROR'}, "Please select a mesh object")
+            return {'CANCELLED'}
+
+        # Создаём изображение 16x16
+        image_name = "palette_256_colors"
+        image = bpy.data.images.new(image_name, width=16, height=16)
+
+        # Заполняем изображение 256 цветами (градиент)
+        pixels = np.zeros((16, 16, 4), dtype=np.float32)  # RGBA
+        for i in range(256):
+            x = i % 16
+            y = i // 16
+            r = (i & 0xE0) / 255.0  # Красный канал
+            g = ((i & 0x1C) << 3) / 255.0  # Зелёный канал
+            b = ((i & 0x03) << 6) / 255.0  # Синий канал
+            pixels[y, x] = (r, g, b, 1.0)  # Альфа = 1.0
+
+        # Записываем пиксели в изображение
+        image.pixels = pixels.flatten()
+
+        # Сохраняем изображение в формате BMP с использованием Pillow
+        export_path = os.path.dirname(self.filepath)  # Получаем путь из свойства filepath
+        if not export_path:
+            self.report({'ERROR'}, "Export path is not set")
+            return {'CANCELLED'}
+
+        # Преобразуем изображение в 8-bit с использованием Pillow
+        pil_image = Image.new("P", (16, 16))  # Создаём 8-bit изображение
+
+        # Создаём палитру из 256 цветов
+        palette = []
+        for i in range(256):
+            r, g, b, _ = pixels[i // 16, i % 16]
+            palette.extend([int(r * 255), int(g * 255), int(b * 255)])
+        pil_image.putpalette(palette)
+
+        # Заполняем изображение индексами палитры
+        pil_image.putdata([i for i in range(256)])
+
+        # Сохраняем изображение в формате BMP
+        texture_path = os.path.join(export_path, f"{image_name}.bmp")
+        pil_image.save(texture_path, format="BMP")
+
+        # Создаём материал
+        material_name = f"{image_name}.bmp"
+        material = bpy.data.materials.new(name=material_name)
+        material.use_nodes = True
+
+        # Очищаем ноды материала
+        nodes = material.node_tree.nodes
+        nodes.clear()
+
+        # Добавляем ноду для текстуры
+        texture_node = nodes.new(type='ShaderNodeTexImage')
+        texture_node.image = image
+        texture_node.location = (0, 0)
+
+        # Добавляем ноду для вывода
+        output_node = nodes.new(type='ShaderNodeOutputMaterial')
+        output_node.location = (200, 0)
+
+        # Соединяем ноды
+        links = material.node_tree.links
+        links.new(texture_node.outputs['Color'], output_node.inputs['Surface'])
+
+        # Назначаем материал активному объекту
+        if active_obj.data.materials:
+            active_obj.data.materials[0] = material
+        else:
+            active_obj.data.materials.append(material)
+
+        self.report({'INFO'}, f"Created texture and material '{material_name}' and assigned to the mesh")
+        return {'FINISHED'}
+
+    # Добавляем метод invoke для выбора пути
+    def invoke(self, context, event):
+        # Устанавливаем путь по умолчанию
+        self.filepath = os.path.join(bpy.path.abspath("//"), "palette_256_colors.bmp")
+        # Открываем окно выбора файла
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
 
 #### Создаём кастомный экспорт OBJ:: Finish
 class EXPORT_OT_ObjCustom(bpy.types.Operator):
@@ -243,10 +704,15 @@ class EXPORT_OT_ObjCustom(bpy.types.Operator):
 #### Создаём кастомный экспорт OBJ:: Finish
 		
 #### W_model 
+
 class Create_w_model_Bone_1(bpy.types.Operator):
     bl_idname = "object.create_one_bone_and_assign_obj"
     bl_label = "Create W_model"
     bl_description = "Create a single-bone armature and assign the active mesh to it"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
 
     def execute(self, context):
         # Получаем активный объект
@@ -305,6 +771,11 @@ class Create_w_model_Sequence_Idle_1(bpy.types.Operator):
     # Свойство для хранения пути сохранения
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
+    @classmethod
+    def poll(cls, context):
+        # Кнопка активна только если указан рабочий каталог
+        return context.scene.vs.export_path and os.path.isdir(context.scene.vs.export_path)
+
     def execute(self, context):
         # Содержимое файла collection_idle.smd
         content = """version 1
@@ -339,32 +810,52 @@ end
 
         # Если путь экспорта указан, используем его
         if export_path and os.path.isdir(export_path):
-            self.filepath = os.path.join(export_path, "Collection_sequence_idle")
+            self.filepath = os.path.join(export_path, "sequence_idle.smd")
             return self.execute(context)
         else:
             # Если путь не указан, открываем окно файлового браузера
-            self.filepath = "Collection_sequence_idle"  # Имя файла по умолчанию
+            self.filepath = "sequence_idle.smd"  # Имя файла по умолчанию
             context.window_manager.fileselect_add(self)
             return {'RUNNING_MODAL'}
 
 
+
+### Имя файла mdl по имени reference
+### Имя файла QC по имени reference 
 class Create_w_model_QC(bpy.types.Operator):
     bl_idname = "export.create_qc_file"
     bl_label = "Create and Write QC file"
-    bl_description = "Create a collection.qc file with the specified content"
+    bl_description = "Create a QC file with the name of the active object or collection"
 
     # Свойство для хранения пути сохранения
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
+
     def execute(self, context):
-        # Содержимое файла collection_idle.smd
-        content = """/*
+        # Получаем активный объект или коллекцию
+        active_object = context.view_layer.objects.active
+        active_collection = context.view_layer.active_layer_collection.collection
+
+        # Определяем имя референса
+        if active_object:
+            reference_name = active_object.name
+        elif active_collection:
+            reference_name = active_collection.name
+        else:
+            self.report({'ERROR'}, "No active object or collection found!")
+            return {'CANCELLED'}
+
+        # Содержимое файла QC
+        content = f"""/*
 this QC generated by DeathDemonSaxofonovich in Blender
 */
 
-$modelname "w_model_new.mdl"
-$cd ".\"
-$cdtexture ".\"
+$modelname "new_w_model.mdl"
+$cd ".\\"
+$cdtexture ".\\"
 $scale 1.0
 $cliptotextures
 
@@ -374,11 +865,11 @@ $cbox 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000
 $eyeposition 0.000000 0.000000 0.000000
 
 $bodygroup body
-{
-studio "Collection"
-}
+{{
+studio "{reference_name}"
+}}
 
-$sequence Idle "Collection_sequence_idle" loop fps 0 ACT_IDLE 1
+$sequence "idle" "sequence_idle" loop fps 0 ACT_IDLE 1
 """
 
         # Записываем содержимое в файл
@@ -401,17 +892,27 @@ $sequence Idle "Collection_sequence_idle" loop fps 0 ACT_IDLE 1
         # Получаем путь экспорта из настроек сцены
         export_path = bpy.context.scene.vs.export_path
 
+        # Определяем имя файла на основе активного объекта или коллекции
+        active_object = context.view_layer.objects.active
+        active_collection = context.view_layer.active_layer_collection.collection
+
+        if active_object:
+            file_name = "new_w_model.qc" ## f"{active_object.name}.qc"
+        elif active_collection:
+            file_name = "new_w_model.qc" ## f"{active_collection.name}.qc"
+        else:
+            self.report({'ERROR'}, "No active object or collection found!")
+            return {'CANCELLED'}
+
         # Если путь экспорта указан, используем его
         if export_path and os.path.isdir(export_path):
-            self.filepath = os.path.join(export_path, "Collection.qc")
+            self.filepath = os.path.join(export_path, file_name)
             return self.execute(context)
         else:
             # Если путь не указан, открываем окно файлового браузера
-            self.filepath = "Collection.qc"  # Имя файла по умолчанию
+            self.filepath = file_name  # Имя файла по умолчанию
             context.window_manager.fileselect_add(self)
             return {'RUNNING_MODAL'}
-
-
 
 
 bpy.types.Scene.checkbox_typemode = BoolProperty(
@@ -419,7 +920,6 @@ bpy.types.Scene.checkbox_typemode = BoolProperty(
     description="Enable automatic processing",
     default=False
 )
-
 
 
 ### выбрать режим экспорта. 
@@ -456,6 +956,11 @@ class Create_w_model_sub_QC(bpy.types.Operator):
     # Свойство для хранения пути сохранения
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
+    @classmethod
+    def poll(cls, context):
+        # Кнопка активна только если указан рабочий каталог
+        return context.scene.vs.export_path and os.path.isdir(context.scene.vs.export_path)
+
     def execute(self, context):
         # Получаем путь экспорта из настроек сцены
         export_path = bpy.context.scene.vs.export_path
@@ -489,7 +994,7 @@ class Create_w_model_sub_QC(bpy.types.Operator):
         qc_content = '/*\n'
         qc_content += 'this QC generated by DeathDemonSaxofonovich in Blender\n'
         qc_content += '*/\n\n'
-        qc_content += '$modelname "w_model_news.mdl"\n'
+        qc_content += '$modelname "new_w_models.mdl"\n'
         qc_content += '$cd "."\n'
         qc_content += '$cdtexture "."\n'
         qc_content += '$scale 1.0\n'
@@ -532,24 +1037,27 @@ class Create_w_model_sub_QC(bpy.types.Operator):
 
         # Если путь экспорта указан, используем его
         if export_path and os.path.isdir(export_path):
-            self.filepath = os.path.join(export_path, "w_model_new_s.qc")
+            self.filepath = os.path.join(export_path, "new_w_models.qc")
             return self.execute(context)
         else:
             # Если путь не указан, открываем окно файлового браузера
-            self.filepath = "w_model_new_s.qc"  # Имя файла по умолчанию
+            self.filepath = "new_w_models.qc"  # Имя файла по умолчанию
             context.window_manager.fileselect_add(self)
             return {'RUNNING_MODAL'}
-
 
 import os
 import re
 import bpy
 
 
-class RenameCollectionBasedOnSMDFiles(bpy.types.Operator):
-    bl_idname = "rename.collection_based_on_smd"
-    bl_label = "Rename Collection Based on SMD Files"
-    bl_description = "Rename active collection if an SMD file with the same name exists"
+class RenameMeshBasedOnSMDFiles(bpy.types.Operator):
+    bl_idname = "rename.mesh_based_on_smd"
+    bl_label = "Rename Mesh Based on SMD Files"
+    bl_description = "Rename active mesh if an SMD file with the same name exists"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type == 'MESH'
 
     def execute(self, context):
         # Получаем путь экспорта из настроек сцены
@@ -572,66 +1080,57 @@ class RenameCollectionBasedOnSMDFiles(bpy.types.Operator):
         ]
         print(f"Filtered SMD files: {filtered_files}")
 
-        # Получаем активную коллекцию
-        active_collection = bpy.context.view_layer.active_layer_collection.collection
+        # Получаем активный объект (меш)
+        active_object = context.view_layer.objects.active
 
-        if not active_collection:
-            self.report({'ERROR'}, "No active collection found")
+        if not active_object or active_object.type != 'MESH':
+            self.report({'ERROR'}, "No active mesh object found")
             return {'CANCELLED'}
 
-        # Имя активной коллекции
-        collection_name = active_collection.name
-        print(f"Active collection name: {collection_name}")
+        # Имя активного меша
+        mesh_name = active_object.name
+        print(f"Active mesh name: {mesh_name}")
 
-        # Регулярное выражение для поиска последнего числового суффикса
-        match = re.search(r"_(\d+)$", collection_name)
-
-        if match:
-            # Извлекаем числовой суффикс
-            collnum = int(match.group(1))
-            # Удаляем числовой суффикс из имени коллекции
-            base_name = re.sub(r"_(\d+)$", "", collection_name)
-            print(f"Base name extracted: {base_name}, Current suffix: {collnum}")
-        else:
-            # Если числовой суффикс не найден, используем текущее имя как базовое
-            base_name = collection_name
-            collnum = 0  # Начинаем с 0, чтобы следующий индекс был 1
-            print(f"No suffix found, using base name: {base_name}")
+        # Убираем числовой суффикс из имени меша (например, "Cube.001" -> "Cube")
+        base_name = re.sub(r"\.\d+$", "", mesh_name)
+        print(f"Base name extracted: {base_name}")
 
         # Функция для проверки существования файла с указанным именем
         def is_file_exists(name):
-            exists = any(f.lower() == f"{name.lower()}.smd" for f in filtered_files)
+            # Проверяем, есть ли файл с таким именем (без учёта регистра)
+            exists = any(f.lower().startswith(f"{name.lower()}.") and f.lower().endswith(".smd") for f in filtered_files)
             print(f"Checking if file '{name}.smd' exists: {exists}")
             return exists
 
-        # Если имя коллекции (без изменений) еще не занято, оставляем его
-        if not is_file_exists(collection_name):
-            print("Current collection name is unique, no renaming needed.")
-            self.report({'INFO'}, "Collection name is already unique")
+        # Если имя меша (без числового суффикса) еще не занято, оставляем его
+        if not is_file_exists(base_name):
+            print("Current mesh name is unique, no renaming needed.")
+            self.report({'INFO'}, "Mesh name is already unique")
             return {'FINISHED'}
 
         # Находим следующий доступный индекс
-        new_collnum = collnum + 1
-        print(f"Starting search for available suffix, starting with: {new_collnum}")
+        new_meshnum = 1
+        print(f"Starting search for available suffix, starting with: {new_meshnum}")
         
-        while is_file_exists(f"{base_name}_{new_collnum}"):  # Пока файл с таким именем уже существует
-            print(f"Name '{base_name}_{new_collnum}' is taken, trying next index...")
-            new_collnum += 1  # Увеличиваем индекс
+        while is_file_exists(f"{base_name}.{new_meshnum:03}"):  # Пока файл с таким именем уже существует
+            print(f"Name '{base_name}.{new_meshnum:03}' is taken, trying next index...")
+            new_meshnum += 1  # Увеличиваем индекс
 
-        # Формируем новое имя коллекции
-        new_collection_name = f"{base_name}_{new_collnum}"
-        print(f"New collection name found: {new_collection_name}")
+        # Формируем новое имя меша
+        new_mesh_name = f"{base_name}.{new_meshnum:03}"
+        print(f"New mesh name found: {new_mesh_name}")
 
-        # Переименовываем коллекцию, если новое имя отличается от текущего
-        if new_collection_name != collection_name:
-            active_collection.name = new_collection_name
-            self.report({'INFO'}, f"Renamed collection to: {new_collection_name}")
+        # Переименовываем меш, если новое имя отличается от текущего
+        if new_mesh_name != mesh_name:
+            active_object.name = new_mesh_name
+            self.report({'INFO'}, f"Renamed mesh to: {new_mesh_name}")
         else:
-            self.report({'INFO'}, "Collection name is already unique")
+            self.report({'INFO'}, "Mesh name is already unique")
 
         return {'FINISHED'}
 
 
+        
 import os
 import subprocess
 import bpy
@@ -641,6 +1140,11 @@ class OpenQCFileWithStudioModel(bpy.types.Operator):
     bl_idname = "open.qc_file_with_studiomodel"
     bl_label = "Open QC File with StudioModel"
     bl_description = "Find a QC file in the working directory and open it with a program containing 'studiomdl' in its name"
+
+    @classmethod
+    def poll(cls, context):
+        # Кнопка активна только если указан рабочий каталог
+        return context.scene.vs.export_path and os.path.isdir(context.scene.vs.export_path)
 
     def execute(self, context):
         # Получаем путь к рабочей папке
@@ -788,36 +1292,28 @@ _classes = (
 	update.SMD_MT_Updated,
 	export_smd.SMD_OT_Compile, 
 	export_smd.SmdExporter, 
-	import_smd.SmdImporter)
+	import_smd.SmdImporter,
+    Create_SMD_Utils_Panel,
+    Create_w_model_Bone_1,
+    Create_w_model_Sequence_Idle_1,
+    Create_w_model_QC,
+    Create_w_model_sub_QC,
+    Checkbox_Type,
+    RenameMeshBasedOnSMDFiles,
+    OpenQCFileWithStudioModel,
+    SMD_OT_OpenModel,
+    Create256ColorTextureAndMaterial,
+    OpenSMDFileWithSplitter,
+    SMD_OT_SetExportPath,
+    MDL_PROCESSOR_OT_Process)
 
 def register():
     for cls in _classes:
         bpy.utils.register_class(cls)
 
     from . import translations
-    bpy.app.translations.register(__name__, translations.translations)
-    ## Open Model
-    bpy.utils.register_class(SMD_OT_OpenModel)
-    ## Compiler 
-    bpy.utils.register_class(OpenQCFileWithStudioModel)
-    ## Register Renamer Unic
-    bpy.utils.register_class(RenameCollectionBasedOnSMDFiles)
-    ## Register Save SMD mode
-    bpy.utils.register_class(Checkbox_Type)
-    ## Exported list 
-    bpy.utils.register_class(Create_w_model_sub_QC)
-    ## QC Creating
-    bpy.utils.register_class(Create_w_model_QC)
-    ### Idle Sequence
-    bpy.utils.register_class(Create_w_model_Sequence_Idle_1)
-    ######  W_model
-    bpy.utils.register_class(Create_w_model_Bone_1)
-    ## New Custom Export Obj:: Start
-    bpy.utils.register_class(EXPORT_OT_ObjCustom)
-    #### Import and Export button :: Start
-    bpy.utils.register_class(Create_SMD_Utils_Panel)
-    #### Import and Export button f :: Finish
-    #  
+    bpy.app.translations.register(__name__,translations.translations)
+    
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
     bpy.types.MESH_MT_shape_key_context_menu.append(menu_func_shapekeys)
@@ -847,28 +1343,7 @@ def unregister():
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     bpy.types.MESH_MT_shape_key_context_menu.remove(menu_func_shapekeys)
     bpy.types.TEXT_MT_edit.remove(menu_func_textedit)
-    ## Open Model
-    bpy.utils.unregister_class(SMD_OT_OpenModel)
-    ## Compiler
-    bpy.utils.unregister_class(OpenQCFileWithStudioModel)
-    ## Unregister Unic Name 
-    bpy.utils.unregister_class(RenameCollectionBasedOnSMDFiles)
-    ## Register Save SMD mode
-    bpy.utils.unregister_class(Checkbox_Type)
-    ## Exported
-    bpy.utils.unregister_class(Create_w_model_sub_QC)
-    ### QC 
-    bpy.utils.unregister_class(Create_w_model_QC)
-    ### Idle Sequence
-    bpy.utils.unregister_class(Create_w_model_Sequence_Idle_1)
-    ## W_model
-    bpy.utils.unregister_class(Create_w_model_Bone_1)
-    #### Import and :: Start
-    bpy.utils.unregister_class(Create_SMD_Utils_Panel)
-    #### Import and Export button :: Finish
-    ## OBJ ExpORT :: Start
-    bpy.utils.unregister_class(EXPORT_OT_ObjCustom)
-    ## Export :: Finish
+
     bpy.app.translations.unregister(__name__)
 
     for cls in reversed(_classes):
