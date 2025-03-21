@@ -1032,12 +1032,12 @@ def load(path = None, in_file = None, element_path = None):
 				else:
 					raise TypeError("Cannot read attributes of type {}".format(attr_type))
 			
-			def read_element(elem):
+			def read_element(elem, use_string_dict = True):
 				#print(elem.name,"@",in_file.tell())
 				num_attributes = get_int(in_file)
 				for _ in range(num_attributes):
 					#start = in_file.tell()
-					name = dm._string_dict.read_string(in_file)
+					name = dm._string_dict.read_string(in_file) if use_string_dict else get_str(in_file)
 					attr_type = _get_dmx_id_type(encoding,encoding_ver,get_byte(in_file))
 					#print("\t",name,"@",start,attr_type)
 					if attr_type in _dmxtypes:
@@ -1052,7 +1052,7 @@ def load(path = None, in_file = None, element_path = None):
 			# prefix attributes
 			if encoding_ver >= 9:
 				for _ in range(get_int(in_file)):
-					read_element(dm.prefix_attributes)
+					read_element(dm.prefix_attributes, use_string_dict = False)
 			
 			dm._string_dict = _StringDictionary(encoding,encoding_ver,in_file=in_file)			
 			num_elements = get_int(in_file)

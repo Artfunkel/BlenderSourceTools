@@ -109,6 +109,15 @@ class Binary5(Binary4):
 class Binary9(Binary5):
 	format = ("binary",9)
 
+	def test_Read(self):
+		with open(join(src_path, "walkn.dmx.gz"), "rb") as walkGz:
+			import gzip
+			dmxBytes = gzip.decompress(walkGz.read())
+
+		import io
+		dm = datamodel.load(in_file = io.BytesIO(dmxBytes))
+		print(dm.root["skeleton"].get_kv2())
+
 class General(unittest.TestCase):
 	def test_ColorValidation(self):
 		datamodel.Color([255, 255, 255, 255])
