@@ -22,7 +22,8 @@ import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools,
 from bpy.app.translations import pgettext
 from bpy.app.handlers import depsgraph_update_post, load_post, persistent
 from mathutils import Matrix, Vector
-from math import *
+from math import radians, pi
+from io import TextIOWrapper
 from . import datamodel
 
 intsize = struct.calcsize("i")
@@ -52,8 +53,7 @@ FLEX = 0x6 # $model VTA
 mesh_compatible = ('MESH', 'TEXT', 'FONT', 'SURFACE', 'META', 'CURVE')
 shape_types = ('MESH' , 'SURFACE', 'CURVE')
 
-exportable_types = list(mesh_compatible)
-exportable_types.append('ARMATURE')
+exportable_types = list((*mesh_compatible, 'ARMATURE'))
 exportable_types = tuple(exportable_types)
 
 axes = (('X','X',''),('Y','Y',''),('Z','Z',''))
@@ -74,7 +74,7 @@ class Compiler:
 class dmx_version:
 	encoding : int
 	format : int
-	title : str = dataclasses.field(default=None, hash=False, compare=False)
+	title : str = dataclasses.field(default="Unnamed", hash=False, compare=False)
 
 	compiler : int = Compiler.STUDIOMDL
 
@@ -120,10 +120,10 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 		cls._gamePathValid = False
 
 	@property
-	def exportableObjects(cls): return cls._exportableObjects
+	def exportableObjects(cls) -> set[int]: return cls._exportableObjects
 
 	@property
-	def engineBranch(cls) -> dmx_version: return cls._engineBranch
+	def engineBranch(cls) -> dmx_version | None: return cls._engineBranch
 
 	@property
 	def datamodelEncoding(cls): return cls._engineBranch.encoding if cls._engineBranch else int(bpy.context.scene.vs.dmx_encoding)
@@ -153,15 +153,16 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 
 class State(metaclass=_StateMeta):
 	@classmethod
-	def update_scene(cls, scene = None):
+	def update_scene(cls, scene : bpy.types.Scene | None = None):
 		scene = scene or bpy.context.scene
+		assert(scene)
 		cls._exportableObjects = set([ob.session_uid for ob in scene.objects if ob.type in exportable_types and not (ob.type == 'CURVE' and ob.data.bevel_depth == 0 and ob.data.extrude == 0)])
 		make_export_list(scene)
 		cls.last_export_refresh = time.time()
 	
 	@staticmethod
 	@persistent
-	def _onDepsgraphUpdate(scene):
+	def _onDepsgraphUpdate(scene : bpy.types.Scene):
 		if scene == bpy.context.scene and time.time() - State.last_export_refresh > 0.25:
 			State.update_scene(scene)
 
@@ -266,7 +267,7 @@ def smdContinue(line):
 def getDatamodelQuat(blender_quat):
 	return datamodel.Quaternion([blender_quat[1], blender_quat[2], blender_quat[3], blender_quat[0]])
 
-def getEngineBranch() -> dmx_version:
+def getEngineBranch() -> dmx_version | None:
 	if not bpy.context.scene.vs.engine_path: return None
 	path = os.path.abspath(bpy.path.abspath(bpy.context.scene.vs.engine_path))
 
@@ -429,11 +430,12 @@ def select_only(ob):
 
 def hasShapes(id, valid_only = True):
 	def _test(id_):
-		return id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks)
+		return bool(id_.type in shape_types and id_.data.shape_keys and len(id_.data.shape_keys.key_blocks))
 	
 	if type(id) == bpy.types.Collection:
 		for _ in [ob for ob in id.objects if ob.vs.export and (not valid_only or ob.session_uid in State.exportableObjects) and _test(ob)]:
 			return True
+		return False
 	else:
 		return _test(id)
 
@@ -461,21 +463,24 @@ def hasCurves(id):
 	if type(id) == bpy.types.Collection:
 		for _ in [ob for ob in id.objects if ob.vs.export and ob.session_uid in State.exportableObjects and _test(ob)]:
 			return True
+		return False
 	else:
 		return _test(id)
 
-def valvesource_vertex_maps(id):
+def valvesource_vertex_maps(id) -> set[str]:
 	"""Returns all vertex colour maps which are recognised by the Tools."""
 	def test(id_):
 		if hasattr(id_.data,"vertex_colors"):
 			return set(id_.data.vertex_colors.keys()).intersection(vertex_maps)
 		else:
-			return []
+			return set()
 
 	if type(id) == bpy.types.Collection:
 		return set(itertools.chain(*(test(ob) for ob in id.objects)))
 	elif id.type == 'MESH':
 		return test(id)
+	else:
+		return set()
 
 def actionsForFilter(filter):
 	import fnmatch
@@ -523,7 +528,7 @@ def getSelectedExportables():
 		for exportable in getExportablesForObject(bpy.context.active_object):
 			yield exportable
 
-def make_export_list(scene):
+def make_export_list(scene : bpy.types.Scene):
 	scene.vs.export_list.clear()
 	
 	def makeDisplayName(item,name=None):
@@ -628,20 +633,19 @@ class Logger:
 
 class SmdInfo:
 	isDMX = 0 # version number, or 0 for SMD
-	a = None # Armature object
-	m = None # Mesh datablock
+	a : bpy.types.Object | None = None
+	m : bpy.types.Object | None = None
 	shapes = None
-	g = None # Group being exported
-	file = None
-	jobName = None
+	g : bpy.types.Collection | None = None # Group being exported
+	file : TextIOWrapper
 	jobType = None
-	startTime = 0
-	started_in_editmode = None
+	startTime = 0.0
 	in_block_comment = False
-	upAxis = 'Z'
 	rotMode = 'EULER' # for creating keyframes during import
+	shapeNames : dict | None = None
 	
-	def __init__(self):
+	def __init__(self, jobName : str):
+		self.jobName = jobName
 		self.upAxis = bpy.context.scene.vs.up_axis
 		self.amod = {} # Armature modifiers
 		self.materials_used = set() # printed to the console for users' benefit

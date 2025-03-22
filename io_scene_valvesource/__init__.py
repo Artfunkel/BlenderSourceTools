@@ -56,7 +56,7 @@ class ValveSource_Exportable(bpy.types.PropertyGroup):
 	collection : PointerProperty(type=bpy.types.Collection)
 
 	@property
-	def item(self): return self.obj or self.collection
+	def item(self) -> bpy.types.Object | bpy.types.Collection: return self.obj or self.collection
 
 	@property
 	def session_uid(self): return self.item.session_uid

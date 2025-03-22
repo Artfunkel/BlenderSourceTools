@@ -68,7 +68,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 		return {'FINISHED'}
 	
 	@classmethod
-	def getQCs(cls, path : str = None) -> list:
+	def getQCs(cls, path : str | None = None) -> list:
 		import glob
 		ext = ".qc"
 		out = []
@@ -94,7 +94,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 			paths = SMD_OT_Compile.getQCs()
 		elif isinstance(path,str):
 			paths = [os.path.realpath(bpy.path.abspath(path))]
-		elif hasattr(path,"__getitem__"):
+		elif path is not None and hasattr(path,"__getitem__"):
 			paths = path
 		else:
 			paths = SMD_OT_Compile.getQCs()
@@ -144,7 +144,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 
 	@classmethod
 	def poll(cls,context):
-		return len(context.scene.vs.export_list)
+		return len(context.scene.vs.export_list) != 0
 		
 	def invoke(self, context, event):
 		State.update_scene()
@@ -246,7 +246,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 						self.elapsed_time(),
 						num_good_compiles,
 						State.engineBranchTitle,
-						os.path.basename(State.gamePath)
+						os.path.basename(State.gamePath) if State.gamePath else None
 						))
 			else:
 				self.errorReport(get_id("exporter_report", True).format(
@@ -701,7 +701,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 			self.vertex_animations = collections.defaultdict(SmdExporter.BakedVertexAnimation)
 			
 	# Creates a mesh with object transformations and modifiers applied
-	def bakeObj(self,id, generate_uvs = True):
+	def bakeObj(self,id, generate_uvs = True) -> BakeResult | None:
 		for bake in (bake for bake in self.bake_results if bake.src == id or bake.object == id):
 			return bake
 		
@@ -927,6 +927,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 					duplis.select_set(True)
 					bpy.ops.object.join()
 					shape_ob = bpy.context.active_object
+					assert(shape_ob)
 
 				result.shapes[shape.name] = shape_ob.data
 
@@ -1339,7 +1340,7 @@ skeleton
 			DmeAxisSystem["forwardParity"] = 1 # ??
 			DmeAxisSystem["coordSys"] = 0 # ??
 		
-		DmeModel["transform"] = makeTransform("",Matrix(),DmeModel.name + "transform")
+		DmeModel["transform"] = makeTransform("",Matrix(),(DmeModel.name or "") + "transform")
 
 		keywords = getDmxKeywords(dm.format_ver)
 				
@@ -1949,6 +1950,9 @@ skeleton
 				DmeMesh["deltaStateWeights"] = DmeMesh["deltaStateWeightsLagged"] = \
 					datamodel.make_array([datamodel.Vector2([0.0,0.0])] * len(delta_states),datamodel.Vector2)
 
+				if not DmeCombinationOperator:
+					raise RuntimeError("Internal error: shapes exist but no DmeCombinationOperator was created.")
+
 				targets = DmeCombinationOperator["targets"]
 				added = False
 				for elem in targets:
@@ -1996,12 +2000,13 @@ skeleton
 					[ "_o", "orientation", "Quaternion", datamodel.Quaternion ]
 				]
 				for template in channel_template:
-					cur = dm.add_element(bone.name + template[0],"DmeChannel",id=bone.name+template[0])
+					channel_name = bone.name + template[0]
+					cur = dm.add_element(channel_name,"DmeChannel",id=bone.name+template[0])
 					cur["toAttribute"] = template[1]
 					cur["toElement"] = (bone_elements[bone.name] if bone else DmeModel)["transform"]
 					cur["mode"] = 1				
-					val_arr = dm.add_element(template[2]+" log","Dme"+template[2]+"LogLayer",cur.name+"loglayer")				
-					cur["log"] = dm.add_element(template[2]+" log","Dme"+template[2]+"Log",cur.name+"log")
+					val_arr = dm.add_element(template[2]+" log","Dme"+template[2]+"LogLayer",channel_name+"loglayer")				
+					cur["log"] = dm.add_element(template[2]+" log","Dme"+template[2]+"Log",channel_name+"log")
 					cur["log"]["layers"] = datamodel.make_array([val_arr],datamodel.Element)				
 					val_arr["times"] = datamodel.make_array([],datamodel.Time if dm.format_ver > 11 else int)
 					val_arr["values"] = datamodel.make_array([],template[3])

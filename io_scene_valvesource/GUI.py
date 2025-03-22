@@ -129,28 +129,28 @@ class SMD_MT_ConfigureScene(bpy.types.Menu):
 		SMD_PT_Scene.HelpButton(self.layout)
 
 class SMD_UL_ExportItems(bpy.types.UIList):
-	def draw_item(self, context, layout, data, exportable, icon, active_data, active_propname, index):
-		item = exportable.item
-		enabled = not (type(item) == bpy.types.Collection and item.vs.mute)
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index, flt_flag):
+		obj = item.item
+		enabled = not (isinstance(obj, bpy.types.Collection) and obj.vs.mute)
 		
 		row = layout.row(align=True)
 		row.alignment = 'LEFT'
 		row.enabled = enabled
 
-		row.prop(item.vs,"export",icon='CHECKBOX_HLT' if item.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
-		row.label(text=exportable.name,icon=exportable.icon)
+		row.prop(obj.vs,"export",icon='CHECKBOX_HLT' if obj.vs.export and enabled else 'CHECKBOX_DEHLT',text="",emboss=False)
+		row.label(text=item.name,icon=item.icon)
 
 		if not enabled: return
 
 		row = layout.row(align=True)
 		row.alignment='RIGHT'
 
-		num_shapes, num_correctives = countShapes(item)
+		num_shapes, num_correctives = countShapes(obj)
 		num_shapes += num_correctives
 		if num_shapes > 0:
 			row.label(text=str(num_shapes),icon='SHAPEKEY_DATA')
 
-		num_vca = len(item.vs.vertex_animations)
+		num_vca = len(obj.vs.vertex_animations)
 		if num_vca > 0:
 			row.label(text=str(num_vca),icon=vca_icon)
 
@@ -164,7 +164,7 @@ class FilterCache:
 gui_cache = {}
 
 class SMD_UL_GroupItems(bpy.types.UIList):
-	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+	def draw_item(self, context, layout, data, item, icon, active_data, active_property, index, flt_flag):
 		r = layout.row(align=True)
 		r.prop(item.vs,"export",text="",icon='CHECKBOX_HLT' if item.vs.export else 'CHECKBOX_DEHLT',emboss=False)
 		r.label(text=item.name,translate=False,icon=MakeObjectIcon(item,suffix="_DATA"))
@@ -446,7 +446,6 @@ class SMD_PT_Group(ExportableConfigurationPanel):
 		elif State.exportFormat == ExportFormat.DMX:
 			r.prop(item.vs,"automerge")
 
-
 class SMD_PT_Armature(ExportableConfigurationPanel):
 	bl_label = " "
 	bl_options = set() # override
@@ -454,12 +453,12 @@ class SMD_PT_Armature(ExportableConfigurationPanel):
 	@classmethod
 	def poll(cls, context):
 		item = cls.get_active_object(context)
-		return item and (not cls.is_collection(item)) and (item.type == 'ARMATURE' or item.find_armature())
+		return bool(item and (not cls.is_collection(item)) and (item.type == 'ARMATURE' or item.find_armature()))
 
-	def get_armature(self, context):
+	def get_armature(self, context) -> bpy.types.Object | None:
 		item = self.get_active_object(context)
 		if item is None: return None
-		return item if item.type == 'ARMATURE' else item.find_armature()
+		return item if isinstance(item, bpy.types.Object) and item.type == 'ARMATURE' else item.find_armature()
 
 	def draw_header(self, context):
 		armature = self.get_armature(context)
