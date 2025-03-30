@@ -20,14 +20,14 @@
 
 bl_info = {
 	"name": "Blender Source Tools",
-	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (3, 3, 2),
+	"author": "Tom Edwards",
+	"version": (3, 4, 0),
 	"blender": (4, 1, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
 	"wiki_url": "http://steamcommunity.com/groups/BlenderSourceTools",
 	"tracker_url": "http://steamcommunity.com/groups/BlenderSourceTools/discussions/0/",
-	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX and QC."
+	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\\VTA, DMX and QC."
 }
 
 import bpy, os
