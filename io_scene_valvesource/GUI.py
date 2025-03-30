@@ -421,7 +421,7 @@ class SMD_PT_VertexAnimation(ExportableConfigurationPanel):
 		if item.vs.vertex_animations:
 			op.index = item.vs.active_vertex_animation
 			self.layout.template_list("SMD_UL_VertexAnimationItem","",item.vs,"vertex_animations",item.vs,"active_vertex_animation",rows=2,maxrows=4)
-			self.layout.operator(SMD_OT_GenerateVertexAnimationQCSnippet.bl_idname,icon='SCRIPT')
+			self.layout.operator(SMD_OT_GenerateVertexAnimationQCSnippet.bl_idname,icon='FILE_TEXT')
 
 class SMD_PT_Group(ExportableConfigurationPanel):
 	bl_label = get_id("exportables_group_props")
@@ -477,8 +477,8 @@ class SMD_PT_Armature(ExportableConfigurationPanel):
 		if State.exportFormat == ExportFormat.SMD:
 			col.prop(armature.data.vs,"implicit_zero_bone")
 			col.prop(armature.data.vs,"legacy_rotation")
-			
-		if armature.animation_data and not 'ActLib' in dir(bpy.types):
+
+		if armature.animation_data and not State.useActionSlots:
 			col.template_ID(armature.animation_data, "action", new="action.new")
 
 class SMD_PT_ShapeKeys(ExportableConfigurationPanel):
@@ -643,7 +643,7 @@ class SMD_PT_Scene_QC_Complie(bpy.types.Panel):
 		compile_row = l.row()
 		compile_row.prop(scene.vs,"qc_compile")
 		compile_row.operator_context = 'EXEC_DEFAULT'
-		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='SCRIPT').filepath="*"
+		compile_row.operator(SMD_OT_Compile.bl_idname,text=get_id("qc_compilenow", True),icon='FILE_TEXT').filepath="*"
 		
 		if not self.qcFiles:
 			if scene.vs.qc_path:

@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses
+import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools, dataclasses, typing
 from bpy.app.translations import pgettext
 from bpy.app.handlers import depsgraph_update_post, load_post, persistent
 from mathutils import Matrix, Vector
@@ -118,6 +118,7 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 		cls.last_export_refresh = 0
 		cls._engineBranch = None
 		cls._gamePathValid = False
+		cls._use_action_slots = bpy.app.version >= (4,4,0)
 
 	@property
 	def exportableObjects(cls) -> set[int]: return cls._exportableObjects
@@ -143,6 +144,9 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 	@property
 	def gamePath(cls):
 		return cls._rawGamePath if cls._gamePathValid else None
+
+	@property
+	def useActionSlots(cls): return cls._use_action_slots
 
 	@property
 	def _rawGamePath(cls):
@@ -311,12 +315,12 @@ def count_exports(context):
 def animationLength(ad):
 	if ad.action:
 		return int(ad.action.frame_range[1])
-	else:
+	elif not State.useActionSlots:
 		strips = [strip.frame_end for track in ad.nla_tracks if not track.mute for strip in track.strips]
 		if strips:
 			return int(max(strips))
-		else:
-			return 0
+		
+	return 0
 	
 def getFileExt(flex=False):
 	if State.datamodelEncoding != 0 and bpy.context.scene.vs.export_format == 'DMX':
@@ -482,6 +486,13 @@ def valvesource_vertex_maps(id) -> set[str]:
 	else:
 		return set()
 
+def actionSlotsForFilter(obj : bpy.types.Object):
+	assert(State.useActionSlots)
+	from fnmatch import fnmatch
+	if not obj.animation_data:
+		return list()
+	return list([slot for slot in obj.animation_data.action_suitable_slots if fnmatch(slot.name_display, obj.vs.action_filter)] if obj.vs.action_filter else obj.animation_data.action_suitable_slots)
+
 def actionsForFilter(filter):
 	import fnmatch
 	return list([action for action in bpy.data.actions if action.users and fnmatch.fnmatch(action.name, filter)])
@@ -490,6 +501,18 @@ def shouldExportGroup(group):
 
 def hasFlexControllerSource(source):
 	return bpy.data.texts.get(source) or os.path.exists(bpy.path.abspath(source))
+
+def channelBagForNewActionSlot(obj : bpy.types.Object, name : str):
+	assert(State.useActionSlots)
+	ad = obj.animation_data_create()
+	if not ad.action:
+		ad.action = bpy.data.actions.new(obj.name)
+	slot = ad.action.slots.new(id_type='OBJECT', name=name)
+	ad.action_slot = slot
+
+	layer = ad.action.layers.new(name) if not ad.action.layers else ad.action.layers[0]
+	strip = layer.strips.new(type='KEYFRAME') if not layer.strips else layer.strips[0]
+	return typing.cast(bpy.types.ActionChannelbag, strip.channelbag(slot, ensure=True))
 
 def getExportablesForObject(ob):
 	# objects can be reallocated between yields, so capture the ID locally
@@ -534,7 +557,7 @@ def make_export_list(scene : bpy.types.Scene):
 	def makeDisplayName(item,name=None):
 		return os.path.join(item.vs.subdir if item.vs.subdir != "." else "", (name if name else item.name) + getFileExt())
 	
-	if State.exportableObjects:
+	if State.exportableObjects:		
 		ungrouped_object_ids = State.exportableObjects.copy()
 		
 		groups_sorted = bpy.data.collections[:]
@@ -570,14 +593,24 @@ def make_export_list(scene : bpy.types.Scene):
 			if ob.type == 'ARMATURE':
 				ad = ob.animation_data
 				if ad:
-					i_icon = i_type = "ACTION"
-					if ob.data.vs.action_selection == 'FILTERED':
-						i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
-					elif ad.action:
-						i_name = makeDisplayName(ob,ad.action.name)
-					elif len(ad.nla_tracks):
-						i_name = makeDisplayName(ob)
-						i_icon = "NLA"
+					if State.useActionSlots:
+						i_icon = i_type = "ACTION_SLOT"
+						if ob.data.vs.action_selection == 'FILTERED':
+							if ob.vs.action_filter and ob.vs.action_filter != "*":
+								i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionSlotsForFilter(ob)))
+							else:
+								i_name = get_id("exportables_arm_no_slot_filter",True).format(len(actionSlotsForFilter(ob)), ob.name)
+						elif ad.action:
+							i_name = makeDisplayName(ob, ad.action_slot.name_display)
+					else:
+						i_icon = i_type = "ACTION"
+						if ob.data.vs.action_selection == 'FILTERED':
+							i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionsForFilter(ob.vs.action_filter)))
+						elif ad.action:
+							i_name = makeDisplayName(ob,ad.action.name)
+						elif len(ad.nla_tracks):
+							i_name = makeDisplayName(ob)
+							i_icon = "NLA"
 			else:
 				i_name = makeDisplayName(ob)
 				i_icon = MakeObjectIcon(ob,prefix="OUTLINER_OB_")

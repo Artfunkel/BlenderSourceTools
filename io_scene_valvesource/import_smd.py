@@ -486,17 +486,19 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if smd.jobType == ANIM:
 			if not smd.a.animation_data:
 				smd.a.animation_data_create()
-			
-			action = bpy.data.actions.new(smd.jobName)
-			
-			action.use_fake_user = True
-				
-			smd.a.animation_data.action = action
-			
-			if 'fps' in dir(action):
-				action.fps = fps if fps else 30
-				bpy.context.scene.render.fps = 60
-				bpy.context.scene.render.fps_base = 1
+
+			if State.useActionSlots:
+				channelbag = channelBagForNewActionSlot(smd.a, smd.jobName)				
+
+				fcurves = channelbag.fcurves
+				groups = channelbag.groups
+			else:
+				action = bpy.data.actions.new(smd.jobName)
+				action.use_fake_user = True
+				smd.a.animation_data.action = action
+
+				fcurves = action.fcurves
+				groups = action.groups
 		
 			ops.object.mode_set(mode='POSE')
 		
@@ -532,7 +534,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					curvesLoc = None
 					curvesRot = None
 					bone_string = "pose.bones[\"{}\"].".format(bone.name)				
-					group = action.groups.new(name=bone.name)
+					group = groups.new(name=bone.name)
 					
 					# Apply each imported keyframe
 					for keyframe in keys:
@@ -552,7 +554,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							if curvesLoc is None:
 								curvesLoc = []
 								for i in range(3):
-									curve = action.fcurves.new(data_path=bone_string + "location",index=i)
+									curve = fcurves.new(data_path=bone_string + "location",index=i)
 									curve.group = group
 									curvesLoc.append(curve)
 
@@ -565,7 +567,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							if curvesRot is None:
 								curvesRot = []
 								for i in range(3 if smd.rotMode == 'XYZ' else 4):
-									curve = action.fcurves.new(data_path=bone_string + "rotation_" + ("euler" if smd.rotMode == 'XYZ' else "quaternion"),index=i)
+									curve = fcurves.new(data_path=bone_string + "rotation_" + ("euler" if smd.rotMode == 'XYZ' else "quaternion"),index=i)
 									curve.group = group
 									curvesRot.append(curve)
 
@@ -587,7 +589,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				if not bone.parent:
 					ApplyRecursive(bone)
 			
-			for fc in action.fcurves:
+			for fc in fcurves:
 				fc.update()
 
 		# clear any unkeyed poses
@@ -1077,9 +1079,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 						if line[0] == "$animation":
 							qc.animation_names.append(line[1].lower())
 						while i < len(line) - 1:
-							if line[i] == "fps" and qc.a.animation_data.action != last_action:
-								if 'fps' in dir(qc.a.animation_data.action):
-									qc.a.animation_data.action.fps = float(line[i+1])
 							i += 1
 					break
 				continue

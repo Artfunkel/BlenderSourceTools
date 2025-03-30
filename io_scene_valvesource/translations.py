@@ -26,6 +26,9 @@ _data = {
 	'en': "The armature's currently assigned action or NLA tracks",
 	'ru': "Текущее действие (или нелинейная анимация) скелета",
 },
+'action_slot_selection_current_tip': {
+	'en': "The armature's active action slot",
+},
 'valvesource_cloth_enable': {
 	'en': "Cloth Physics Enable",
 },
@@ -64,6 +67,9 @@ _data = {
 	'en': "Action Filter",
 	'ru': "Фильтр действий",
 },
+'slot_filter': {
+	'en': "Slot Filter",
+},
 'vca_start_tip': {
 	'en': "Scene frame at which to start recording Vertex Animation",
 	'ru': "Кадр в сцене, с которого следует начать запись вершинной анимации",
@@ -71,6 +77,9 @@ _data = {
 'action_filter_tip': {
 	'en': "Actions with names matching this filter pattern and which have users will be exported",
 	'ru': "Будут эксортированы только те действия, имена которых подходят под этот фильтр, и которые где-либо используются",
+},
+'slot_filter_tip': {
+	'en': "Slots of the assigned Action with names matching this wildcard filter pattern will be exported (blank to export everything)",
 },
 'shape_stereo_sharpness_tip': {
 	'en': "How sharply stereo flex shapes should transition from left to right",
@@ -135,6 +144,10 @@ _data = {
 	'ja': "現在 / NLA",
 	'en': "Current / NLA",
 	'ru': "Текущее действие / Нелинейная анимация",
+},
+'action_slot_current': {
+	'ja': "現在のアクションスロット",
+	'en': "Current Action Slot",
 },
 'shape_stereo_sharpness': {
 	'en': "DMX stereo split sharpness",
@@ -213,6 +226,9 @@ _data = {
 	'ja': "「{0}」アクション～{1}",
 	'en': "\"{0}\" actions ({1})",
 	'ru': "Фильтр имён действий \"{0}\" на скелете {1}",
+},
+'exportables_arm_no_slot_filter': {
+	'en': "All action slots ({0}) for \"{1}\"",
 },
 'exportables_flex_count_corrective': {
 	'ja': "是正シェイプ：{0}",
