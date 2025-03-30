@@ -185,7 +185,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				pchar = line[i-1]
 
 			# line comment - precedence over block comment
-			if (char == "/" and nchar == "/") or char in ['#',';']:
+			if not in_quote and ((char == "/" and nchar == "/") or char in ['#',';']):
 				if i > 0:
 					i = i-1 # last word will be caught after the loop
 				break # nothing more this line
