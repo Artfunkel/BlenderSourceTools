@@ -141,14 +141,17 @@ class ExportableProps():
 	active_vertex_animation : IntProperty(default=-1)
 
 class ValveSource_ObjectProps(ExportableProps,PropertyGroup):
-	action_filter : StringProperty(name=get_id("action_filter"),description=get_id("action_filter_tip"))
+	action_filter : StringProperty(name=get_id("slot_filter") if State.useActionSlots else get_id("action_filter"),description=get_id("slot_filter_tip") if State.useActionSlots else get_id("action_filter_tip"))
 	triangulate : BoolProperty(name=get_id("triangulate"),description=get_id("triangulate_tip"),default=False)
 
 class ValveSource_ArmatureProps(PropertyGroup):
 	implicit_zero_bone : BoolProperty(name=get_id("dummy_bone"),default=True,description=get_id("dummy_bone_tip"))
 	arm_modes = (
+		('CURRENT',get_id("action_slot_current"),get_id("action_slot_selection_current_tip")),
+		('FILTERED',get_id("slot_filter"),get_id("slot_filter_tip"))
+	) if State.useActionSlots else (
 		('CURRENT',get_id("action_selection_current"),get_id("action_selection_current_tip")),
-		('FILTERED',get_id("action_filter"),get_id("action_selection_filter_tip"))
+		('FILTERED',get_id("action_filter"),get_id("action_selection_filter_tip"))		
 	)
 	action_selection : EnumProperty(name=get_id("action_selection_mode"), items=arm_modes,description=get_id("action_selection_mode_tip"),default='CURRENT')
 	legacy_rotation : BoolProperty(name=get_id("bone_rot_legacy"),description=get_id("bone_rot_legacy_tip"),default=False)

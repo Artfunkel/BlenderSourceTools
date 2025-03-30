@@ -307,9 +307,11 @@ class SmdExporter(bpy.types.Operator, Logger):
 			if not ad: return # otherwise we create a folder but put nothing in it
 			if id.data.vs.action_selection == 'FILTERED':
 				pass
-			elif ad.action:
+			elif ad.action and not State.useActionSlots:
 				export_name = ad.action.name
-			elif ad.nla_tracks:
+			elif ad.action_slot and State.useActionSlots:
+				export_name = ad.action_slot.name_display
+			elif ad.nla_tracks and not State.useActionSlots:
 				export_name = id.name
 			else:
 				self.error(get_id("exporter_err_arm_noanims",True).format(id.name))
@@ -552,10 +554,16 @@ class SmdExporter(bpy.types.Operator, Logger):
 		bench.report("Post Bake")
 
 		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection == 'FILTERED':
-			for action in actionsForFilter(id.vs.action_filter):
-				bake_results[0].object.animation_data.action = action
-				self.files_exported += write_func(id, bake_results, self.sanitiseFilename(action.name), path)
-				bench.report(write_func.__name__)
+			baked_armature = bake_results[0].object # the Armature object is only baked once, we re-use it for each export
+			if State.useActionSlots:
+				for slot in actionSlotsForFilter(baked_armature):
+					baked_armature.animation_data.action_slot = slot
+					self.files_exported += write_func(id, bake_results, self.sanitiseFilename(slot.name_display), path)
+			else:
+				for action in actionsForFilter(baked_armature.vs.action_filter):
+					baked_armature.animation_data.action = action
+					self.files_exported += write_func(id, bake_results, self.sanitiseFilename(action.name), path)
+			bench.report(write_func.__name__)
 		else:
 			self.files_exported += write_func(id, bake_results, self.sanitiseFilename(export_name), path)
 			bench.report(write_func.__name__)
@@ -1039,10 +1047,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 					anim_len = animationLength(ad) + 1 # frame 0 is a frame too...
 					if anim_len == 1:
 						self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
-					
-					if ad.action and hasattr(ad.action,'fps'):
-						bpy.context.scene.render.fps = ad.action.fps
-						bpy.context.scene.render.fps_base = 1
 				else:
 					anim_len = 1
 
@@ -1932,9 +1936,14 @@ skeleton
 
 					bpy.ops.object.mode_set(mode='POSE')
 					ops.pose.armature_apply() # refreshes the armature's internal state, required!
-					action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
+					if State.useActionSlots:
+						fcurves = channelBagForNewActionSlot(vca_arm, vca_name).fcurves
+					else:
+						action = vca_arm.animation_data_create().action = bpy.data.actions.new("vcaanim_" + vca_name)
+						fcurves = action.fcurves
+
 					for i in range(2):
-						fc = action.fcurves.new('pose.bones["{}"].location'.format(vca_bone_name),index=i)
+						fc = fcurves.new('pose.bones["{}"].location'.format(vca_bone_name),index=i)
 						fc.keyframe_points.add(count=2)
 						for key in fc.keyframe_points: key.interpolation = 'LINEAR'
 						if i == 0: fc.keyframe_points[0].co = (0,1.0)
@@ -1970,11 +1979,7 @@ skeleton
 			if anim_len == 0:
 				self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
 			
-			if ad.action and hasattr(ad.action,'fps'):
-				fps = bpy.context.scene.render.fps = ad.action.fps
-				bpy.context.scene.render.fps_base = 1
-			else:
-				fps = bpy.context.scene.render.fps * bpy.context.scene.render.fps_base
+			fps = bpy.context.scene.render.fps * bpy.context.scene.render.fps_base
 			
 			DmeChannelsClip = dm.add_element(name,"DmeChannelsClip",id=name+"clip")		
 			DmeAnimationList = dm.add_element(armature_name,"DmeAnimationList",id=armature_name+"list")
