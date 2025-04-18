@@ -1302,9 +1302,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			def enumerateBonesAndAttachments(elem : datamodel.Element):
 				parent = elem if isBone(elem) else None
 				for child in cast(list[datamodel.Element], elem.get("children") or []):
-					if child.type == "DmeDag" and child.get("shape") and child["shape"].type == "DmeAttachment":
-						if smd.jobType != REF:
-							continue
+					if child.type == "DmeDag" and child.get("shape") and child["shape"].type == "DmeAttachment":						
 						yield (cast(datamodel.Element,child["shape"]), parent)
 					elif isBone(child) and child.name != implicit_bone_name:
 						# don't import Dags which simply wrap meshes. In some DMX animations, each bone has an empty mesh attached.
@@ -1367,7 +1365,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 					parent = getBoneForElement(parent) if parent else None
 					if elem.type == "DmeAttachment":
 						atch = smd.atch = bpy.data.objects.new(name=self.truncate_id_name(elem.name, "Attachment"), object_data=None)
-						smd.g.objects.link(atch)
+						if smd.g:
+							smd.g.objects.link(atch)
+						else:
+							bpy.context.scene.collection.objects.link(atch)
 						atch.show_in_front = True
 						atch.empty_display_type = 'ARROWS'
 
