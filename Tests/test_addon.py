@@ -38,18 +38,20 @@ if sdk_content_path:
 
 class _AddonTests():
 	compare_results = True
-	blend = None
-	module_subdir = None
+	blend : str | None = None
+	module_subdir : str | None = None
 
 	@property
 	def sceneSettings(self):
 		return self.bpy.context.scene.vs
 	@property
 	def expectedResultsPath(self):
+		assert(self.blend)
 		return join(src_path,"ExpectedResults",self.blend)
 
 	@property
 	def outputPath(self):
+		assert(self.blend)
 		return os.path.realpath(join(results_path,self.bpy_version,os.path.splitext(self.blend)[0]))
 
 	def setUp(self):
@@ -142,8 +144,9 @@ class _AddonTests():
 		ex(True)
 
 		qc_name = self.bpy.path.abspath("//" + blend_name + ".qc")
-		sfm_usermod = join(steam_common_path,"SourceFilmmaker","game","usermod")
+
 		if steam_common_path and os.path.exists(qc_name):
+			sfm_usermod = join(steam_common_path,"SourceFilmmaker","game","usermod")
 			if os.path.exists(sfm_usermod):
 				shutil.copy2(qc_name, self.sceneSettings.export_path)
 				self.sceneSettings.game_path = sfm_usermod
@@ -261,6 +264,7 @@ class _AddonTests():
 
 	@unittest.skipUnless(sdk_content_path, "Source SDK not found")
 	def test_import_SMD(self):
+		assert(sdk_content_path)
 		self.runImportTest("import_smd",
 					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_reference.smd",
 					 sdk_content_path + "hl2/modelsrc/humans_sdk/Male_sdk/Male_06_expressions.vta",
@@ -269,6 +273,7 @@ class _AddonTests():
 
 	@unittest.skipUnless(sdk_content_path, "Source SDK not found")
 	def test_import_DMX(self):
+		assert(sdk_content_path)
 		self.runImportTest("import_dmx",
 					 sdk_content_path + "tf/modelsrc/player/heavy/scripts/heavy_low.qc",
 					 sdk_content_path + "tf/modelsrc/player/heavy/animations/dmx/Die_HeadShot_Deployed.dmx")
@@ -296,7 +301,7 @@ class _AddonTests():
 		self.test_GenerateCorrectiveDrivers()
 		
 		self.setupExport(testname)
-		self.assertEqual(self.bpy.ops.export_scene.smd(), {'FINISHED'})
+		self.assertEqual(self.bpy.ops.export_scene.smd(collection="Collection"), {'FINISHED'})
 
 		self.assertEqual(self.bpy.ops.import_scene.smd(filepath=join(self.sceneSettings.export_path, self.bpy.context.active_object.name + ".dmx")), {'FINISHED'})		
 

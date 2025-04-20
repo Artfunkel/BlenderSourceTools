@@ -426,7 +426,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		
 		self.applyFrames(keyframes,num_frames)
 
-	def applyFrames(self,keyframes,num_frames, fps = None):
+	def applyFrames(self, keyframes : typing.Dict[bpy.types.PoseBone,list[KeyFrame]], num_frames : int):
 		smd = self.smd
 		assert(smd.a)
 		ops.object.mode_set(mode='POSE')
@@ -1240,7 +1240,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		if target_arm:
 			smd.a = target_arm
 		
-		ob = bone = restData = smd.atch = None
+		ob = bone = smd.atch = None
 		smd.layer = target_layer
 		if bpy.context.active_object: ops.object.mode_set(mode='OBJECT')
 		self.appliedReferencePose = False
@@ -1315,7 +1315,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 			
 			# Skeleton
 			bone_matrices = {}
-			restData = {}
 			if target_arm:
 				missing_bones = []
 				bpy.context.view_layer.objects.active = smd.a
@@ -1386,16 +1385,18 @@ class SmdImporter(bpy.types.Operator, Logger):
 						smd.boneIDs[elem.id] = bone.name
 						smd.boneTransformIDs[elem["transform"].id] = bone.name
 			
-			if smd.a:		
+			if smd.a:
 				ops.object.mode_set(mode='POSE')
-				for bone in smd.a.pose.bones:
-					mat = bone_matrices.get(bone.name)
-					if mat:
-						keyframe = KeyFrame()
-						keyframe.matrix = mat
-						restData[bone] = [keyframe]
-				if restData:
-					self.applyFrames(restData,1,None)
+				if smd.jobType != ANIM:
+					restData = {}
+					for bone in smd.a.pose.bones:
+						mat = bone_matrices.get(bone.name)
+						if mat:
+							keyframe = KeyFrame()
+							keyframe.matrix = mat
+							restData[bone] = [keyframe]
+					if restData:
+						self.applyFrames(restData,1)
 			
 			def parseModel(elem,matrix=Matrix(), last_bone = None):
 				if elem.type in ["DmeModel","DmeDag", "DmeJoint"]:
@@ -1703,7 +1704,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					total_frames = ceil((duration * frameRate) if duration else lastFrameIndex) + 1 # need a frame for 0 too!
 				
 					# apply the keframes
-					self.applyFrames(keyframes,total_frames,frameRate)
+					self.applyFrames(keyframes,total_frames)
 
 					bpy.context.scene.frame_end += int(round(start * 2 * frameRate,0))
 
