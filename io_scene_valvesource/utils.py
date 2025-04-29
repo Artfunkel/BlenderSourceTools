@@ -600,7 +600,7 @@ def make_export_list(scene : bpy.types.Scene):
 								i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionSlotsForFilter(ob)))
 							else:
 								i_name = get_id("exportables_arm_no_slot_filter",True).format(len(actionSlotsForFilter(ob)), ob.name)
-						elif ad.action:
+						elif ad.action_slot:
 							i_name = makeDisplayName(ob, ad.action_slot.name_display)
 					else:
 						i_icon = i_type = "ACTION"
