@@ -148,7 +148,8 @@ class ValveSource_ArmatureProps(PropertyGroup):
 	implicit_zero_bone : BoolProperty(name=get_id("dummy_bone"),default=True,description=get_id("dummy_bone_tip"))
 	arm_modes = (
 		('CURRENT',get_id("action_slot_current"),get_id("action_slot_selection_current_tip")),
-		('FILTERED',get_id("slot_filter"),get_id("slot_filter_tip"))
+		('FILTERED',get_id("slot_filter"),get_id("slot_filter_tip")),
+		('FILTERED_ACTIONS',get_id("action_filter"),get_id("action_selection_filter_tip")),
 	) if State.useActionSlots else (
 		('CURRENT',get_id("action_selection_current"),get_id("action_selection_current_tip")),
 		('FILTERED',get_id("action_filter"),get_id("action_selection_filter_tip"))		

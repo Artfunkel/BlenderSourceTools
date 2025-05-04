@@ -471,8 +471,9 @@ class SMD_PT_Armature(ExportableConfigurationPanel):
 		col = self.layout
 		if armature == item: # only display action stuff if the user has actually selected the armature
 			col.row().prop(armature.data.vs,"action_selection",expand=True)
-			if armature.data.vs.action_selection == 'FILTERED':
-				col.prop(armature.vs,"action_filter")
+			if armature.data.vs.action_selection != 'CURRENT':
+				is_slot_filter = armature.data.vs.action_selection == 'FILTERED' and State.useActionSlots
+				col.prop(armature.vs,"action_filter", text = get_id("slot_filter") if is_slot_filter else get_id("action_filter"))
 
 		if State.exportFormat == ExportFormat.SMD:
 			col.prop(armature.data.vs,"implicit_zero_bone")

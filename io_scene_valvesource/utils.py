@@ -112,6 +112,29 @@ dmx_versions_source2 = {
 'cs2': dmx_version(9,22, 'Counter-Strike 2', Compiler.MODELDOC),
 }
 
+def getAllDataNameTranslations(string : str) -> set[str]:
+	translations = set()
+		
+	view_prefs = bpy.context.preferences.view
+	user_language = view_prefs.language
+	user_dataname_translate = view_prefs.use_translate_new_dataname
+		
+	try:
+		view_prefs.use_translate_new_dataname = True
+		for language in bpy.app.translations.locales:
+			if language == "hr_HR":
+				continue # enabling Croatian generates a C error message in the console, and it's very sparsely translated anyway
+			try:
+				view_prefs.language = language
+				translations.add(bpy.app.translations.pgettext_data(string))
+			except:
+				pass
+	finally:
+		view_prefs.language = user_language
+		view_prefs.use_translate_new_dataname = user_dataname_translate
+	
+	return translations
+
 class _StateMeta(type): # class properties are not supported below Python 3.9, so we use a metaclass instead
 	def __init__(cls, *args, **kwargs):
 		cls._exportableObjects = set()
@@ -119,6 +142,7 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 		cls._engineBranch = None
 		cls._gamePathValid = False
 		cls._use_action_slots = bpy.app.version >= (4,4,0)
+		cls._legacySlotTranslations = getAllDataNameTranslations("Legacy Slot")
 
 	@property
 	def exportableObjects(cls) -> set[int]: return cls._exportableObjects
@@ -147,6 +171,9 @@ class _StateMeta(type): # class properties are not supported below Python 3.9, s
 
 	@property
 	def useActionSlots(cls): return cls._use_action_slots
+
+	@property
+	def legacySlotNames(cls): return cls._legacySlotTranslations
 
 	@property
 	def _rawGamePath(cls):
@@ -496,6 +523,13 @@ def actionSlotsForFilter(obj : bpy.types.Object):
 def actionsForFilter(filter):
 	import fnmatch
 	return list([action for action in bpy.data.actions if action.users and fnmatch.fnmatch(action.name, filter)])
+
+def actionSlotExportName(animData : bpy.types.AnimData):
+	"""For use only when exporting a single action slot"""
+	assert(State.useActionSlots)
+	slot_name = animData.action_slot.name_display
+	return animData.action.name if slot_name in State.legacySlotNames else slot_name
+
 def shouldExportGroup(group):
 	return group.vs.export and not group.vs.mute
 
@@ -595,13 +629,15 @@ def make_export_list(scene : bpy.types.Scene):
 				if ad:
 					if State.useActionSlots:
 						i_icon = i_type = "ACTION_SLOT"
-						if ob.data.vs.action_selection == 'FILTERED':
-							if ob.vs.action_filter and ob.vs.action_filter != "*":
-								i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,len(actionSlotsForFilter(ob)))
+						if ob.data.vs.action_selection != 'CURRENT':
+							export_slots = ob.data.vs.action_selection == 'FILTERED'
+							exportables_count = len(actionSlotsForFilter(ob) if export_slots else actionsForFilter(ob.vs.action_filter))
+							if not export_slots or (ob.vs.action_filter and ob.vs.action_filter != "*"):
+								i_name = get_id("exportables_arm_filter_result",True).format(ob.vs.action_filter,exportables_count)
 							else:
-								i_name = get_id("exportables_arm_no_slot_filter",True).format(len(actionSlotsForFilter(ob)), ob.name)
+								i_name = get_id("exportables_arm_no_slot_filter",True).format(exportables_count, ob.name)
 						elif ad.action_slot:
-							i_name = makeDisplayName(ob, ad.action_slot.name_display)
+							i_name = makeDisplayName(ob, actionSlotExportName(ad))
 					else:
 						i_icon = i_type = "ACTION"
 						if ob.data.vs.action_selection == 'FILTERED':

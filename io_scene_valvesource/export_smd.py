@@ -305,12 +305,12 @@ class SmdExporter(bpy.types.Operator, Logger):
 		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE':
 			ad = id.animation_data
 			if not ad: return # otherwise we create a folder but put nothing in it
-			if id.data.vs.action_selection == 'FILTERED':
+			if id.data.vs.action_selection == 'FILTERED' or id.data.vs.action_selection == 'FILTERED_ACTIONS':
 				pass
 			elif ad.action and not State.useActionSlots:
 				export_name = ad.action.name
 			elif ad.action_slot and State.useActionSlots:
-				export_name = ad.action_slot.name_display
+				export_name = actionSlotExportName(ad)
 			elif ad.nla_tracks and not State.useActionSlots:
 				export_name = id.name
 			else:
@@ -553,9 +553,9 @@ class SmdExporter(bpy.types.Operator, Logger):
 		write_func = self.writeDMX if State.exportFormat == ExportFormat.DMX else self.writeSMD
 		bench.report("Post Bake")
 
-		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection == 'FILTERED':
+		if isinstance(id, bpy.types.Object) and id.type == 'ARMATURE' and id.data.vs.action_selection != 'CURRENT':
 			baked_armature = bake_results[0].object # the Armature object is only baked once, we re-use it for each export
-			if State.useActionSlots:
+			if State.useActionSlots and id.data.vs.action_selection == 'FILTERED':
 				for slot in actionSlotsForFilter(baked_armature):
 					baked_armature.animation_data.action_slot = slot
 					self.files_exported += write_func(id, bake_results, self.sanitiseFilename(slot.name_display), path)
