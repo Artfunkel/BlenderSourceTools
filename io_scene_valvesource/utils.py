@@ -22,7 +22,7 @@ import bpy, struct, time, collections, os, subprocess, sys, builtins, itertools,
 from bpy.app.translations import pgettext
 from bpy.app.handlers import depsgraph_update_post, load_post, persistent
 from mathutils import Matrix, Vector
-from math import radians, pi
+from math import radians, pi, ceil
 from io import TextIOWrapper
 from . import datamodel
 
@@ -339,14 +339,24 @@ def count_exports(context):
 			num += 1
 	return num
 
-def animationLength(ad):
+def animationLength(ad : bpy.types.AnimData):
 	if ad.action:
-		return int(ad.action.frame_range[1])
+		if State.useActionSlots:			
+			def iter_keyframes(channelbag : bpy.types.ActionChannelbag):
+				for fcurve in channelbag.fcurves:
+					for keyframe in fcurve.keyframe_points:
+						yield keyframe
+
+			keyframeTimes = [kf.co.x for kf in iter_keyframes(ad.action.layers[0].strips[0].channelbag(ad.action_slot))]
+			
+			return ceil(max(keyframeTimes) - min(keyframeTimes))
+		else:
+			return ceil(ad.action.frame_range[1] - ad.action.frame_range[0])
 	elif not State.useActionSlots:
 		strips = [strip.frame_end for track in ad.nla_tracks if not track.mute for strip in track.strips]
 		if strips:
-			return int(max(strips))
-		
+			return ceil(max(strips))
+	
 	return 0
 	
 def getFileExt(flex=False):
