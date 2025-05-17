@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards",
-	"version": (3, 4, 0),
+	"version": (3, 4, 1),
 	"blender": (4, 1, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",

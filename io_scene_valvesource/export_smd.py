@@ -363,7 +363,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 				bake = self.bakeObj(ob)
 				for vertex_map_name in group_vertex_maps:
 					if not vertex_map_name in bake.object.data.vertex_colors:
-						vertex_map = bake.object.data.vertex_colors.new(vertex_map_name)
+						vertex_map = bake.object.data.vertex_colors.new(name = vertex_map_name)
 						vertex_map.data.foreach_set("color",[1.0] * 4)
 
 				if bake:

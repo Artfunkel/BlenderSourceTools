@@ -1173,7 +1173,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 		smd.startTime = time.time()
 		smd.layer = target_layer
 		smd.rotMode = rotMode
-		self.createCollection()
 		if self.qc:
 			smd.upAxis = self.qc.upAxis
 			smd.a = self.qc.a
@@ -1217,7 +1216,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		if smd.jobType == None:
 			self.scanSMD() # What are we dealing with?
-			self.createCollection()
+		self.createCollection()
 
 		for line in file:
 			if line == "nodes\n": self.readNodes()
