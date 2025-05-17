@@ -444,9 +444,6 @@ _data = {
 'exporter_warn_weightlinks_excess': {
 	'en': "{0} verts on \"{1}\" have over {2} weight links. Source does not support this!",
 },
-'exporter_err_noframes': {
-	'en': "Armature {0} has no animation frames to export",
-},
 'exporter_report_menu': {
 	'ja': "レポート：Source Tools エラー",
 	'en': "Source Tools Error Report",

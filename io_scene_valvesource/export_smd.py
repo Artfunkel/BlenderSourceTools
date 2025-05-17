@@ -119,6 +119,7 @@ class SMD_OT_Compile(bpy.types.Operator, Logger):
 						bpy.context.area.type = oldType
 						break #what a farce!
 				
+				assert(State.gamePath != None)
 				print( "Running studiomdl for \"{}\"...\n".format(os.path.basename(qc)) )
 				studiomdl = subprocess.Popen([studiomdl_path, "-nop4", "-game", State.gamePath, qc])
 				studiomdl.communicate()
@@ -679,6 +680,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 	def getEvaluatedPoseBones(self):
 		depsgraph = bpy.context.evaluated_depsgraph_get()
 		evaluated_armature = self.armature.evaluated_get(depsgraph)
+		assert(isinstance(evaluated_armature, bpy.types.Object) and evaluated_armature.pose)
 
 		return [evaluated_armature.pose.bones[bone.name] for bone in self.exportable_bones]	
 
@@ -698,7 +700,7 @@ class SmdExporter(bpy.types.Operator, Logger):
 	class BakeResult:		
 		def __init__(self,name):
 			self.name = name
-			self.object = None
+			self.object = typing.cast(bpy.types.Object, None)
 			self.matrix = Matrix()
 			self.envelope = None
 			self.bone_parent_matrix = None
@@ -1045,8 +1047,6 @@ class SmdExporter(bpy.types.Operator, Logger):
 				if is_anim:
 					ad = self.armature.animation_data
 					anim_len = animationLength(ad) + 1 # frame 0 is a frame too...
-					if anim_len == 1:
-						self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
 				else:
 					anim_len = 1
 
@@ -1310,7 +1310,7 @@ skeleton
 		self.smd_file.close()
 		return 1
 
-	def writeDMX(self, id, bake_results, name, dir_path):
+	def writeDMX(self, datablock : bpy.types.ID, bake_results : list[BakeResult], name : str, dir_path : str):
 		bench = BenchMarker(1,"DMX")
 		filepath = os.path.realpath(os.path.join(dir_path,name + ".dmx"))
 		print("-",filepath)
@@ -1450,12 +1450,12 @@ skeleton
 					self.error(get_id("exporter_err_flexctrl_loadfail", True).format(err))
 					return written
 			else:
-				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
+				DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(datablock).root["combinationOperator"]
 
 			break
 
 		if not DmeCombinationOperator and len(bake_results[0].vertex_animations):
-			DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(id).root["combinationOperator"]
+			DmeCombinationOperator = flex.DmxWriteFlexControllers.make_controllers(datablock).root["combinationOperator"]
 
 		if DmeCombinationOperator:
 			root["combinationOperator"] = DmeCombinationOperator
@@ -1465,6 +1465,7 @@ skeleton
 			root["model"] = DmeModel
 			
 			ob = bake.object
+			assert(isinstance(ob.data, bpy.types.Mesh))
 			
 			vertex_data = dm.add_element("bind","DmeVertexData",id=bake.name+"verts")
 			
@@ -1540,7 +1541,7 @@ skeleton
 			jointIndices = []
 			balance = [0.0] * num_verts
 			
-			Indices = [None] * num_loops
+			Indices = [-1] * num_loops
 
 			uv_layer = ob.data.uv_layers.active.data
 			
@@ -1817,7 +1818,7 @@ skeleton
 						norm = shape_loop.normal
 
 						if corrective:
-							base = Vector(ob_loop.normal)
+							base = ob_loop.normal.copy()
 							for corrective_target in corrective_target_shapes:
 								# Normals for corrective shape keys are deltas from those of the deformed mesh, not the basis shape.
 								base += corrective_target.loops[shape_loop.index].normal - ob_loop.normal
@@ -1976,8 +1977,6 @@ skeleton
 			ad = self.armature.animation_data
 						
 			anim_len = animationLength(ad) if ad else 0
-			if anim_len == 0:
-				self.warning(get_id("exporter_err_noframes",True).format(self.armature_src.name))
 			
 			fps = bpy.context.scene.render.fps * bpy.context.scene.render.fps_base
 			
