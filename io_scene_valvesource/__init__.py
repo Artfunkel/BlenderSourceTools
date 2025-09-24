@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools",
 	"author": "Tom Edwards",
-	"version": (3, 4, 1),
+	"version": (3, 4, 2),
 	"blender": (4, 1, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
@@ -101,10 +101,12 @@ for version in set(x for x in [*dmx_versions_source1.values(), *dmx_versions_sou
 	formats.append((version.format_enum, version.format_title, ''))
 formats.sort(key = lambda f: f[0])
 
+_relativePathOptions = {'PATH_SUPPORTS_BLEND_RELATIVE'} if bpy.app.version >= (4,5,0) else set()
+
 class ValveSource_SceneProps(PropertyGroup):
-	export_path : StringProperty(name=get_id("exportroot"),description=get_id("exportroot_tip"), subtype='DIR_PATH')
+	export_path : StringProperty(name=get_id("exportroot"),description=get_id("exportroot_tip"), subtype='DIR_PATH', options=_relativePathOptions)
 	qc_compile : BoolProperty(name=get_id("qc_compileall"),description=get_id("qc_compileall_tip"),default=False)
-	qc_path : StringProperty(name=get_id("qc_path"),description=get_id("qc_path_tip"),default="//*.qc",subtype="FILE_PATH")
+	qc_path : StringProperty(name=get_id("qc_path"),description=get_id("qc_path_tip"),default="//*.qc",subtype="FILE_PATH", options=_relativePathOptions)
 	engine_path : StringProperty(name=get_id("engine_path"),description=get_id("engine_path_tip"), subtype='DIR_PATH',update=State.onEnginePathChanged)
 	
 	dmx_encoding : EnumProperty(name=get_id("dmx_encoding"),description=get_id("dmx_encoding_tip"),items=tuple(encodings),default='2')
@@ -135,7 +137,7 @@ class ExportableProps():
 	export : BoolProperty(name=get_id("scene_export"),description=get_id("use_scene_export_tip"),default=True)
 	subdir : StringProperty(name=get_id("subdir"),description=get_id("subdir_tip"))
 	flex_controller_mode : EnumProperty(name=get_id("controllers_mode"),description=get_id("controllers_mode_tip"),items=flex_controller_modes,default='SIMPLE')
-	flex_controller_source : StringProperty(name=get_id("controller_source"),description=get_id("controllers_source_tip"),subtype='FILE_PATH')
+	flex_controller_source : StringProperty(name=get_id("controller_source"),description=get_id("controllers_source_tip"),subtype='FILE_PATH', options=_relativePathOptions)
 
 	vertex_animations : CollectionProperty(name=get_id("vca_group_props"),type=ValveSource_VertexAnimation)
 	active_vertex_animation : IntProperty(default=-1)

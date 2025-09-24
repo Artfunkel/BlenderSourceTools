@@ -18,7 +18,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-from enum import CONTINUOUS
 import bpy, bmesh, random, collections
 from bpy import ops
 from bpy.app.translations import pgettext
