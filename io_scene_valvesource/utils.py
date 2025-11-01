@@ -113,6 +113,9 @@ dmx_versions_source2 = {
 }
 
 def getAllDataNameTranslations(string : str) -> set[str]:
+	if not bpy.app.translations.locales:
+		return { string } # Blender was compiled without translations
+
 	translations = set()
 		
 	view_prefs = bpy.context.preferences.view
@@ -122,7 +125,7 @@ def getAllDataNameTranslations(string : str) -> set[str]:
 	try:
 		view_prefs.use_translate_new_dataname = True
 		for language in bpy.app.translations.locales:
-			if language == "hr_HR":
+			if language == "hr_HR" and bpy.app.version < (4,5,3):
 				continue # enabling Croatian generates a C error message in the console, and it's very sparsely translated anyway
 			try:
 				view_prefs.language = language
@@ -250,7 +253,7 @@ def get_id(str_id, format_string = False, data = False):
 	from . import translations
 	out = translations.ids[str_id]
 	if format_string or (data and bpy.context.preferences.view.use_translate_new_dataname):
-		return pgettext(out)
+		return typing.cast(str, pgettext(out))
 	else:
 		return out
 

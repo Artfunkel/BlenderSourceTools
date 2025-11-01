@@ -436,7 +436,7 @@ class SMD_PT_Group(ExportableConfigurationPanel):
 	def draw(self, context):
 		item = self.get_item(context)
 		if not item.vs.mute:				
-			self.layout.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",type='GRID',columns=2,rows=2,maxrows=10)
+			self.layout.template_list("SMD_UL_GroupItems",item.name,item,"objects",item.vs,"selected_item",columns=2,rows=2,maxrows=10)
 		
 		r = self.layout.row()
 		r.alignment = 'CENTER'

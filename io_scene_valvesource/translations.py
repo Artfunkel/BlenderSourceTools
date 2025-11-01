@@ -832,7 +832,7 @@ _data = {
 },
 }
 
-def _get_ids():	
+def _get_ids() -> dict[str,str]:	
 	ids = {}
 	for id,values in _data.items():
 		ids[id] = values['en']
